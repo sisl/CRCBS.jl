@@ -11,6 +11,3 @@ Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 MetaGraphs = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
 NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-
-[extras]
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
