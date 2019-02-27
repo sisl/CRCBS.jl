@@ -1,0 +1,6 @@
+authors = ["kylebrown <kylejbrown17@gmail.com>"]
+name = "CRCBS"
+uuid = "edef75b8-3ac4-11e9-0392-bf149c536ee3"
+version = "0.1.0"
+
+[deps]
