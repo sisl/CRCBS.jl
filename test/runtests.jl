@@ -1,6 +1,6 @@
 using Test
 using Logging
-
+using LightGraphs, MetaGraphs
 # Package Under Test
 using CRCBS
 
@@ -39,5 +39,8 @@ end
     testdir = joinpath(dirname(@__DIR__), "test")
     @time @testset "CRCBS.MainTests" begin
         include(joinpath(testdir, "test_main.jl"))
+    end
+    @time @testset "CRCBS.DemoTests" begin
+        include(joinpath(testdir, "test_demo.jl"))
     end
 end
