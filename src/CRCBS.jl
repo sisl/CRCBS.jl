@@ -129,6 +129,7 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         push!(solution,path)
     end
     cost = sum([length(path) for path in solution])
+    #
     root_node = ConstraintTreeNode(
         Set{CBSConstraint}(),
         solution,
@@ -155,10 +156,10 @@ function initialize_full_grid_graph()
     pts = []
     for x in x_pts
         for y in y_pts
-            if !((4.0 <= x <= 6.0) && (4.0 <= y <= 6.0)) # check obstacle condition
+            # if !((4.0 <= x <= 6.0) && (4.0 <= y <= 6.0)) # check obstacle condition
                 push!(pts,[x;y])
                 add_vertex!(G,Dict(:x=>x,:y=>y))
-            end
+            # end
         end
     end
     kdtree = KDTree(hcat(pts...))
