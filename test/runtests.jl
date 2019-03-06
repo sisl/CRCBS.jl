@@ -40,7 +40,7 @@ end
     @time @testset "CRCBS.MainTests" begin
         include(joinpath(testdir, "test_main.jl"))
     end
-    @time @testset "CRCBS.DemoTests" begin
-        include(joinpath(testdir, "test_demo.jl"))
-    end
+    # @time @testset "CRCBS.DemoTests" begin
+    #     include(joinpath(testdir, "test_demo.jl"))
+    # end
 end
