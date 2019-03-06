@@ -299,7 +299,7 @@ function get_next_conflicts(paths::LowLevelSolution,
     if length(path1) < t
         # do nothing
     else
-        for (j,path2) in enumerate(paths[j_:end])
+        for (j,path2) in enumerate(paths[max(j_,i+1):end])
             if path1[t].src == path2[t].src
                 # Same src node
                 node_conflict = NodeConflict(i,j,path1[t].src,t)
@@ -317,7 +317,10 @@ function get_next_conflicts(paths::LowLevelSolution,
             if length(path1) < t
                 continue
             end
-            for (j,path2) in enumerate(paths[i:end])
+            for (j,path2) in enumerate(paths[i+1:end])
+                if length(path2) < t
+                    continue
+                end
                 if path1[t].src == path2[t].src
                     # Same src node
                     node_conflict = NodeConflict(i,j,path1[t].src,t)
@@ -488,17 +491,25 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
             constraints = generate_constraints_from_conflict(edge_conflict)
         else
             # Done! No conflicts in solution
-            print("Solution Found!")
+            print("Solution Found!\n")
+            for path in node.solution
+                @show path
+            end
             return node.solution, node.cost
         end
 
         # generate new nodes from constraints
         for constraint in constraints
             new_node = ConstraintTreeNode(constraints=copy(node.constraints))
+            # @show new_node.constraints
             add_constraint!(new_node,constraint)
             solution, cost = low_level_search(mapf,new_node)
             new_node.solution = solution
             new_node.cost = cost
+            # @show new_node.constraints
+            # @show new_node.solution[1]
+            # @show new_node.solution[2]
+            # break
             # TODO check that this node is not redundant with existing nodes
             enqueue!(priority_queue, new_node => new_node.cost)
         end

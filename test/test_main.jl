@@ -65,13 +65,13 @@ let
     node_conflict, edge_conflict = get_next_conflicts(solution)
     generate_constraints_from_conflict(node_conflict)
     generate_constraints_from_conflict(edge_conflict)
-    @test is_valid(node_conflict) || is_valid(edge_conflict)
+    @test !(is_valid(node_conflict) && is_valid(edge_conflict))
 
     node_conflicts, edge_conflicts = get_conflicts(solution)
     @test 1 == 1
 end
 let
-    G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    mapf = MAPF(G.graph, [1,2], [5,6])
+    G = initialize_regular_grid_graph(;n_obstacles_x=2,n_obstacles_y=2)
+    mapf = MAPF(G.graph, [1,3,2], [5,6,7])
     CBS(mapf)
 end
