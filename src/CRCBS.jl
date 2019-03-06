@@ -20,6 +20,12 @@ export
     is_valid,
     CBSConstraint,
     ConstraintTreeNode,
+    ConstraintDict,
+    get_constraint_dict,
+    add_constraint!,
+    compare_constraint_nodes,
+    combine_constraints,
+    get_cost,
     empty_constraint_node,
     get_next_conflicts,
     get_conflicts,
@@ -120,6 +126,14 @@ struct CBSConstraint
 end
 
 """
+    constraint dictionary for fast constraint lookup within a_star
+"""
+@with_kw struct ConstraintDict
+    dict::Dict{CBSConstraint,Bool} = Dict{CBSConstraint,Bool}()
+    a::Int = -1 # agent_id
+end
+
+"""
      combines two `Dict`s of `Set`s into a single `Dict` of `Set`s where the
      value associated with each key in the resulting dictionary is the union
      of the values for the input dictionaries at that key
@@ -138,7 +152,7 @@ end
 """
 @with_kw mutable struct ConstraintTreeNode
     # maps agent_id to the set of constraints involving that agent
-    constraints::Dict{Int,Set{CBSConstraint}} = Dict{Int,Set{CBSConstraint}}()
+    constraints::Dict{Int,ConstraintDict} = Dict{Int,ConstraintDict}()
     # set of paths (one per agent) through graph
     solution::LowLevelSolution = LowLevelSolution()
     # cost = sum([length(path) for path in solution])
@@ -153,10 +167,68 @@ end
 const NULL_NODE = -1
 
 """
+    transforms constraints into `ConstraintDict` form for faster lookup
+"""
+function get_constraint_dict(constraints::Set{CBSConstraint})
+    dict = ConstraintDict()
+    for constraint in constraints
+        if !haskey(dict,constraint.v)
+            dict[constraint.v] = Set{CBSConstraint}()
+        end
+        push!(dict[constraint.v],constraint)
+    end
+    dict
+end
+
+"""
+    check if a set of constraints is violated by a node and path
+"""
+function violates_constraint(constraints::ConstraintDict,v,path)
+    t = length(path) + 1
+    return get(constraints.dict,CBSConstraint(dict.a,v,t),false)
+    # for constraint in get(constraints,v,Set{CBSConstraint}())
+    #     if constraint.t == t
+    #         return true
+    #     end
+    # end
+    # return false
+end
+
+"""
+    Construct and empty `ConstraintTreeNode` from a `MAPF` instance
+"""
+function ConstraintTreeNode(mapf::MAPF)
+    ConstraintTreeNode(
+        constraints = Dict{Int,ConstraintDict}(
+            i=>ConstraintDict(a=i) for i in 1:length(mapf.starts)
+            ))
+end
+
+"""
+    adds a constraint to a ConstraintTreeNode
+"""
+function add_constraint!(node::ConstraintTreeNode,constraint::CBSConstraint)
+    # if !haskey(node.constraints[constraint.a])
+    # push!(node.constraints[constraint.a],constraint)
+    node.constraints[constraint.a].dict[constraint] = true
+    node
+end
+
+"""
+    checks to see if two `ConstraintTreeNode`s are identical (in terms of their
+    constraints)
+"""
+function compare_constraint_nodes(node1::ConstraintTreeNode,node2::ConstraintTreeNode)
+    constraints1 = union([v for (k,v) in node1.constraints])
+    constraints2 = union([v for (k,v) in node2.constraints])
+    return length(setdiff(constraints1,constraints2)) == 0
+end
+
+"""
     Helper function to get the cost of a particular solution
 """
 function get_cost(paths::LowLevelSolution)
-    return sum([length(p) for p in solution])
+    return sum([length(p) for p in paths])
 end
 """
     Helper function to get the cost of a particular node
@@ -334,13 +406,14 @@ function low_level_search(mapf::MAPF,node::ConstraintTreeNode,path_finder=LightG
     solution = LowLevelSolution()
     for i in 1:length(mapf.starts)
         # TODO allow passing custom heuristic
+        constraint_dict = ConstraintDict()
         path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i])
         push!(solution,path)
     end
     # sum of individual costs (SIC)
     cost = get_cost(solution)
     # TODO check if solution is valid
-    return solution
+    return solution, cost
 end
 
 """
@@ -348,35 +421,17 @@ end
 """
 function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     # TODO implement!
-    root_node = ConstraintTreeNode()
+    root_node = ConstraintTreeNode(mapf)
     solution, cost = low_level_search(mapf,root_node)
     root_node.solution = solution
     root_node.cost = cost
-    # solution, cost = low_level_search(mapf,empty_constraint_node())
-    # root_node = ConstraintTreeNode(solution = solution, cost = cost)
-    # # check for conflicts
-    # node_conflict, edge_conflict = get_next_conflicts(solution)
-    # if is_valid(node_conflict)
-    #     # Create constraints from node_conflict
-    #     @show node_conflict
-    #     constraints = generate_constraints_from_conflict(node_conflict)
-    # elseif is_valid(edge_conflict)
-    #     # Create constraints from edge_conflict
-    #     @show edge_conflict
-    #     constraints = generate_constraints_from_conflict(edge_conflict)
-    # else
-    #     # Done! No conflicts in solution
-    #     return solution, cost
-    # end
-
-    # create child nodes
 
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
     enqueue!(priority_queue, root_node => 0)
 
-    while length(p) > 0
-        node = pop!(p)
+    while length(priority_queue) > 0
+        node = dequeue!(priority_queue)
         # check for conflicts
         node_conflict, edge_conflict = get_next_conflicts(node.solution)
         if is_valid(node_conflict)
@@ -394,10 +449,13 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
 
         # generate new nodes from constraints
         for constraint in constraints
-            combined_constraints =
-            new_node = ConstraintTreeNode
-            # check that this node is not redundant with parent node (that its constraint set is unique)
-
+            new_node = ConstraintTreeNode(constraints=copy(node.constraints))
+            add_constraint!(new_node,constraint)
+            solution, cost = low_level_search(mapf,root_node)
+            new_node.solution = solution
+            new_node.cost = cost
+            # TODO check that this node is not redundant with existing nodes
+            # enqueue!(priority_queue, new_node)
         end
 
     end
@@ -496,5 +554,6 @@ function initialize_regular_grid_graph(;
     G
 end
 
+include("a_star.jl")
 
 end # module
