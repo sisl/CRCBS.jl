@@ -5,8 +5,8 @@
 function LightGraphs.a_star_impl!(g::AbstractGraph,# the graph
     t, # the end vertex
     frontier,               # an initialized heap containing the active vertices
-    colormap::Vector{UInt8},  # an (initialized) color-map to indicate status of vertices
     constraints::C where C,
+    colormap::Vector{UInt8},  # an (initialized) color-map to indicate status of vertices
     distmx::AbstractMatrix,
     heuristic::Function)
 
@@ -40,6 +40,15 @@ function LightGraphs.a_star_impl!(g::AbstractGraph,# the graph
 end
 
 """
+    empty_colormap(nv)
+Return a collection that maps vertices of type `typof(nv)` to UInt8.
+In case `nv` is an integer type, this will be a vector of zeros. Currently does
+not work for other types. The idea is, that this can be extended to arbitrary
+vertex types in the future.
+"""
+empty_colormap(nv::Integer) = zeros(UInt8, nv)
+
+"""
     override A* to accept constraints
 
     a_star(g, s, t[, distmx][, heuristic])
@@ -65,5 +74,5 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     frontier[(zero(T), Vector{E}(), U(s))] = zero(T)
     colormap = empty_colormap(nv(g))
     colormap[s] = 1
-    a_star_impl!(g, U(t), constraints, frontier, colormap, distmx, heuristic)
+    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, colormap, distmx, heuristic)
 end
