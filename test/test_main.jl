@@ -8,11 +8,15 @@ let
     CBSConstraint(1,2,3)
     empty_constraint_node()
     solution, cost = low_level_search(mapf,empty_constraint_node())
+    get_cost(solution)
+    
     node_conflict, edge_conflict = get_next_conflicts(solution)
+    generate_constraints_from_conflict(node_conflict)
+    generate_constraints_from_conflict(edge_conflict)
     @test is_valid(node_conflict) || is_valid(edge_conflict)
     node_conflicts, edge_conflicts = get_conflicts(solution)
 
     CBS(mapf)
-    
+
     @test 1 == 1
 end
