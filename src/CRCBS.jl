@@ -7,6 +7,7 @@ using LinearAlgebra
 using NearestNeighbors
 
 include("utils.jl")
+include("low_level_search/a_star.jl")
 
 export
     MAPF,
@@ -34,11 +35,7 @@ export
     get_conflicts,
     generate_constraints_from_conflict,
     low_level_search!,
-    CBS,
-
-    generate_random_grid_graph,
-    initialize_full_grid_graph,
-    initialize_regular_grid_graph
+    CBS
 
 
 """
@@ -49,9 +46,20 @@ export
 """
 struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
     graph::G
+    # dist_matrix::Matrix{Float64}
     starts::Vector{Int}
     goals::Vector{Int}
 end
+
+# """ helper to retrieve the distance matrix for a `MAPF` instance """
+# get_dist_matrix(mapf::MAPF) = mapf.dist_matrix
+
+# """
+#     Construct `MAPF` from graph, starts, goals
+# """
+# function MAPF(graph::G where {G<:AbstractGraph},starts::Vector{Int},goals::Vector{Int})
+#     MAPF(graph,get_dist_matrix(graph),starts,goals)
+# end
 
 """ Type alias for a path through the graph """
 const GraphPath = Vector{Edge{Int}}
@@ -92,6 +100,29 @@ function is_valid(solution::LowLevelSolution,mapf::MAPF)
         end
     end
     return true
+end
+
+
+@enum ConflictType begin
+    NULL_CONFLICT = 0
+    NODE_CONFLICT = 1
+    EDGE_CONFLICT = 2     # waiting to be picked up (perhaps redundant?)
+end
+struct Conflict
+    conflict_type::ConflictType
+    agent1_id::Int
+    agent2_id::Int
+    node1_id::Int
+    node2_id::Int
+    t::Int
+end
+function detect_conflict(edge1::Edge,edge2::Edge)
+    if detect_node_conflict(edge1,edge2)
+        return NODE_CONFLICT # node conflict
+    elseif detect_edge_conflict(edge1,edge2)
+        return EDGE_CONFLICT
+    end
+    return NULL_CONFLICT
 end
 
 """
@@ -470,14 +501,11 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         # check for conflicts
         node_conflict, edge_conflict = get_next_conflicts(node.solution)
         if is_valid(node_conflict)
-            # Create constraints from node_conflict
             constraints = generate_constraints_from_conflict(node_conflict)
         elseif is_valid(edge_conflict)
-            # Create constraints from edge_conflict
             constraints = generate_constraints_from_conflict(edge_conflict)
         else
-            # Done! No conflicts in solution
-            print("Solution Found!\n")
+            print("Optimal Solution Found!\n")
             return node.solution, node.cost
         end
 
@@ -496,98 +524,6 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     return LowLevelSolution(), typemax(Int)
 end
 
-"""
-    A dummy function for initializing a grid graph
-
-    TODO: extend to incorporate obstacles
-"""
-function initialize_full_grid_graph()
-    dx = 1.0
-    dy = 1.0
-    x_pts=collect(0.0:dx:10.0)
-    y_pts=collect(0.0:dy:10.0)
-    G = MetaGraph() # navigation graph
-    pts = []
-    for x in x_pts
-        for y in y_pts
-            if !((4.0 <= x <= 6.0) && (4.0 <= y <= 6.0)) # check obstacle condition
-                push!(pts,[x;y])
-                add_vertex!(G,Dict(:x=>x,:y=>y))
-            end
-        end
-    end
-    kdtree = KDTree(hcat(pts...))
-    # create edges of 4-connected grid
-    for i in vertices(G)
-        for j in inrange(kdtree,pts[i],norm([dx;dy]))
-            if i != j && !(has_edge(G,i,j))
-                if abs(pts[i][1]-pts[j][1]) <= dx && pts[i][2] == pts[j][2]
-                    add_edge!(G,i,j)
-                elseif abs(pts[i][2]-pts[j][2]) <= dy && pts[i][1] == pts[j][1]
-                    add_edge!(G,i,j)
-                end
-            end
-        end
-    end
-    return G
-end
-
-"""
-    Returns a grid graph that represents a 2D environment with regularly spaced
-    rectangular obstacles
-"""
-function initialize_regular_grid_graph(;
-    n_obstacles_x=2,
-    n_obstacles_y=2,
-    obs_width = [2;2],
-    obs_offset = [1;1],
-    env_pad = [1;1],
-    env_offset = [1.0,1.0],
-    env_scale = 2.0 # this is essentially the robot diameter
-    )
-    # generate occupancy grid representing the environment
-    o = ones(Int,obs_width[1],obs_width[2]) # obstacle region
-    op = pad_matrix(o,(obs_offset[1],obs_offset[2]),0) # padded obstacles region
-    A = repeat(op,n_obstacles_x,n_obstacles_y)
-    Ap = pad_matrix(A,(env_pad[1],env_pad[2]),0) # padded occupancy grid
-    K = zeros(Int,size(Ap))
-    G = MetaGraph()
-
-    k = 0
-    for i in 1:size(Ap,1)
-        for j in 1:size(Ap,2)
-            if Ap[i,j] == 0
-                k += 1
-                add_vertex!(G,
-                    Dict(:x=>env_offset[1] + env_scale*(i-1),
-                    :y=>env_offset[2] + env_scale*(j-1))
-                    )
-                add_edge!(G,nv(G),nv(G))
-                K[i,j] = k
-            end
-        end
-    end
-    for i in 1:size(Ap,1)
-        for j in 1:size(Ap,2)
-            if Ap[i,j] == 0
-                if j < size(Ap,2)
-                    add_edge!(G,K[i,j],K[i,j+1])
-                end
-                if j > 1
-                    add_edge!(G,K[i,j],K[i,j-1])
-                end
-                if i < size(Ap,1)
-                    add_edge!(G,K[i,j],K[i+1,j])
-                end
-                if i > 1
-                    add_edge!(G,K[i,j],K[i-1,j])
-                end
-            end
-        end
-    end
-    G
-end
-
-include("a_star.jl")
+include("low_level_search/heuristics.jl")
 
 end # module
