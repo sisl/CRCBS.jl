@@ -9,15 +9,17 @@ using NearestNeighbors
 include("utils.jl")
 
 export
+    MAPF,
     GraphPath,
     traversal_time,
     LowLevelSolution,
-    MAPF,
+    is_valid,
     NodeConflict,
+    detect_node_conflict,
     invalid_node_conflict,
     EdgeConflict,
+    detect_edge_conflict,
     invalid_edge_conflict,
-    is_valid,
     CBSConstraint,
     ConstraintTreeNode,
     ConstraintDict,
@@ -38,21 +40,6 @@ export
     initialize_full_grid_graph,
     initialize_regular_grid_graph
 
-"""
-    type alias for a path through the graph
-"""
-const GraphPath = Vector{Edge}
-
-"""
-    returns the time for traversal of a GraphPath. Defaults to the length of the
-    path, but it may be useful in case we need to override later
-"""
-traversal_time(path::GraphPath) = length(path)
-
-"""
-    type alias for a list of agent paths
-"""
-const LowLevelSolution = Vector{GraphPath}
 
 """
     A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
@@ -66,9 +53,50 @@ struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
     goals::Vector{Int}
 end
 
+""" Type alias for a path through the graph """
+const GraphPath = Vector{Edge{Int}}
+
 """
-    Encodes a conflict between two agents at a particular node at a particular
-    time
+    Returns the edge at time t or a "self-loop" edge on the final node of the
+    path
+"""
+function get_edge(path::GraphPath, t::Int)
+    if length(path) < t
+        return Edge(path[end].dst,path[end].dst)
+    else
+        return path[t]
+    end
+end
+get_start_node(path::GraphPath) = path[1].src
+get_final_node(path::GraphPath) = path[end].dst
+
+"""
+    returns the time for traversal of a GraphPath. Defaults to the length of the
+    path, but it may be useful in case we need to override later
+"""
+traversal_time(path::GraphPath) = length(path)
+
+""" Type alias for a list of agent paths """
+const LowLevelSolution = Vector{GraphPath}
+
+"""
+    checks if a solution is valid
+"""
+function is_valid(solution::LowLevelSolution,mapf::MAPF)
+    for (i,path) in enumerate(solution)
+        if get_start_node(path) != mapf.starts[i]
+            return false
+        end
+        if get_final_node(path) != mapf.goals[i]
+            return false
+        end
+    end
+    return true
+end
+
+"""
+    Encodes a conflict wherein two agents occupy a particular node at a
+    particular time
 """
 struct NodeConflict
     agent1_id::Int
@@ -77,19 +105,29 @@ struct NodeConflict
     t::Int
 end
 
-"""
-    Returns an invalid NodeConflict
-"""
-function invalid_node_conflict()
-    NodeConflict(-1,-1,-1,-1)
+""" Checks for a `NodeConflict` between two `Edge`s """
+function detect_node_conflict(edge1::Edge,edge2::Edge)
+    if edge1.dst == edge2.dst
+        return true
+    end
+    return false
 end
 
-"""
-    checks if a node conflict is valid
-"""
-function is_valid(conflict::NodeConflict)
-    return (conflict.agent1_id != -1)
+""" Checks for a `NodeConflict` between two `GraphPath`s at time t """
+function detect_node_conflict(path1::GraphPath,path2::GraphPath,t::Int)
+    e1 = get_edge(path1,t)
+    e2 = get_edge(path2,t)
+    if detect_node_conflict(e1,e2)
+        return true
+    end
+    return false
 end
+
+""" Returns an invalid NodeConflict """
+invalid_node_conflict() = NodeConflict(-1,-1,-1,-1)
+
+""" Checks if a node conflict is valid """
+is_valid(conflict::NodeConflict) = (conflict.agent1_id != -1)
 
 """
     Encodes a conflict between two agents at a particular edge at a particular
@@ -103,19 +141,29 @@ struct EdgeConflict
     t::Int
 end
 
-"""
-    returns an invalid EdgeConflict
-"""
-function invalid_edge_conflict()
-    return EdgeConflict(-1,-1,-1,-1,-1)
+""" Checks for an `EdgeConflict` between two `Edge`s """
+function detect_edge_conflict(edge1::Edge,edge2::Edge)
+    if (edge1.src == edge2.dst) && (edge1.dst == edge2.src)
+        return true
+    end
+    return false
 end
 
-"""
-    checks if an edge node is invalid
-"""
-function is_valid(conflict::EdgeConflict)
-    return (conflict.agent1_id != -1)
+""" Checks for an `EdgeConflict` between two `GraphPath`s at time t """
+function detect_edge_conflict(path1::GraphPath,path2::GraphPath,t::Int)
+    e1 = get_edge(path1,t)
+    e2 = get_edge(path2,t)
+    if detect_edge_conflict(e1,e2)
+        return true
+    end
+    return false
 end
+
+""" Returns an invalid EdgeConflict """
+invalid_edge_conflict() = EdgeConflict(-1,-1,-1,-1,-1)
+
+""" checks if an edge node is invalid """
+is_valid(conflict::EdgeConflict) = (conflict.agent1_id != -1)
 
 """
     Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
@@ -134,9 +182,7 @@ end
     a::Int = -1 # agent_id
 end
 
-"""
-    Helper function to merge two instances of `ConstraintDict`
-"""
+""" Helper function to merge two instances of `ConstraintDict` """
 function Base.merge(d1::ConstraintDict,d2::ConstraintDict)
     @assert(d1.a==d2.a)
     ConstraintDict(
@@ -144,9 +190,6 @@ function Base.merge(d1::ConstraintDict,d2::ConstraintDict)
         d1.a
     )
 end
-
-# Base.getindex(d::ConstraintDict,k) = Base.getindex(d.dict,k)
-# Base.setindex!(d::ConstraintDict,k,v) = Base.setindex!(d.dict,k,v)
 
 """
      combines two `Dict`s of `ConstraintDict`s into a single `Dict` of
@@ -277,63 +320,32 @@ function get_next_conflicts(paths::LowLevelSolution,
     node_conflict = invalid_node_conflict()
     edge_conflict = invalid_edge_conflict()
     # begin search from time t, paths[i_], paths[j_]
-    t = t_
-    i = i_
-    j_ = max(j_,i+1)
+    t = t_; i = i_; j_ = max(j_,i+1)
+
     path1 = paths[i]
-    if length(path1) < t
-        # do nothing
-        e1 = Edge(path1[end].dst,path1[end].dst)
-    else
-        e1 = path1[t]
-    end
+    e1 = get_edge(path1,t)
     for j in j_:length(paths)
         path2 = paths[j]
-        if length(path2) < t
-            # do nothing
-            e2 = Edge(path2[end].dst,path2[end].dst)
-        else
-            e2 = path2[t]
-        end
-        # if e1.src == e2.src
-        if e1.dst == e2.dst
-            # Same src node
-            # node_conflict = NodeConflict(i,j,e1.src,t)
+        e2 = get_edge(path2,t)
+        if detect_node_conflict(e1,e2)
             node_conflict = NodeConflict(i,j,e1.dst,t)
             return node_conflict, edge_conflict
-        elseif (e1.src == e2.dst) && (e1.dst == e2.src)
-            # Same edge, opposite direction
-            # edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
+        elseif detect_edge_conflict(e1,e2)
             edge_conflict = EdgeConflict(i,j,e1.dst,e2.dst,t)
             return node_conflict, edge_conflict
         end
     end
-    # continue search from time t = t_+1
+    # Continue search from next time step
     for t in t_+1:tmax
         for (i,path1) in enumerate(paths)
-            if length(path1) < t
-                # do nothing
-                e1 = Edge(path1[end].dst,path1[end].dst)
-            else
-                e1 = path1[t]
-            end
+            e1 = get_edge(path1,t)
             for j in i+1:length(paths)
                 path2 = paths[j]
-                if length(path2) < t
-                    # do nothing
-                    e2 = Edge(path2[end].dst,path2[end].dst)
-                else
-                    e2 = path2[t]
-                end
-                # if e1.src == e2.src
-                if e1.dst == e2.dst
-                    # Same src node
-                    # node_conflict = NodeConflict(i,j,e1.src,t)
+                e2 = get_edge(path2,t)
+                if detect_node_conflict(e1,e2)
                     node_conflict = NodeConflict(i,j,e1.dst,t)
                     return node_conflict, edge_conflict
-                elseif (e1.src == e2.dst) && (e1.dst == e2.src)
-                    # Same edge, opposite direction
-                    # edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
+                elseif detect_edge_conflict(e1,e2)
                     edge_conflict = EdgeConflict(i,j,e1.dst,e2.dst,t)
                     return node_conflict, edge_conflict
                 end
@@ -359,7 +371,6 @@ function get_conflicts(paths::LowLevelSolution)
     edge_conflicts = Vector{EdgeConflict}()
     t_max = maximum([length(path) for path in paths])
     nc, ec = get_next_conflicts(paths)
-    c =
     while true
         if is_valid(nc)
             push!(node_conflicts, nc)
@@ -422,21 +433,6 @@ function generate_constraints_from_conflict(conflict::EdgeConflict)
 end
 
 """
-    checks if a solution is valid
-"""
-function is_valid(solution::LowLevelSolution,mapf::MAPF)
-    for (i,path) in enumerate(solution)
-        if path[1] != mapf.starts[i]
-            return false
-        end
-        if path[end] != mapf.goals[i]
-            return false
-        end
-    end
-    return true
-end
-
-"""
     Returns a low level solution for a MAPF with constraints
 """
 function low_level_search!(mapf::MAPF,node::ConstraintTreeNode,path_finder=LightGraphs.a_star)
@@ -465,8 +461,9 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
 
     root_node = ConstraintTreeNode(mapf)
     low_level_search!(mapf,root_node)
-
-    enqueue!(priority_queue, root_node => root_node.cost)
+    if is_valid(root_node.solution,mapf)
+        enqueue!(priority_queue, root_node => root_node.cost)
+    end
 
     while length(priority_queue) > 0
         node = dequeue!(priority_queue)
@@ -489,10 +486,13 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
             new_node = ConstraintTreeNode(constraints=copy(node.constraints))
             if add_constraint!(new_node,constraint,mapf)
                 low_level_search!(mapf,new_node)
-                enqueue!(priority_queue, new_node => new_node.cost)
+                if is_valid(new_node.solution, mapf)
+                    enqueue!(priority_queue, new_node => new_node.cost)
+                end
             end
         end
     end
+    print("No Solution Found. Returning default solution")
     return LowLevelSolution(), typemax(Int)
 end
 

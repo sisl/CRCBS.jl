@@ -4,18 +4,18 @@ end
 let
     conflict = NodeConflict(1,2,3,1)
     @test is_valid(conflict)
-end
-let
     conflict = invalid_node_conflict()
     @test !is_valid(conflict)
+    @test detect_node_conflict(Edge(1,2),Edge(3,2))
+    @test detect_node_conflict([Edge(1,2),Edge(2,3)],[Edge(4,5),Edge(5,3)],2)
 end
 let
     conflict = EdgeConflict(1,2,3,4,1)
     @test is_valid(conflict)
-end
-let
     conflict = invalid_edge_conflict()
     @test !is_valid(conflict)
+    @test detect_edge_conflict(Edge(1,2),Edge(2,1))
+    @test detect_edge_conflict([Edge(3,2),Edge(2,1)],[Edge(4,1),Edge(1,2)],2)
 end
 let
     constraint = CBSConstraint(1,2,3)
@@ -41,6 +41,11 @@ end
 let
     G = initialize_full_grid_graph()
     G = initialize_regular_grid_graph()
+end
+let
+    mapf = MAPF(Graph(), [1,2], [3,4])
+    solution = LowLevelSolution([GraphPath([Edge(1,3)]),GraphPath([Edge(2,4)])])
+    @test is_valid(solution, mapf)
 end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
