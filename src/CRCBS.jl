@@ -31,7 +31,7 @@ export
     get_next_conflicts,
     get_conflicts,
     generate_constraints_from_conflict,
-    low_level_search,
+    low_level_search!,
     CBS,
 
     generate_random_grid_graph,
@@ -180,14 +180,6 @@ const NULL_NODE = -1
     retrieve constraints corresponding to this node and this path
 """
 function get_constraints(node::ConstraintTreeNode, path_id::Int)
-    # dict = ConstraintDict()
-    # for constraint in constraints
-    #     if !haskey(dict,constraint.v)
-    #         dict[constraint.v] = Set{CBSConstraint}()
-    #     end
-    #     push!(dict[constraint.v],constraint)
-    # end
-    # dict
     return get(node.constraints, path_id, ConstraintDict())
 end
 
@@ -232,11 +224,14 @@ end
 """
     adds a constraint to a ConstraintTreeNode
 """
-function add_constraint!(node::ConstraintTreeNode,constraint::CBSConstraint)
+function add_constraint!(node::ConstraintTreeNode,constraint::CBSConstraint,mapf::MAPF)
     # if !haskey(node.constraints[constraint.a])
     # push!(node.constraints[constraint.a],constraint)
-    node.constraints[constraint.a].dict[constraint] = true
-    node
+    if (constraint.v != mapf.goals[constraint.a])
+        node.constraints[constraint.a].dict[constraint] = true
+        return true
+    end
+    return false
 end
 
 """
@@ -288,7 +283,10 @@ end
         finding the first conflict.
 """
 function get_next_conflicts(paths::LowLevelSolution,
-        i_::Int=1,j_::Int=2,t_::Int=1,tmax::Int=maximum([traversal_time(p) for p in paths])
+        i_::Int=1,
+        j_::Int=2,
+        t_::Int=1,
+        tmax::Int=maximum([traversal_time(p) for p in paths])
         )
     node_conflict = invalid_node_conflict()
     edge_conflict = invalid_edge_conflict()
@@ -303,20 +301,24 @@ function get_next_conflicts(paths::LowLevelSolution,
     else
         e1 = path1[t]
     end
-    for (j,path2) in enumerate(paths[j_:end])
+    for j in j_:length(paths)
+        path2 = paths[j]
         if length(path2) < t
             # do nothing
             e2 = Edge(path2[end].dst,path2[end].dst)
         else
             e2 = path2[t]
         end
-        if e1.src == e2.src
+        # if e1.src == e2.src
+        if e1.dst == e2.dst
             # Same src node
-            node_conflict = NodeConflict(i,j,e1.src,t)
+            # node_conflict = NodeConflict(i,j,e1.src,t)
+            node_conflict = NodeConflict(i,j,e1.dst,t)
             return node_conflict, edge_conflict
         elseif (e1.src == e2.dst) && (e1.dst == e2.src)
             # Same edge, opposite direction
-            edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
+            # edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
+            edge_conflict = EdgeConflict(i,j,e1.dst,e2.dst,t)
             return node_conflict, edge_conflict
         end
     end
@@ -329,20 +331,24 @@ function get_next_conflicts(paths::LowLevelSolution,
             else
                 e1 = path1[t]
             end
-            for (j,path2) in enumerate(paths[i+1:end])
+            for j in i+1:length(paths)
+                path2 = paths[j]
                 if length(path2) < t
                     # do nothing
                     e2 = Edge(path2[end].dst,path2[end].dst)
                 else
                     e2 = path2[t]
                 end
-                if e1.src == e2.src
+                # if e1.src == e2.src
+                if e1.dst == e2.dst
                     # Same src node
-                    node_conflict = NodeConflict(i,j,e1.src,t)
+                    # node_conflict = NodeConflict(i,j,e1.src,t)
+                    node_conflict = NodeConflict(i,j,e1.dst,t)
                     return node_conflict, edge_conflict
                 elseif (e1.src == e2.dst) && (e1.dst == e2.src)
                     # Same edge, opposite direction
-                    edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
+                    # edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
+                    edge_conflict = EdgeConflict(i,j,e1.dst,e2.dst,t)
                     return node_conflict, edge_conflict
                 end
             end
@@ -386,22 +392,6 @@ function get_conflicts(paths::LowLevelSolution)
             t_max
             )
     end
-    # for t in 1:t_max
-    #     for (i,path1) in enumerate(paths)
-    #         if length(path1) < t
-    #             continue
-    #         end
-    #         for (j,path2) in enumerate(paths[i:end])
-    #             if path1[t].src == path2[t].src
-    #                 # Same src node
-    #                 push!(node_conflicts, NodeConflict(i,j,path1[t].src,t))
-    #             elseif (path1[t].src == path2[t].dst) && (path1[t].dst == path2[t].src)
-    #                 # Same edge, opposite direction
-    #                 push!(edge_conflicts, EdgeConflict(i,j,path1[t].src,path2[t].src,t))
-    #             end
-    #         end
-    #     end
-    # end
     return node_conflicts, edge_conflicts
 end
 
@@ -463,7 +453,7 @@ end
 """
     Returns a low level solution for a MAPF with constraints
 """
-function low_level_search(mapf::MAPF,node::ConstraintTreeNode,path_finder=LightGraphs.a_star)
+function low_level_search!(mapf::MAPF,node::ConstraintTreeNode,path_finder=LightGraphs.a_star)
     # compute an initial solution
     solution = LowLevelSolution()
     for i in 1:length(mapf.starts)
@@ -473,10 +463,11 @@ function low_level_search(mapf::MAPF,node::ConstraintTreeNode,path_finder=LightG
     end
     # sum of individual costs (SIC)
     cost = get_cost(solution)
-    # node.solution = solution
-    # node.cost = get_cost(solution)
+    node.solution = solution
+    node.cost = get_cost(solution)
     # TODO check if solution is valid
     return solution, cost
+    return true
 end
 
 """
@@ -487,9 +478,8 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 
     root_node = ConstraintTreeNode(mapf)
-    solution, cost = low_level_search(mapf,root_node)
-    root_node.solution = solution
-    root_node.cost = cost
+    low_level_search!(mapf,root_node)
+
     enqueue!(priority_queue, root_node => root_node.cost)
 
     while length(priority_queue) > 0
@@ -498,35 +488,23 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         node_conflict, edge_conflict = get_next_conflicts(node.solution)
         if is_valid(node_conflict)
             # Create constraints from node_conflict
-            @show node_conflict
             constraints = generate_constraints_from_conflict(node_conflict)
         elseif is_valid(edge_conflict)
             # Create constraints from edge_conflict
-            @show edge_conflict
             constraints = generate_constraints_from_conflict(edge_conflict)
         else
             # Done! No conflicts in solution
             print("Solution Found!\n")
-            for path in node.solution
-                @show path
-            end
             return node.solution, node.cost
         end
 
         # generate new nodes from constraints
         for constraint in constraints
             new_node = ConstraintTreeNode(constraints=copy(node.constraints))
-            # @show new_node.constraints
-            add_constraint!(new_node,constraint)
-            solution, cost = low_level_search(mapf,new_node)
-            new_node.solution = solution
-            new_node.cost = cost
-            # @show new_node.constraints
-            # @show new_node.solution[1]
-            # @show new_node.solution[2]
-            # break
-            # TODO check that this node is not redundant with existing nodes
-            enqueue!(priority_queue, new_node => new_node.cost)
+            if add_constraint!(new_node,constraint,mapf)
+                low_level_search!(mapf,new_node)
+                enqueue!(priority_queue, new_node => new_node.cost)
+            end
         end
     end
     return LowLevelSolution(), typemax(Int)

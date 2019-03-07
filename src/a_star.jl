@@ -22,6 +22,7 @@ function LightGraphs.a_star_impl!(g::AbstractGraph,# the graph
             # Skip node if it violates any of the constraints
             if violates_constraint(constraints,v,path)
                 # @show v, path
+                # @show constraints.dict
                 continue
             end
             if get(colormap, v, 0) < 2
