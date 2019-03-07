@@ -28,10 +28,7 @@ export
     ConstraintTreeNode,
     ConstraintDict,
     get_constraints,
-    # get_constraint_dict,
     add_constraint!,
-    # compare_constraint_nodes,
-    # combine_constraints,
     violates_constraints,
     get_cost,
     empty_constraint_node,
@@ -55,38 +52,17 @@ struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
     goals::Vector{Int}
 end
 
-# """ helper to retrieve the distance matrix for a `MAPF` instance """
-# get_dist_matrix(mapf::MAPF) = mapf.dist_matrix
-
-# """
-#     Construct `MAPF` from graph, starts, goals
-# """
-# function MAPF(graph::G where {G<:AbstractGraph},starts::Vector{Int},goals::Vector{Int})
-#     MAPF(graph,get_dist_matrix(graph),starts,goals)
-# end
-
 """ Type alias for a path through the graph """
 const GraphPath = Vector{Edge{Int}}
+get_start_node(path::GraphPath) = get(path,1,Edge(-1,-1)).src
+get_final_node(path::GraphPath) = get(path,length(path),Edge(-1,-1)).dst
+traversal_time(path::GraphPath) = length(path)
 
 """
     Returns the edge at time t or a "self-loop" edge on the final node of the
     path
 """
-function get_edge(path::GraphPath, t::Int)
-    if length(path) < t
-        return Edge(path[end].dst,path[end].dst)
-    else
-        return path[t]
-    end
-end
-get_start_node(path::GraphPath) = get(path,1,Edge(-1,-1)).src
-get_final_node(path::GraphPath) = get(path,length(path),Edge(-1,-1)).dst
-
-"""
-    returns the time for traversal of a GraphPath. Defaults to the length of the
-    path, but it may be useful in case we need to override later
-"""
-traversal_time(path::GraphPath) = length(path)
+get_edge(path::GraphPath, t::Int) = get(path,t,Edge(get_final_node(path),get_final_node(path)))
 
 """ Type alias for a list of agent paths """
 const LowLevelSolution = Vector{GraphPath}
@@ -105,29 +81,6 @@ function is_valid(solution::LowLevelSolution,mapf::MAPF)
     end
     return true
 end
-
-
-# @enum ConflictType begin
-#     NULL_CONFLICT = 0
-#     NODE_CONFLICT = 1
-#     EDGE_CONFLICT = 2     # waiting to be picked up (perhaps redundant?)
-# end
-# struct Conflict
-#     conflict_type::ConflictType
-#     agent1_id::Int
-#     agent2_id::Int
-#     node1_id::Int
-#     node2_id::Int
-#     t::Int
-# end
-# function detect_conflict(edge1::Edge,edge2::Edge)
-#     if detect_node_conflict(edge1,edge2)
-#         return NODE_CONFLICT # node conflict
-#     elseif detect_edge_conflict(edge1,edge2)
-#         return EDGE_CONFLICT
-#     end
-#     return NULL_CONFLICT
-# end
 
 abstract type CBSConflict end
 
@@ -431,10 +384,6 @@ function get_next_conflicts(paths::LowLevelSolution,
     return node_conflict, edge_conflict
 end
 
-# """
-#     Returns the next conflict that is not already in the current ConstraintTreeNode
-# """
-
 """
     Returns a list of all conflicts that occur in a given solution
 
@@ -552,7 +501,7 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         elseif is_valid(edge_conflict)
             constraints = generate_constraints_from_conflict(edge_conflict)
         else
-            print("Optimal Solution Found!\n")
+            print("Optimal Solution Found! Cost = ",node.cost,"\n")
             return node.solution, node.cost
         end
 
