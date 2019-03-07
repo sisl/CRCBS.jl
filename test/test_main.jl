@@ -30,24 +30,12 @@ let
     node = empty_constraint_node()
     get_constraints(node,1)
 end
-# let
-#     d1 = Dict{Int,Set{Float64}}()
-#     d2 = Dict{Int,Set{Float64}}()
-#     d1[1] = Set{Float64}([1.0,2.0,3.0])
-#     d1[2] = Set{Float64}([1.0,3.0])
-#     d2[2] = Set{Float64}([4.0,5.0])
-#     d2[3] = Set{Float64}([1.0,3.0])
-#     d3 = combine_constraints(d1,d2)
-#     for (k,v) in d3
-#         @test length(setdiff(v,union(get(d1,k,Set{Float64}()),get(d2,k,Set{Float64}())))) == 0
-#     end
-# end
 let
     mapf = MAPF(Graph(), [1,2,3,4], [5,6,7,8])
     empty_constraint_node()
     node = ConstraintTreeNode(mapf)
     add_constraint!(node,CBSConstraint(1,2,3),mapf)
-    # combine_constraints(node.constraints,node.constraints)
+    combine_constraints(node.constraints,node.constraints)
     @test compare_constraint_nodes(ConstraintTreeNode(),ConstraintTreeNode())
 end
 let

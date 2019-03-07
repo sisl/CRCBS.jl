@@ -25,7 +25,7 @@ export
     # get_constraint_dict,
     add_constraint!,
     compare_constraint_nodes,
-    # combine_constraints,
+    combine_constraints,
     get_cost,
     empty_constraint_node,
     get_next_conflicts,
@@ -133,28 +133,34 @@ end
     dict::Dict{CBSConstraint,Bool} = Dict{CBSConstraint,Bool}()
     a::Int = -1 # agent_id
 end
+
+"""
+    Helper function to merge two instances of `ConstraintDict`
+"""
+function Base.merge(d1::ConstraintDict,d2::ConstraintDict)
+    @assert(d1.a==d2.a)
+    ConstraintDict(
+        merge(d1.dict,d2.dict),
+        d1.a
+    )
+end
+
 # Base.getindex(d::ConstraintDict,k) = Base.getindex(d.dict,k)
 # Base.setindex!(d::ConstraintDict,k,v) = Base.setindex!(d.dict,k,v)
 
-# """
-#      combines two `Dict`s of `Set`s into a single `Dict` of `Set`s where the
-#      value associated with each key in the resulting dictionary is the union
-#      of the values for the input dictionaries at that key
-# """
-# function combine_constraints(dict1::Dict{K,Set{V}},dict2::Dict{K,Set{V}}) where {K,V}
-#     new_dict = copy(dict1)
-#     for (k,v) in dict2
-#         new_dict[k] = union(v, get(dict1,k,typeof(v)()))
-#     end
-#     return new_dict
-# end
-# function combine_constraints(dict1::Dict{K,ConstraintDict},dict2::Dict{K,ConstraintDict})
-#     new_dict = copy(dict1)
-#     for (k,v) in dict2
-#         new_dict[k] = union(v, get(dict1,k,typeof(v)()))
-#     end
-#     return new_dict
-# end
+"""
+     combines two `Dict`s of `ConstraintDict`s into a single `Dict` of
+     `ConstraintDict`s where the value associated with each key in the
+     resulting dictionary is the union of the values for the input dictionaries
+     at that key
+"""
+function combine_constraints(dict1::Dict{K,ConstraintDict},dict2::Dict{K,ConstraintDict}) where K
+    new_dict = typeof(dict1)()
+    for k in union(collect(keys(dict1)),collect(keys(dict2)))
+        new_dict[k] = merge(get(dict1,k,ConstraintDict()), get(dict1,k,ConstraintDict()))
+    end
+    return new_dict
+end
 
 """
     A node of a constraint tree. Each node has a set of constraints, a candidate
@@ -183,32 +189,12 @@ function get_constraints(node::ConstraintTreeNode, path_id::Int)
     return get(node.constraints, path_id, ConstraintDict())
 end
 
-# """
-#     transforms constraints into `ConstraintDict` form for faster lookup
-# """
-# function get_constraint_dict(constraints::Set{CBSConstraint})
-#     dict = ConstraintDict()
-#     for constraint in constraints
-#         if !haskey(dict,constraint.v)
-#             dict[constraint.v] = Set{CBSConstraint}()
-#         end
-#         push!(dict[constraint.v],constraint)
-#     end
-#     dict
-# end
-
 """
     check if a set of constraints is violated by a node and path
 """
 function violates_constraint(constraints::ConstraintDict,v,path)
     t = length(path) + 1
     return get(constraints.dict,CBSConstraint(constraints.a,v,t),false)
-    # for constraint in get(constraints,v,Set{CBSConstraint}())
-    #     if constraint.t == t
-    #         return true
-    #     end
-    # end
-    # return false
 end
 
 """
