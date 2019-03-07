@@ -37,7 +37,7 @@ var documenterSearchIndex = {"docs": [
     "page": "CRCBS",
     "title": "CRCBS.GraphPath",
     "category": "type",
-    "text": "type alias for a path through the graph\n\n\n\n\n\n"
+    "text": "Type alias for a path through the graph \n\n\n\n\n\n"
 },
 
 {
@@ -53,7 +53,7 @@ var documenterSearchIndex = {"docs": [
     "page": "CRCBS",
     "title": "CRCBS.LowLevelSolution",
     "category": "type",
-    "text": "type alias for a list of agent paths\n\n\n\n\n\n"
+    "text": "Type alias for a list of agent paths \n\n\n\n\n\n"
 },
 
 {
@@ -69,7 +69,7 @@ var documenterSearchIndex = {"docs": [
     "page": "CRCBS",
     "title": "CRCBS.NodeConflict",
     "category": "type",
-    "text": "Encodes a conflict between two agents at a particular node at a particular\ntime\n\n\n\n\n\n"
+    "text": "Encodes a conflict wherein two agents occupy a particular node at a\nparticular time\n\n\n\n\n\n"
 },
 
 {
@@ -77,7 +77,7 @@ var documenterSearchIndex = {"docs": [
     "page": "CRCBS",
     "title": "CRCBS.invalid_node_conflict",
     "category": "function",
-    "text": "Returns an invalid NodeConflict\n\n\n\n\n\n"
+    "text": "Returns an invalid NodeConflict \n\n\n\n\n\n"
 },
 
 {
@@ -93,7 +93,7 @@ var documenterSearchIndex = {"docs": [
     "page": "CRCBS",
     "title": "CRCBS.invalid_edge_conflict",
     "category": "function",
-    "text": "returns an invalid EdgeConflict\n\n\n\n\n\n"
+    "text": "Returns an invalid EdgeConflict \n\n\n\n\n\n"
 },
 
 {
@@ -101,7 +101,7 @@ var documenterSearchIndex = {"docs": [
     "page": "CRCBS",
     "title": "CRCBS.is_valid",
     "category": "function",
-    "text": "checks if a node conflict is valid\n\n\n\n\n\nchecks if an edge node is invalid\n\n\n\n\n\nchecks if a solution is valid\n\n\n\n\n\n"
+    "text": "checks if a solution is valid\n\n\n\n\n\nChecks if a node conflict is valid \n\n\n\n\n\nchecks if an edge node is invalid \n\n\n\n\n\n"
 },
 
 {
