@@ -12,6 +12,8 @@ include("low_level_search/a_star.jl")
 export
     MAPF,
     GraphPath,
+    get_start_node,
+    get_final_node,
     traversal_time,
     LowLevelSolution,
     is_valid,
@@ -21,14 +23,16 @@ export
     EdgeConflict,
     detect_edge_conflict,
     invalid_edge_conflict,
-    CBSConstraint,
+    NodeConstraint,
+    EdgeConstraint,
     ConstraintTreeNode,
     ConstraintDict,
     get_constraints,
     # get_constraint_dict,
     add_constraint!,
-    compare_constraint_nodes,
-    combine_constraints,
+    # compare_constraint_nodes,
+    # combine_constraints,
+    violates_constraints,
     get_cost,
     empty_constraint_node,
     get_next_conflicts,
@@ -75,8 +79,8 @@ function get_edge(path::GraphPath, t::Int)
         return path[t]
     end
 end
-get_start_node(path::GraphPath) = path[1].src
-get_final_node(path::GraphPath) = path[end].dst
+get_start_node(path::GraphPath) = get(path,1,Edge(-1,-1)).src
+get_final_node(path::GraphPath) = get(path,length(path),Edge(-1,-1)).dst
 
 """
     returns the time for traversal of a GraphPath. Defaults to the length of the
@@ -196,20 +200,38 @@ invalid_edge_conflict() = EdgeConflict(-1,-1,-1,-1,-1)
 """ checks if an edge node is invalid """
 is_valid(conflict::EdgeConflict) = (conflict.agent1_id != -1)
 
+abstract type CBSConstraint end
 """
     Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
 """
-struct CBSConstraint
+struct NodeConstraint <: CBSConstraint
     a::Int # agent ID
     v::Int # vertex ID
     t::Int # time ID
 end
 
 """
+    Encodes a constraint that agent `a` may not traverse `Edge(v1,v2)` at time
+    step `t`
+"""
+struct EdgeConstraint <: CBSConstraint
+    a::Int # agent ID
+    v1::Int # ID of first vertex in edge
+    v2::Int # ID of second vertex in edge
+    t::Int # time ID
+end
+
+"""
+    Helper function for reversing an `EdgeConstraint`
+"""
+flip(c::EdgeConstraint) = EdgeConstraint(c.a,c.v2,c.v1,c.t)
+
+"""
     constraint dictionary for fast constraint lookup within a_star
 """
 @with_kw struct ConstraintDict
-    dict::Dict{CBSConstraint,Bool} = Dict{CBSConstraint,Bool}()
+    node_constraints::Dict{NodeConstraint,Bool} = Dict{NodeConstraint,Bool}()
+    edge_constraints::Dict{EdgeConstraint,Bool} = Dict{EdgeConstraint,Bool}()
     a::Int = -1 # agent_id
 end
 
@@ -217,18 +239,19 @@ end
 function Base.merge(d1::ConstraintDict,d2::ConstraintDict)
     @assert(d1.a==d2.a)
     ConstraintDict(
-        merge(d1.dict,d2.dict),
+        merge(d1.node_constraints,d2.node_constraints),
+        merge(d1.edge_constraints,d2.edge_constraints),
         d1.a
     )
 end
 
 """
-     combines two `Dict`s of `ConstraintDict`s into a single `Dict` of
+     Combines two `Dict`s of `ConstraintDict`s into a single `Dict` of
      `ConstraintDict`s where the value associated with each key in the
      resulting dictionary is the union of the values for the input dictionaries
      at that key
 """
-function combine_constraints(dict1::Dict{K,ConstraintDict},dict2::Dict{K,ConstraintDict}) where K
+function Base.merge(dict1::Dict{K,ConstraintDict},dict2::Dict{K,ConstraintDict}) where K
     new_dict = typeof(dict1)()
     for k in union(collect(keys(dict1)),collect(keys(dict2)))
         new_dict[k] = merge(get(dict1,k,ConstraintDict()), get(dict1,k,ConstraintDict()))
@@ -264,11 +287,21 @@ function get_constraints(node::ConstraintTreeNode, path_id::Int)
 end
 
 """
-    check if a set of constraints is violated by a node and path
+    Check if a set of constraints would be violated by adding an Edge from
+    the final vertex of `path` to `v`
 """
-function violates_constraint(constraints::ConstraintDict,v,path)
+function violates_constraints(constraints::ConstraintDict,v,path)
     t = length(path) + 1
-    return get(constraints.dict,CBSConstraint(constraints.a,v,t),false)
+    if get(constraints.node_constraints,NodeConstraint(constraints.a,v,t),false)
+        return true
+    else
+        v1 = get_final_node(path)
+        v2 = v
+        if get(constraints.edge_constraints,EdgeConstraint(constraints.a,v1,v2,t),false)
+            return true
+        end
+    end
+    return false
 end
 
 """
@@ -282,27 +315,37 @@ function ConstraintTreeNode(mapf::MAPF)
 end
 
 """
-    adds a constraint to a ConstraintTreeNode
+    adds a `NodeConstraint` to a ConstraintTreeNode
 """
-function add_constraint!(node::ConstraintTreeNode,constraint::CBSConstraint,mapf::MAPF)
-    # if !haskey(node.constraints[constraint.a])
-    # push!(node.constraints[constraint.a],constraint)
+function add_constraint!(node::ConstraintTreeNode,constraint::NodeConstraint,mapf::MAPF)
     if (constraint.v != mapf.goals[constraint.a])
-        node.constraints[constraint.a].dict[constraint] = true
+        node.constraints[constraint.a].node_constraints[constraint] = true
         return true
     end
     return false
 end
 
 """
-    checks to see if two `ConstraintTreeNode`s are identical (in terms of their
-    constraints)
+    adds an `EdgeConstraint` to a ConstraintTreeNode
 """
-function compare_constraint_nodes(node1::ConstraintTreeNode,node2::ConstraintTreeNode)
-    constraints1 = union([collect(keys(v)) for (k,v) in node1.constraints])
-    constraints2 = union([collect(keys(v)) for (k,v) in node2.constraints])
-    return length(setdiff(constraints1,constraints2)) == 0
+function add_constraint!(node::ConstraintTreeNode,constraint::EdgeConstraint,mapf::MAPF)
+    if (constraint.v1 != mapf.goals[constraint.a]) && (constraint.v1 != mapf.goals[constraint.a])
+        node.constraints[constraint.a].edge_constraints[constraint] = true
+        node.constraints[constraint.a].edge_constraints[flip(constraint)] = true
+        return true
+    end
+    return false
 end
+
+# """
+#     checks to see if two `ConstraintTreeNode`s are identical (in terms of their
+#     constraints)
+# """
+# function compare_constraint_nodes(node1::ConstraintTreeNode,node2::ConstraintTreeNode)
+#     constraints1 = union([collect(keys(v)) for (k,v) in node1.constraints])
+#     constraints2 = union([collect(keys(v)) for (k,v) in node2.constraints])
+#     return length(setdiff(constraints1,constraints2)) == 0
+# end
 
 """
     Helper function to get the cost of a particular solution
@@ -362,7 +405,7 @@ function get_next_conflicts(paths::LowLevelSolution,
             node_conflict = NodeConflict(i,j,e1.dst,t)
             return node_conflict, edge_conflict
         elseif detect_edge_conflict(e1,e2)
-            edge_conflict = EdgeConflict(i,j,e1.dst,e2.dst,t)
+            edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
             return node_conflict, edge_conflict
         end
     end
@@ -377,7 +420,7 @@ function get_next_conflicts(paths::LowLevelSolution,
                     node_conflict = NodeConflict(i,j,e1.dst,t)
                     return node_conflict, edge_conflict
                 elseif detect_edge_conflict(e1,e2)
-                    edge_conflict = EdgeConflict(i,j,e1.dst,e2.dst,t)
+                    edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
                     return node_conflict, edge_conflict
                 end
             end
@@ -428,14 +471,14 @@ end
 """
 function generate_constraints_from_conflict(conflict::NodeConflict)
     return [
-        # Agent 1 may not occupy node at time t
-        CBSConstraint(
+        # Agent 1 may not occupy node at time t + 1
+        NodeConstraint(
             conflict.agent1_id,
             conflict.node_id,
             conflict.t
         ),
-        # Agent 2 may not occupy node at time t
-        CBSConstraint(
+        # Agent 2 may not occupy node at time t + 1
+        NodeConstraint(
             conflict.agent2_id,
             conflict.node_id,
             conflict.t
@@ -448,17 +491,19 @@ end
 """
 function generate_constraints_from_conflict(conflict::EdgeConflict)
     return [
-        # Agent 1 may not occupy node 2 at time t + 1
-        CBSConstraint(
+        # Agent 1 may not traverse Edge(node1,node2) at time t
+        EdgeConstraint(
             conflict.agent1_id,
-            conflict.node2_id,
-            conflict.t + 1
-        ),
-        # Agent 2 may not occupy node 1 at time t + 1
-        CBSConstraint(
-            conflict.agent2_id,
             conflict.node1_id,
-            conflict.t + 1
+            conflict.node2_id,
+            conflict.t # + 1
+        ),
+        # Agent 2 may not traverse Edge(node2,node1) at time t
+        EdgeConstraint(
+            conflict.agent2_id,
+            conflict.node2_id,
+            conflict.node1_id,
+            conflict.t# + 1
         )
         ]
 end

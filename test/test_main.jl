@@ -18,11 +18,11 @@ let
     @test detect_edge_conflict([Edge(3,2),Edge(2,1)],[Edge(4,1),Edge(1,2)],2)
 end
 let
-    constraint = CBSConstraint(1,2,3)
-    # constraints = Set{CBSConstraint}([
-    #     CBSConstraint(1,2,3),
-    #     CBSConstraint(1,3,3),
-    #     CBSConstraint(2,4,3)
+    constraint = NodeConstraint(1,2,3)
+    # constraints = Set{NodeConstraint}([
+    #     NodeConstraint(1,2,3),
+    #     NodeConstraint(1,3,3),
+    #     NodeConstraint(2,4,3)
     # ])
     # get_constraint_dict(constraints)
 end
@@ -34,9 +34,9 @@ let
     mapf = MAPF(Graph(), [1,2,3,4], [5,6,7,8])
     empty_constraint_node()
     node = ConstraintTreeNode(mapf)
-    add_constraint!(node,CBSConstraint(1,2,3),mapf)
-    combine_constraints(node.constraints,node.constraints)
-    @test compare_constraint_nodes(ConstraintTreeNode(),ConstraintTreeNode())
+    add_constraint!(node,NodeConstraint(1,2,3),mapf)
+    merge(node.constraints,node.constraints)
+    # @test compare_constraint_nodes(ConstraintTreeNode(),ConstraintTreeNode())
 end
 let
     G = initialize_full_grid_graph()
@@ -48,22 +48,93 @@ let
     @test is_valid(solution, mapf)
 end
 let
-    G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    mapf = MAPF(G.graph, [1,2], [5,6])
+    #               6
+    #               |
+    #               7
+    #               |
+    #     1 -- 2 -- 3 -- 4 -- 5
+    #               |
+    #               8
+    #               |
+    #               9
+    G = Graph(5)
+    add_edge!(G,1,2)
+    add_edge!(G,2,3)
+    add_edge!(G,3,4)
+    add_edge!(G,4,5)
+    add_edge!(G,6,7)
+    add_edge!(G,7,3)
+    add_edge!(G,3,8)
+    add_edge!(G,8,9)
+    mapf = MAPF(G,[1,5],[5,1])
     node = ConstraintTreeNode(mapf)
-    add_constraint!(node,CBSConstraint(1,2,3),mapf)
-    # solution, cost = low_level_search(mapf,node)
     low_level_search!(mapf,node)
-    get_cost(node.solution)
-
-    node_conflict, edge_conflict = get_next_conflicts(node.solution)
-    generate_constraints_from_conflict(node_conflict)
-    generate_constraints_from_conflict(edge_conflict)
-    @test !(is_valid(node_conflict) && is_valid(edge_conflict))
-
-    node_conflicts, edge_conflicts = get_conflicts(node.solution)
-    @test 1 == 1
+    # check node conflict
+    solution = LowLevelSolution([
+        GraphPath([Edge(1,2),Edge(2,3),Edge(3,4),Edge(4,5)]),
+        GraphPath([Edge(5,4),Edge(4,3),Edge(3,2),Edge(2,1)])
+    ])
+    node_conflict, edge_conflict = get_next_conflicts(solution)
+    @test node_conflict.t == 2
+    @test node_conflict.node_id == 3
+    constraints = generate_constraints_from_conflict(node_conflict)
+    @show constraint = constraints[1]
+    add_constraint!(node,constraint,mapf)
+    @test violates_constraints(node.constraints[1],3,[Edge(1,2)])
 end
+let
+    #               6
+    #               |
+    #               7
+    #               |
+    #     1 -- 2 -- 3 -- 4 -- 5
+    #               |
+    #               8
+    #               |
+    #               9
+    G = Graph(9)
+    add_edge!(G,1,2)
+    add_edge!(G,2,3)
+    add_edge!(G,3,4)
+    add_edge!(G,4,5)
+    add_edge!(G,6,7)
+    add_edge!(G,7,3)
+    add_edge!(G,3,8)
+    add_edge!(G,8,9)
+    mapf = MAPF(G,[1,4],[4,1])
+    node = ConstraintTreeNode(mapf)
+    low_level_search!(mapf,node)
+    # check node conflict
+    solution = LowLevelSolution([
+        GraphPath([Edge(1,2),Edge(2,3),Edge(3,4)]),
+        GraphPath([Edge(4,3),Edge(3,2),Edge(2,1)])
+    ])
+    node_conflict, edge_conflict = get_next_conflicts(solution)
+    @test edge_conflict.t == 2
+    @test edge_conflict.node1_id == 2
+    @test edge_conflict.node2_id == 3
+    constraints = generate_constraints_from_conflict(edge_conflict)
+    @show constraint = constraints[1]
+    add_constraint!(node,constraint,mapf)
+    @test violates_constraints(node.constraints[1],3,[Edge(1,2)])
+end
+# let
+#     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
+#     mapf = MAPF(G.graph, [1,2], [5,6])
+#     node = ConstraintTreeNode(mapf)
+#     add_constraint!(node,NodeConstraint(1,2,3),mapf)
+#     # solution, cost = low_level_search(mapf,node)
+#     low_level_search!(mapf,node)
+#     get_cost(node.solution)
+#
+#     node_conflict, edge_conflict = get_next_conflicts(node.solution)
+#     generate_constraints_from_conflict(node_conflict)
+#     generate_constraints_from_conflict(edge_conflict)
+#     @test !(is_valid(node_conflict) && is_valid(edge_conflict))
+#
+#     node_conflicts, edge_conflicts = get_conflicts(node.solution)
+#     @test 1 == 1
+# end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=2,n_obstacles_y=2)
     mapf = MAPF(G, [1,3,2], [5,6,7])

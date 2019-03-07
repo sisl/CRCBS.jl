@@ -10,7 +10,7 @@ invalid_node_conflict
 EdgeConflict
 invalid_edge_conflict
 is_valid
-CBSConstraint
+NodeConstraint
 ConstraintTreeNode
 ConstraintDict
 ```
