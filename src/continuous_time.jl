@@ -100,11 +100,12 @@ function is_valid(conflict::EdgeConflict)
 end
 # --------------------------------------------------------------------------- #
 
+
 # ------------------------ Constraints -------------------------------------- #
 """
     Encodes a constraint that agent `a` may not occupy vertex `v` until time `t`
 """
-struct VertexConstraint
+struct NodeConstraint
     a::Int # agent ID
     v::Int # vertex ID
     t::Float# time ID
@@ -122,6 +123,49 @@ struct EdgeConstraint
     node2_id::Int
     t::Float # time ID
 end
+
+"""
+    constraint dictionaries for fast constraint lookup within a_star
+"""
+@with_kw struct NodeConstraintDict
+    dict::Dict{NodeConstraint,Bool} = Dict{NodeConstraint,Bool}()
+    a::Int = -1 # agent_id
+end
+@with_kw struct EdgeConstraintDict
+    dict::Dict{EdgeConstraint,Bool} = Dict{EdgeConstraint,Bool}()
+    a::Int = -1 # agent_id
+end
+# --------------------------------------------------------------------------- #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
