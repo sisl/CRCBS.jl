@@ -107,33 +107,35 @@ function is_valid(solution::LowLevelSolution,mapf::MAPF)
 end
 
 
-@enum ConflictType begin
-    NULL_CONFLICT = 0
-    NODE_CONFLICT = 1
-    EDGE_CONFLICT = 2     # waiting to be picked up (perhaps redundant?)
-end
-struct Conflict
-    conflict_type::ConflictType
-    agent1_id::Int
-    agent2_id::Int
-    node1_id::Int
-    node2_id::Int
-    t::Int
-end
-function detect_conflict(edge1::Edge,edge2::Edge)
-    if detect_node_conflict(edge1,edge2)
-        return NODE_CONFLICT # node conflict
-    elseif detect_edge_conflict(edge1,edge2)
-        return EDGE_CONFLICT
-    end
-    return NULL_CONFLICT
-end
+# @enum ConflictType begin
+#     NULL_CONFLICT = 0
+#     NODE_CONFLICT = 1
+#     EDGE_CONFLICT = 2     # waiting to be picked up (perhaps redundant?)
+# end
+# struct Conflict
+#     conflict_type::ConflictType
+#     agent1_id::Int
+#     agent2_id::Int
+#     node1_id::Int
+#     node2_id::Int
+#     t::Int
+# end
+# function detect_conflict(edge1::Edge,edge2::Edge)
+#     if detect_node_conflict(edge1,edge2)
+#         return NODE_CONFLICT # node conflict
+#     elseif detect_edge_conflict(edge1,edge2)
+#         return EDGE_CONFLICT
+#     end
+#     return NULL_CONFLICT
+# end
+
+abstract type CBSConflict end
 
 """
     Encodes a conflict wherein two agents occupy a particular node at a
     particular time
 """
-struct NodeConflict
+struct NodeConflict <: CBSConflict
     agent1_id::Int
     agent2_id::Int
     node_id::Int
@@ -168,7 +170,7 @@ is_valid(conflict::NodeConflict) = (conflict.agent1_id != -1)
     Encodes a conflict between two agents at a particular edge at a particular
     time. This means that the agents are trying to swap places at time t.
 """
-struct EdgeConflict
+struct EdgeConflict <: CBSConflict
     agent1_id::Int
     agent2_id::Int
     node1_id::Int
@@ -396,7 +398,7 @@ function get_next_conflicts(paths::LowLevelSolution,
     # begin search from time t, paths[i_], paths[j_]
     t = t_; i = i_; j_ = max(j_,i+1)
 
-    path1 = paths[i]
+    path1 = get(paths,i,GraphPath()) # in case i is beyond the length of paths
     e1 = get_edge(path1,t)
     for j in j_:length(paths)
         path2 = paths[j]
