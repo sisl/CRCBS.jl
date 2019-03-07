@@ -295,39 +295,54 @@ function get_next_conflicts(paths::LowLevelSolution,
     # begin search from time t, paths[i_], paths[j_]
     t = t_
     i = i_
+    j_ = max(j_,i+1)
     path1 = paths[i]
     if length(path1) < t
         # do nothing
+        e1 = Edge(path1[end].dst,path1[end].dst)
     else
-        for (j,path2) in enumerate(paths[max(j_,i+1):end])
-            if path1[t].src == path2[t].src
-                # Same src node
-                node_conflict = NodeConflict(i,j,path1[t].src,t)
-                return node_conflict, edge_conflict
-            elseif (path1[t].src == path2[t].dst) && (path1[t].dst == path2[t].src)
-                # Same edge, opposite direction
-                edge_conflict = EdgeConflict(i,j,path1[t].src,path2[t].src,t)
-                return node_conflict, edge_conflict
-            end
+        e1 = path1[t]
+    end
+    for (j,path2) in enumerate(paths[j_:end])
+        if length(path2) < t
+            # do nothing
+            e2 = Edge(path2[end].dst,path2[end].dst)
+        else
+            e2 = path2[t]
+        end
+        if e1.src == e2.src
+            # Same src node
+            node_conflict = NodeConflict(i,j,e1.src,t)
+            return node_conflict, edge_conflict
+        elseif (e1.src == e2.dst) && (e1.dst == e2.src)
+            # Same edge, opposite direction
+            edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
+            return node_conflict, edge_conflict
         end
     end
     # continue search from time t = t_+1
     for t in t_+1:tmax
         for (i,path1) in enumerate(paths)
             if length(path1) < t
-                continue
+                # do nothing
+                e1 = Edge(path1[end].dst,path1[end].dst)
+            else
+                e1 = path1[t]
             end
             for (j,path2) in enumerate(paths[i+1:end])
                 if length(path2) < t
-                    continue
+                    # do nothing
+                    e2 = Edge(path2[end].dst,path2[end].dst)
+                else
+                    e2 = path2[t]
                 end
-                if path1[t].src == path2[t].src
+                if e1.src == e2.src
                     # Same src node
-                    node_conflict = NodeConflict(i,j,path1[t].src,t)
+                    node_conflict = NodeConflict(i,j,e1.src,t)
                     return node_conflict, edge_conflict
-                elseif (path1[t].src == path2[t].dst) && (path1[t].dst == path2[t].src)
+                elseif (e1.src == e2.dst) && (e1.dst == e2.src)
                     # Same edge, opposite direction
-                    edge_conflict = EdgeConflict(i,j,path1[t].src,path2[t].src,t)
+                    edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
                     return node_conflict, edge_conflict
                 end
             end
