@@ -1,20 +1,23 @@
 export
-initialize_full_grid_graph_CT
+initialize_full_grid_graph_CT,
 initialize_regular_grid_graph_CT
 
 using Parameters
 using DataStructures
 using LightGraphs, MetaGraphs
 using LinearAlgebra
+using NearestNeighbors
+
+include("utils.jl")
 
 
 """
     Initializing a grid graph in CT.
-    This function considers that the nominal time to move from one edge to another is 1.
+    Considers that the nominal time to move from one edge to another is 1.
     Each node has a delay parameter n_d of 1.
     The output is a MetaGraph
 """
-function initialize_full_grid_graph()
+function initialize_full_grid_graph_CT()
     dx = 1.0
     dy = 1.0
     x_pts=collect(0.0:dx:10.0)
@@ -24,7 +27,7 @@ function initialize_full_grid_graph()
     for x in x_pts
         for y in y_pts
             push!(pts,[x;y])
-            add_vertex!(G,Dict(:x=>x,:y=>y))
+            add_vertex!(G,Dict(:x=>x,:y=>y, :n_delay=>1.0))
         end
     end
     kdtree = KDTree(hcat(pts...))
@@ -34,8 +37,10 @@ function initialize_full_grid_graph()
             if i != j && !(has_edge(G,i,j))
                 if abs(pts[i][1]-pts[j][1]) <= dx && pts[i][2] == pts[j][2]
                     add_edge!(G,i,j)
+                    set_prop!(G, Edge(i,j), :weight, 1.0)
                 elseif abs(pts[i][2]-pts[j][2]) <= dy && pts[i][1] == pts[j][1]
                     add_edge!(G,i,j)
+                    set_prop!(G, Edge(i,j), :weight, 1.0)
                 end
             end
         end
@@ -45,9 +50,12 @@ end
 
 """
     Returns a grid graph that represents a 2D environment with regularly spaced
-    rectangular obstacles
+    rectangular obstacles in CT.
+    Considers that the nominal time to move from one edge to another is 1.
+    Each node has a delay parameter n_d of 1.
+    The output is a MetaGraph
 """
-function initialize_regular_grid_graph(;
+function initialize_regular_grid_graph_CT(;
     n_obstacles_x=2,
     n_obstacles_y=2,
     obs_width = [2;2],
@@ -71,9 +79,11 @@ function initialize_regular_grid_graph(;
                 k += 1
                 add_vertex!(G,
                     Dict(:x=>env_offset[1] + env_scale*(i-1),
-                    :y=>env_offset[2] + env_scale*(j-1))
+                    :y=>env_offset[2] + env_scale*(j-1),
+                    :n_delay=>1.0)
                     )
                 add_edge!(G,nv(G),nv(G))
+                set_prop!(G, Edge(nv(G),nv(G)), :weight, 1.0)
                 K[i,j] = k
             end
         end
@@ -83,18 +93,22 @@ function initialize_regular_grid_graph(;
             if Ap[i,j] == 0
                 if j < size(Ap,2)
                     add_edge!(G,K[i,j],K[i,j+1])
+                    set_prop!(G, Edge(K[i,j],K[i,j+1]), :weight, 1.0)
                 end
                 if j > 1
                     add_edge!(G,K[i,j],K[i,j-1])
+                    set_prop!(G, Edge(K[i,j],K[i,j-1]), :weight, 1.0)
                 end
                 if i < size(Ap,1)
                     add_edge!(G,K[i,j],K[i+1,j])
+                    set_prop!(G, Edge(K[i,j],K[i+1,j]), :weight, 1.0)
                 end
                 if i > 1
                     add_edge!(G,K[i,j],K[i-1,j])
+                    set_prop!(G, Edge(K[i,j],K[i-1,j]), :weight, 1.0)
                 end
             end
         end
     end
-    G
+    return G
 end
