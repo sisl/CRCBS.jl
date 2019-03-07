@@ -20,6 +20,13 @@ export
     is_valid,
     CBSConstraint,
     ConstraintTreeNode,
+    ConstraintDict,
+    get_constraints,
+    # get_constraint_dict,
+    add_constraint!,
+    compare_constraint_nodes,
+    # combine_constraints,
+    get_cost,
     empty_constraint_node,
     get_next_conflicts,
     get_conflicts,
@@ -120,17 +127,34 @@ struct CBSConstraint
 end
 
 """
-     combines two `Dict`s of `Set`s into a single `Dict` of `Set`s where the
-     value associated with each key in the resulting dictionary is the union
-     of the values for the input dictionaries at that key
+    constraint dictionary for fast constraint lookup within a_star
 """
-function combine_constraints(dict1::Dict{K,Set{V}},dict2::Dict{K,Set{V}}) where {K,V}
-    new_dict = copy(dict1)
-    for (k,v) in dict2
-        new_dict[k] = union(v, get(dict1,k,typeof(v)()))
-    end
-    return new_dict
+@with_kw struct ConstraintDict
+    dict::Dict{CBSConstraint,Bool} = Dict{CBSConstraint,Bool}()
+    a::Int = -1 # agent_id
 end
+# Base.getindex(d::ConstraintDict,k) = Base.getindex(d.dict,k)
+# Base.setindex!(d::ConstraintDict,k,v) = Base.setindex!(d.dict,k,v)
+
+# """
+#      combines two `Dict`s of `Set`s into a single `Dict` of `Set`s where the
+#      value associated with each key in the resulting dictionary is the union
+#      of the values for the input dictionaries at that key
+# """
+# function combine_constraints(dict1::Dict{K,Set{V}},dict2::Dict{K,Set{V}}) where {K,V}
+#     new_dict = copy(dict1)
+#     for (k,v) in dict2
+#         new_dict[k] = union(v, get(dict1,k,typeof(v)()))
+#     end
+#     return new_dict
+# end
+# function combine_constraints(dict1::Dict{K,ConstraintDict},dict2::Dict{K,ConstraintDict})
+#     new_dict = copy(dict1)
+#     for (k,v) in dict2
+#         new_dict[k] = union(v, get(dict1,k,typeof(v)()))
+#     end
+#     return new_dict
+# end
 
 """
     A node of a constraint tree. Each node has a set of constraints, a candidate
@@ -138,7 +162,7 @@ end
 """
 @with_kw mutable struct ConstraintTreeNode
     # maps agent_id to the set of constraints involving that agent
-    constraints::Dict{Int,Set{CBSConstraint}} = Dict{Int,Set{CBSConstraint}}()
+    constraints::Dict{Int,ConstraintDict} = Dict{Int,ConstraintDict}()
     # set of paths (one per agent) through graph
     solution::LowLevelSolution = LowLevelSolution()
     # cost = sum([length(path) for path in solution])
@@ -153,10 +177,83 @@ end
 const NULL_NODE = -1
 
 """
+    retrieve constraints corresponding to this node and this path
+"""
+function get_constraints(node::ConstraintTreeNode, path_id::Int)
+    # dict = ConstraintDict()
+    # for constraint in constraints
+    #     if !haskey(dict,constraint.v)
+    #         dict[constraint.v] = Set{CBSConstraint}()
+    #     end
+    #     push!(dict[constraint.v],constraint)
+    # end
+    # dict
+    return get(node.constraints, path_id, ConstraintDict())
+end
+
+# """
+#     transforms constraints into `ConstraintDict` form for faster lookup
+# """
+# function get_constraint_dict(constraints::Set{CBSConstraint})
+#     dict = ConstraintDict()
+#     for constraint in constraints
+#         if !haskey(dict,constraint.v)
+#             dict[constraint.v] = Set{CBSConstraint}()
+#         end
+#         push!(dict[constraint.v],constraint)
+#     end
+#     dict
+# end
+
+"""
+    check if a set of constraints is violated by a node and path
+"""
+function violates_constraint(constraints::ConstraintDict,v,path)
+    t = length(path) + 1
+    return get(constraints.dict,CBSConstraint(constraints.a,v,t),false)
+    # for constraint in get(constraints,v,Set{CBSConstraint}())
+    #     if constraint.t == t
+    #         return true
+    #     end
+    # end
+    # return false
+end
+
+"""
+    Construct and empty `ConstraintTreeNode` from a `MAPF` instance
+"""
+function ConstraintTreeNode(mapf::MAPF)
+    ConstraintTreeNode(
+        constraints = Dict{Int,ConstraintDict}(
+            i=>ConstraintDict(a=i) for i in 1:length(mapf.starts)
+            ))
+end
+
+"""
+    adds a constraint to a ConstraintTreeNode
+"""
+function add_constraint!(node::ConstraintTreeNode,constraint::CBSConstraint)
+    # if !haskey(node.constraints[constraint.a])
+    # push!(node.constraints[constraint.a],constraint)
+    node.constraints[constraint.a].dict[constraint] = true
+    node
+end
+
+"""
+    checks to see if two `ConstraintTreeNode`s are identical (in terms of their
+    constraints)
+"""
+function compare_constraint_nodes(node1::ConstraintTreeNode,node2::ConstraintTreeNode)
+    constraints1 = union([collect(keys(v)) for (k,v) in node1.constraints])
+    constraints2 = union([collect(keys(v)) for (k,v) in node2.constraints])
+    return length(setdiff(constraints1,constraints2)) == 0
+end
+
+"""
     Helper function to get the cost of a particular solution
 """
 function get_cost(paths::LowLevelSolution)
-    return sum([length(p) for p in solution])
+    return sum([length(p) for p in paths])
 end
 """
     Helper function to get the cost of a particular node
@@ -198,36 +295,54 @@ function get_next_conflicts(paths::LowLevelSolution,
     # begin search from time t, paths[i_], paths[j_]
     t = t_
     i = i_
+    j_ = max(j_,i+1)
     path1 = paths[i]
     if length(path1) < t
         # do nothing
+        e1 = Edge(path1[end].dst,path1[end].dst)
     else
-        for (j,path2) in enumerate(paths[j_:end])
-            if path1[t].src == path2[t].src
-                # Same src node
-                node_conflict = NodeConflict(i,j,path1[t].src,t)
-                return node_conflict, edge_conflict
-            elseif (path1[t].src == path2[t].dst) && (path1[t].dst == path2[t].src)
-                # Same edge, opposite direction
-                edge_conflict = EdgeConflict(i,j,path1[t].src,path2[t].src,t)
-                return node_conflict, edge_conflict
-            end
+        e1 = path1[t]
+    end
+    for (j,path2) in enumerate(paths[j_:end])
+        if length(path2) < t
+            # do nothing
+            e2 = Edge(path2[end].dst,path2[end].dst)
+        else
+            e2 = path2[t]
+        end
+        if e1.src == e2.src
+            # Same src node
+            node_conflict = NodeConflict(i,j,e1.src,t)
+            return node_conflict, edge_conflict
+        elseif (e1.src == e2.dst) && (e1.dst == e2.src)
+            # Same edge, opposite direction
+            edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
+            return node_conflict, edge_conflict
         end
     end
     # continue search from time t = t_+1
     for t in t_+1:tmax
         for (i,path1) in enumerate(paths)
             if length(path1) < t
-                continue
+                # do nothing
+                e1 = Edge(path1[end].dst,path1[end].dst)
+            else
+                e1 = path1[t]
             end
-            for (j,path2) in enumerate(paths[i:end])
-                if path1[t].src == path2[t].src
+            for (j,path2) in enumerate(paths[i+1:end])
+                if length(path2) < t
+                    # do nothing
+                    e2 = Edge(path2[end].dst,path2[end].dst)
+                else
+                    e2 = path2[t]
+                end
+                if e1.src == e2.src
                     # Same src node
-                    node_conflict = NodeConflict(i,j,path1[t].src,t)
+                    node_conflict = NodeConflict(i,j,e1.src,t)
                     return node_conflict, edge_conflict
-                elseif (path1[t].src == path2[t].dst) && (path1[t].dst == path2[t].src)
+                elseif (e1.src == e2.dst) && (e1.dst == e2.src)
                     # Same edge, opposite direction
-                    edge_conflict = EdgeConflict(i,j,path1[t].src,path2[t].src,t)
+                    edge_conflict = EdgeConflict(i,j,e1.src,e2.src,t)
                     return node_conflict, edge_conflict
                 end
             end
@@ -235,6 +350,10 @@ function get_next_conflicts(paths::LowLevelSolution,
     end
     return node_conflict, edge_conflict
 end
+
+# """
+#     Returns the next conflict that is not already in the current ConstraintTreeNode
+# """
 
 """
     Returns a list of all conflicts that occur in a given solution
@@ -327,6 +446,21 @@ function generate_constraints_from_conflict(conflict::EdgeConflict)
 end
 
 """
+    checks if a solution is valid
+"""
+function is_valid(solution::LowLevelSolution,mapf::MAPF)
+    for (i,path) in enumerate(solution)
+        if path[1] != mapf.starts[i]
+            return false
+        end
+        if path[end] != mapf.goals[i]
+            return false
+        end
+    end
+    return true
+end
+
+"""
     Returns a low level solution for a MAPF with constraints
 """
 function low_level_search(mapf::MAPF,node::ConstraintTreeNode,path_finder=LightGraphs.a_star)
@@ -334,49 +468,32 @@ function low_level_search(mapf::MAPF,node::ConstraintTreeNode,path_finder=LightG
     solution = LowLevelSolution()
     for i in 1:length(mapf.starts)
         # TODO allow passing custom heuristic
-        path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i])
+        path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i))
         push!(solution,path)
     end
     # sum of individual costs (SIC)
     cost = get_cost(solution)
+    # node.solution = solution
+    # node.cost = get_cost(solution)
     # TODO check if solution is valid
-    return solution
+    return solution, cost
 end
 
 """
     The Conflict-Based search algorithm for multi-agent path finding
 """
 function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
-    # TODO implement!
-    root_node = ConstraintTreeNode()
+    # priority queue that stores nodes in order of their cost
+    priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
+
+    root_node = ConstraintTreeNode(mapf)
     solution, cost = low_level_search(mapf,root_node)
     root_node.solution = solution
     root_node.cost = cost
-    # solution, cost = low_level_search(mapf,empty_constraint_node())
-    # root_node = ConstraintTreeNode(solution = solution, cost = cost)
-    # # check for conflicts
-    # node_conflict, edge_conflict = get_next_conflicts(solution)
-    # if is_valid(node_conflict)
-    #     # Create constraints from node_conflict
-    #     @show node_conflict
-    #     constraints = generate_constraints_from_conflict(node_conflict)
-    # elseif is_valid(edge_conflict)
-    #     # Create constraints from edge_conflict
-    #     @show edge_conflict
-    #     constraints = generate_constraints_from_conflict(edge_conflict)
-    # else
-    #     # Done! No conflicts in solution
-    #     return solution, cost
-    # end
+    enqueue!(priority_queue, root_node => root_node.cost)
 
-    # create child nodes
-
-    # priority queue that stores nodes in order of their cost
-    priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
-    enqueue!(priority_queue, root_node => 0)
-
-    while length(p) > 0
-        node = pop!(p)
+    while length(priority_queue) > 0
+        node = dequeue!(priority_queue)
         # check for conflicts
         node_conflict, edge_conflict = get_next_conflicts(node.solution)
         if is_valid(node_conflict)
@@ -389,17 +506,28 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
             constraints = generate_constraints_from_conflict(edge_conflict)
         else
             # Done! No conflicts in solution
+            print("Solution Found!\n")
+            for path in node.solution
+                @show path
+            end
             return node.solution, node.cost
         end
 
         # generate new nodes from constraints
         for constraint in constraints
-            combined_constraints =
-            new_node = ConstraintTreeNode
-            # check that this node is not redundant with parent node (that its constraint set is unique)
-
+            new_node = ConstraintTreeNode(constraints=copy(node.constraints))
+            # @show new_node.constraints
+            add_constraint!(new_node,constraint)
+            solution, cost = low_level_search(mapf,new_node)
+            new_node.solution = solution
+            new_node.cost = cost
+            # @show new_node.constraints
+            # @show new_node.solution[1]
+            # @show new_node.solution[2]
+            # break
+            # TODO check that this node is not redundant with existing nodes
+            enqueue!(priority_queue, new_node => new_node.cost)
         end
-
     end
     return LowLevelSolution(), typemax(Int)
 end
@@ -496,5 +624,6 @@ function initialize_regular_grid_graph(;
     G
 end
 
+include("a_star.jl")
 
 end # module
