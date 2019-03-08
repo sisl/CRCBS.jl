@@ -8,6 +8,7 @@ using NearestNeighbors
 
 include("utils.jl")
 include("low_level_search/a_star.jl")
+include("low_level_search/implicit_graphs.jl")
 
 export
     MAPF,
@@ -161,6 +162,7 @@ is_valid(conflict::EdgeConflict) = (conflict.agent1_id != -1)
 
 abstract type CBSConstraint end
 get_agent_id(c::CBSConstraint) = c.a
+
 """
     Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
 """
@@ -495,14 +497,19 @@ function low_level_search!(mapf::MAPF,
     return true
 end
 
-
+""" Abstract type for algorithms that solve MAPF instances """
 abstract type AbstractMAPFSolver end
-struct CBS <: AbstractMAPFSolver end
+
 """
     The Conflict-Based Search algorithm for multi-agent path finding - Sharon et
     al 2012
 
     https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
+"""
+struct CBS <: AbstractMAPFSolver end
+
+"""
+    Run Conflict-Based Search on an instance of MAPF
 """
 function (solver::CBS)(mapf::MAPF,path_finder=LightGraphs.a_star)
     # priority queue that stores nodes in order of their cost
@@ -542,11 +549,15 @@ function (solver::CBS)(mapf::MAPF,path_finder=LightGraphs.a_star)
     return LowLevelSolution(), typemax(Int)
 end
 
-struct ICBS <: AbstractMAPFSolver end
 """
     The Improved Conflict-Based Search Algorithm - Boyarski et al 2015
 
     https://www.ijcai.org/Proceedings/15/Papers/110.pdf
+"""
+struct ICBS <: AbstractMAPFSolver end
+
+"""
+    Run Improved Conflict-Based Search on an instance of MAPF
 """
 function (solver::ICBS)(mapf::MAPF,path_finder=LightGraphs.a_star)    # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()

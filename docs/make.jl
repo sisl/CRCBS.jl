@@ -16,7 +16,7 @@ makedocs(
         "Home" => "index.md",
         "Modules" => Any[
             "modules/CRCBS.md", # Use default module name in sidebar
-            "Rubber Ducks" => "modules/rubber_ducks.md", # Rename a module in sidebar
+            "Intialization" => "modules/submodule.md",
         ],
         "Examples" => Any[
             "Plotting Example" => "examples/plotting_example.md"

@@ -1,89 +1,134 @@
+export
+    AbstractEnv,
+    PathNode,
+    Path,
+    PathCost,
+    get_possible_actions,
+    get_next_state,
+    get_transition_cost,
+    get_path_cost,
+    get_heuristic,
+    violates_constraints,
+    check_termination_criteria,
+    A_star
 
-const State = Int
-const Path = Vector{State}
-const Action = Edge
+abstract type AbstractEnv{S,A} end
+
+const PathNode{S,A} = Tuple{S,A,S}
+const Path{S,A} = Vector{PathNode{S,A}}
 const PathCost = Int
-abstract type Env{S,A} end
-action_type(env::E where {S,A,E <: Env{S,A}}) = A
-state_type(env::E where {S,A,E <: Env{S,A}}) = S
-const Env = Graph
+action_type(env::E where {S,A,E <: AbstractEnv{S,A}}) = A
+state_type(env::E where {S,A,E <: AbstractEnv{S,A}}) = S
 
-get_possible_actions(env::Env,state::State) = []
-# transition cost
-get_transition_cost(env::Env,state::State,action::Action) = 1.0
+"""
+    get_possible_actions(env::E <: AbstractEnv{S,A}, s::S)
+
+    return type must support iteration
+"""
+function get_possible_actions end
+
+"""
+    get_next_state(env::E <: AbstractEnv{S,A}, s::S, a::A)
+
+    returns a next state s
+"""
+function get_next_state end
+
+"""
+    get_transition_cost(env::E <: AbstractEnv{S,A},s::S,a::A,sp::S)
+
+    return scalar cost for transitioning from `s` to `sp` via `a`
+"""
+function get_transition_cost end
+
+"""
+    get_path_cost(env::E <: AbstractEnv{S,A},path::Path{S,A})
+
+    get the cost associated with a search path so far
+"""
+function get_path_cost end
+
+"""
+    violates_constraints(env::E <: AbstractEnv{S,A},s::S,a::A,path::Path{S,A})
+
+    returns `true` if taking action `a` from state `s` violates any constraints
+    associated with `env`
+"""
+function violates_constraints end
+
+"""
+    check_termination_criteria(env::E <: AbstractEnv{S,A}, cost, path::Path{S,A}, s::S)
+
+    returns true if any termination criterion is satisfied
+"""
+function check_termination_criteria end
+
+"""
+    The internal loop of the A* algorithm.
+"""
+function A_star_impl!(env::E where {E <: AbstractEnv{S,A}},# the graph
+    is_goal::Function, # the end vertex
+    frontier,               # an initialized heap containing the active nodes
+    explored::Dict{S,Bool},
+    heuristic::Function) where {S,A}
+
+    while !isempty(frontier)
+        (cost_so_far, path, s) = dequeue!(frontier)
+        if is_goal(s)
+            return path
+        elseif check_termination_criteria(env,cost_so_far,path,s)
+            break
+        end
+
+        for a in get_possible_actions(env,s)
+            sp = get_next_state(env,s,a)
+            # Skip node if it violates any of the constraints
+            if violates_constraints(env,path,s,a,sp)
+                continue
+            end
+            if !get(explored,sp,false)
+                new_path = cat(path, (s, a, sp), dims=1)
+                path_cost = cost_so_far + get_transition_cost(env,s,a,sp)
+                enqueue!(frontier,
+                    (path_cost, new_path, sp) => path_cost + heuristic(sp))
+            end
+        end
+        explored[s] = true
+    end
+    Path()
+end
+
 # g(n) = cost of the path from the start node to n,
-get_path_cost(env::Env,path::Path) = 0.0
-get_next_state(env::Env,state::State,action::Action) = State()
-# get_cost_to_go(state::State,goal::State) = 0.0
-get_heuristic(env::Env,state::State,goals::State) = 0.0
 # h(n) = heuristic estimate of cost from n to goal
 # f(n) = g(n) + h(n)
 
-
-function A_star_impl!(env::E where E <: Env,# the graph
-    t, # the end vertex
-    frontier,               # an initialized heap containing the active vertices
-    constraints::C where C,
-    colormap::Vector{UInt8},  # an (initialized) color-map to indicate status of vertices
-    distmx::AbstractMatrix,
-    heuristic::Function)
-
-    E = action_type(env)
-
-    @inbounds while !isempty(frontier)
-        (cost_so_far, path, u) = dequeue!(frontier)
-        if u == t
-            return path
-        end
-
-        for v in LightGraphs.outneighbors(g, u)
-            # Skip node if it violates any of the constraints
-            if violates_constraints(constraints,v,path)
-                continue
-            end
-            if get(colormap, v, 0) < 2
-                dist = distmx[u, v]
-                colormap[v] = 1
-                new_path = cat(path, E(u, v), dims=1)
-                path_cost = cost_so_far + dist
-                enqueue!(frontier,
-                    (path_cost, new_path, v),
-                    path_cost + heuristic(v)
-                )
-            end
-        end
-        colormap[u] = 2
-    end
-    Vector{E}()
-end
-
-
-
-mutable struct Node
-    state::State
-    f_score::Cost # total cost f(n) = g(n) + h(n)
-    g_score::Cost # cost so far
-end
-
-mutable struct Neighbor
-    state::State # target state (reached by applyin action from current state)
-    action::Action # action to get from current state to state
-    cost::Cost # cost of traversing taking this action
-end
-function cost_to_go(state::State)
-    return 0.0
-end
-
 """
-    We want an A_star algorithm that can operate on implicitly defined graphs
-    (we want to have an implicit cartesian product graph)
+    A generic implementation of the [A* search algorithm](http://en.wikipedia.org/wiki/A%2A_search_algorithm)
+    that operates on an Environment and initial state.
+
+    args:
+    - env::E <: AbstractEnv{S,A}
+    - start_state::S
+    - is_goal::Function
+    - heuristic::Function (optional)
+
+    The following methods must be implemented:
+    - is_goal(s::S)
+    - check_termination_criteria(cost::PathCost,path::Path{S,A},state::S)
+    - get_possible_actions(env::E,s::S)
+    - get_next_state(env::E,s::S,a::A,sp::S)
+    - get_transition_cost(env::E,s::S,a::A)
+    - violates_constraints(env::E,s::S,path::Path{S,A})
 """
-function A_star(env,start_state,solution,initial_cost=0.0)
-    open_set = PriorityQueue{State,Node}()
-    closed_set = Set{State}()
-    came_from = Dict{State,Tuple{State,Action,PathCost,PathCost}}()
+function A_star(env::E where {E <: AbstractEnv{S,A}},# the graph
+    start_state::S,
+    is_goal::Function, # the end vertex
+    heuristic::Function = s -> 0.0) where {S,A}
 
-    start_node = Node(start_state, cost_to_go(start_state), initial_cost)
-    enqueue!(open_set, start_state=>start_node)
+    initial_cost = 0
+    frontier = PriorityQueue{Tuple{PathCost, Path{S,A}, S},PathCost}()
+    enqueue!(frontier, (initial_cost, Path{S,A}(), start_state)=>initial_cost)
+    explored = Dict{S,Bool}()
 
+    A_star_impl!(env,is_goal,frontier,explored,heuristic)
 end

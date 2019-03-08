@@ -1,16 +1,31 @@
 # CRCBS
 
 ```@docs
-GraphPath
-traversal_time
-LowLevelSolution
 MAPF
+GraphPath
+LowLevelSolution
+is_valid
 NodeConflict
+detect_node_conflict
 invalid_node_conflict
 EdgeConflict
+detect_edge_conflict
 invalid_edge_conflict
-is_valid
 NodeConstraint
+EdgeConstraint
 ConstraintTreeNode
+initialize_root_node
+initialize_child_node
 ConstraintDict
+get_constraints
+add_constraint!
+violates_constraints
+get_cost
+empty_constraint_node
+get_next_conflicts
+get_conflicts
+generate_constraints_from_conflict
+low_level_search!
+AbstractMAPFSolver
+CBS
 ```
