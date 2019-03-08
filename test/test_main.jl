@@ -18,13 +18,8 @@ let
     @test detect_edge_conflict([Edge(3,2),Edge(2,1)],[Edge(4,1),Edge(1,2)],2)
 end
 let
-    constraint = NodeConstraint(1,2,3)
-    # constraints = Set{NodeConstraint}([
-    #     NodeConstraint(1,2,3),
-    #     NodeConstraint(1,3,3),
-    #     NodeConstraint(2,4,3)
-    # ])
-    # get_constraint_dict(constraints)
+    NodeConstraint(1,2,3)
+    EdgeConstraint(1,2,3,4)
 end
 let
     node = empty_constraint_node()
@@ -33,7 +28,7 @@ end
 let
     mapf = MAPF(Graph(), [1,2,3,4], [5,6,7,8])
     empty_constraint_node()
-    node = ConstraintTreeNode(mapf)
+    node = initialize_root_node(mapf)
     add_constraint!(node,NodeConstraint(1,2,3),mapf)
     merge(node.constraints,node.constraints)
     # @test compare_constraint_nodes(ConstraintTreeNode(),ConstraintTreeNode())
@@ -67,7 +62,7 @@ let
     add_edge!(G,3,8)
     add_edge!(G,8,9)
     mapf = MAPF(G,[1,5],[5,1])
-    node = ConstraintTreeNode(mapf)
+    node = initialize_root_node(mapf)
     low_level_search!(mapf,node)
     # check node conflict
     solution = LowLevelSolution([
@@ -101,7 +96,7 @@ let
     add_edge!(G,3,8)
     add_edge!(G,8,9)
     mapf = MAPF(G,[1,4],[4,1])
-    node = ConstraintTreeNode(mapf)
+    node = initialize_root_node(mapf)
     low_level_search!(mapf,node)
     # check node conflict
     solution = LowLevelSolution([
@@ -119,7 +114,7 @@ end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
     mapf = MAPF(G.graph, [1,2], [5,6])
-    node = ConstraintTreeNode(mapf)
+    node = initialize_root_node(mapf)
     low_level_search!(mapf,node)
     node_conflicts, edge_conflicts = get_conflicts(node.solution)
 end
