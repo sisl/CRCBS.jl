@@ -26,6 +26,8 @@ export
     NodeConstraint,
     EdgeConstraint,
     ConstraintTreeNode,
+    initialize_root_node,
+    initialize_child_node,
     ConstraintDict,
     get_constraints,
     add_constraint!,
@@ -51,6 +53,7 @@ struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
     starts::Vector{Int}
     goals::Vector{Int}
 end
+num_agents(mapf::MAPF) = length(mapf.starts)
 
 """ Type alias for a path through the graph """
 const GraphPath = Vector{Edge{Int}}
@@ -156,6 +159,7 @@ invalid_edge_conflict() = EdgeConflict(-1,-1,-1,-1,-1)
 is_valid(conflict::EdgeConflict) = (conflict.agent1_id != -1)
 
 abstract type CBSConstraint end
+get_agent_id(c::CBSConstraint) = c.a
 """
     Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
 """
@@ -235,6 +239,28 @@ end
 const NULL_NODE = -1
 
 """
+    Construct an empty `ConstraintTreeNode` from a `MAPF` instance
+"""
+function initialize_root_node(mapf::MAPF)
+    ConstraintTreeNode(
+        solution = LowLevelSolution([GraphPath() for a in 1:num_agents(mapf)]),
+        constraints = Dict{Int,ConstraintDict}(
+            i=>ConstraintDict(a=i) for i in 1:length(mapf.starts)
+            ))
+end
+
+"""
+    Initialize a new `ConstraintTreeNode` with the same `solution` and
+    `constraints` as the parent node
+"""
+function initialize_child_node(parent_node::ConstraintTreeNode)
+    ConstraintTreeNode(
+        solution = copy(parent_node.solution),
+        constraints = copy(parent_node.constraints)
+    )
+end
+
+"""
     retrieve constraints corresponding to this node and this path
 """
 function get_constraints(node::ConstraintTreeNode, path_id::Int)
@@ -259,15 +285,6 @@ function violates_constraints(constraints::ConstraintDict,v,path)
     return false
 end
 
-"""
-    Construct and empty `ConstraintTreeNode` from a `MAPF` instance
-"""
-function ConstraintTreeNode(mapf::MAPF)
-    ConstraintTreeNode(
-        constraints = Dict{Int,ConstraintDict}(
-            i=>ConstraintDict(a=i) for i in 1:length(mapf.starts)
-            ))
-end
 
 """
     adds a `NodeConstraint` to a ConstraintTreeNode
@@ -462,31 +479,38 @@ end
 """
     Returns a low level solution for a MAPF with constraints
 """
-function low_level_search!(mapf::MAPF,node::ConstraintTreeNode,path_finder=LightGraphs.a_star)
+function low_level_search!(mapf::MAPF,
+    node::ConstraintTreeNode,
+    idxs=collect(1:num_agents(mapf)),
+    path_finder=LightGraphs.a_star)
     # compute an initial solution
-    solution = LowLevelSolution()
-    for i in 1:length(mapf.starts)
+    # solution = LowLevelSolution()
+    for i in idxs
         # TODO allow passing custom heuristic
         path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i))
-        push!(solution,path)
+        node.solution[i] = path
+        # push!(solution,path)
     end
     # sum of individual costs (SIC)
-    cost = get_cost(solution)
-    node.solution = solution
-    node.cost = get_cost(solution)
+    # cost = get_cost(node.solution)
+    # node.solution = solution
+    node.cost = get_cost(node.solution)
     # TODO check if solution is valid
-    return solution, cost
-    return true
+    return node.solution, node.cost
+    # return true
 end
 
 """
-    The Conflict-Based search algorithm for multi-agent path finding
+    The Conflict-Based Search algorithm for multi-agent path finding - Sharon et
+    al 2012
+
+    https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
 """
 function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 
-    root_node = ConstraintTreeNode(mapf)
+    root_node = initialize_root_node(mapf)
     low_level_search!(mapf,root_node)
     if is_valid(root_node.solution,mapf)
         enqueue!(priority_queue, root_node => root_node.cost)
@@ -507,9 +531,9 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
 
         # generate new nodes from constraints
         for constraint in constraints
-            new_node = ConstraintTreeNode(constraints=copy(node.constraints))
+            new_node = initialize_child_node(node)
             if add_constraint!(new_node,constraint,mapf)
-                low_level_search!(mapf,new_node)
+                low_level_search!(mapf,new_node,[get_agent_id(constraint)])
                 if is_valid(new_node.solution, mapf)
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end
@@ -519,6 +543,13 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     print("No Solution Found. Returning default solution")
     return LowLevelSolution(), typemax(Int)
 end
+
+"""
+    The Improved Conflict-Based Search Algorithm - Boyarski et al 2015
+
+    https://www.ijcai.org/Proceedings/15/Papers/110.pdf
+"""
+
 
 include("low_level_search/heuristics.jl")
 
