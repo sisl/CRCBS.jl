@@ -7,6 +7,7 @@ using DataStructures
 using LightGraphs, MetaGraphs
 using LinearAlgebra
 using NearestNeighbors
+using CRCBS
 
 include("utils.jl")
 
@@ -18,34 +19,38 @@ include("utils.jl")
     The output is a MetaGraph
 """
 function initialize_full_grid_graph_CT()
-    dx = 1.0
-    dy = 1.0
-    x_pts=collect(0.0:dx:10.0)
-    y_pts=collect(0.0:dy:10.0)
-    G = MetaGraph() # navigation graph
-    pts = []
-    for x in x_pts
-        for y in y_pts
-            push!(pts,[x;y])
-            add_vertex!(G,Dict(:x=>x,:y=>y, :n_delay=>1.0))
-        end
+    # dx = 1.0
+    # dy = 1.0
+    # x_pts=collect(0.0:dx:10.0)
+    # y_pts=collect(0.0:dy:10.0)
+    # G = MetaGraph() # navigation graph
+    # pts = []
+    # for x in x_pts
+    #     for y in y_pts
+    #         push!(pts,[x;y])
+    #         add_vertex!(G,Dict(:x=>x,:y=>y, :n_delay=>1.0))
+    #     end
+    # end
+    # kdtree = KDTree(hcat(pts...))
+    # # create edges of 4-connected grid
+    # for i in vertices(G)
+    #     for j in inrange(kdtree,pts[i],norm([dx;dy]))
+    #         if i != j && !(has_edge(G,i,j))
+    #             if abs(pts[i][1]-pts[j][1]) <= dx && pts[i][2] == pts[j][2]
+    #                 add_edge!(G,i,j)
+    #                 set_prop!(G, Edge(i,j), :weight, 1.0)
+    #             elseif abs(pts[i][2]-pts[j][2]) <= dy && pts[i][1] == pts[j][1]
+    #                 add_edge!(G,i,j)
+    #                 set_prop!(G, Edge(i,j), :weight, 1.0)
+    #             end
+    #         end
+    #     end
+    # end
+    # return G
+    G = initialize_full_grid_graph()
+    for e in edges(G)
+        set_prop!(G,e,:weight,1.0)
     end
-    kdtree = KDTree(hcat(pts...))
-    # create edges of 4-connected grid
-    for i in vertices(G)
-        for j in inrange(kdtree,pts[i],norm([dx;dy]))
-            if i != j && !(has_edge(G,i,j))
-                if abs(pts[i][1]-pts[j][1]) <= dx && pts[i][2] == pts[j][2]
-                    add_edge!(G,i,j)
-                    set_prop!(G, Edge(i,j), :weight, 1.0)
-                elseif abs(pts[i][2]-pts[j][2]) <= dy && pts[i][1] == pts[j][1]
-                    add_edge!(G,i,j)
-                    set_prop!(G, Edge(i,j), :weight, 1.0)
-                end
-            end
-        end
-    end
-    return G
 end
 
 """

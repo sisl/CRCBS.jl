@@ -325,6 +325,7 @@ end
 function get_cost(paths::LowLevelSolution)
     return sum([length(p) for p in paths])
 end
+
 """
     Helper function to get the cost of a particular node
 """
@@ -341,7 +342,7 @@ end
 
 """
     Returns a `NodeConflict` and an `EdgeConflict` next conflicts.
-    The function returns after finding the FIRST conflice (NodeConflict or
+    The function returns after finding the FIRST conflict (NodeConflict or
         EdgeConflict), which means that at least one of the returned conflicts
         will always be invalid. The rational for returning both anyway is to
         preserve stability of the function's return type.
