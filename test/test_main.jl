@@ -121,5 +121,6 @@ end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=2,n_obstacles_y=2)
     mapf = MAPF(G, [1,3,2], [5,6,7])
-    CBS(mapf)
+    solver = CBS()
+    solver(mapf)
 end

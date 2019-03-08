@@ -38,6 +38,7 @@ export
     get_conflicts,
     generate_constraints_from_conflict,
     low_level_search!,
+    AbstractMAPFSolver,
     CBS
 
 
@@ -483,30 +484,27 @@ function low_level_search!(mapf::MAPF,
     node::ConstraintTreeNode,
     idxs=collect(1:num_agents(mapf)),
     path_finder=LightGraphs.a_star)
-    # compute an initial solution
-    # solution = LowLevelSolution()
+    # Only compute a path for the indices specified by idxs
     for i in idxs
         # TODO allow passing custom heuristic
         path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i))
         node.solution[i] = path
-        # push!(solution,path)
     end
-    # sum of individual costs (SIC)
-    # cost = get_cost(node.solution)
-    # node.solution = solution
     node.cost = get_cost(node.solution)
     # TODO check if solution is valid
-    return node.solution, node.cost
-    # return true
+    return true
 end
 
+
+abstract type AbstractMAPFSolver end
+struct CBS <: AbstractMAPFSolver end
 """
     The Conflict-Based Search algorithm for multi-agent path finding - Sharon et
     al 2012
 
     https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
 """
-function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
+function (solver::CBS)(mapf::MAPF,path_finder=LightGraphs.a_star)
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 
@@ -544,12 +542,49 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     return LowLevelSolution(), typemax(Int)
 end
 
+struct ICBS <: AbstractMAPFSolver end
 """
     The Improved Conflict-Based Search Algorithm - Boyarski et al 2015
 
     https://www.ijcai.org/Proceedings/15/Papers/110.pdf
 """
+function (solver::ICBS)(mapf::MAPF,path_finder=LightGraphs.a_star)    # priority queue that stores nodes in order of their cost
+    priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 
+    root_node = initialize_root_node(mapf)
+    low_level_search!(mapf,root_node)
+    if is_valid(root_node.solution,mapf)
+        enqueue!(priority_queue, root_node => root_node.cost)
+    end
+
+    while length(priority_queue) > 0
+        node = dequeue!(priority_queue)
+        # check for conflicts
+        node_conflicts, edge_conflicts = get_conflicts(node.solution)
+        # node_conflict, edge_conflict = get_next_conflicts(node.solution)
+        if is_valid(node_conflict)
+            constraints = generate_constraints_from_conflict(node_conflict)
+        elseif is_valid(edge_conflict)
+            constraints = generate_constraints_from_conflict(edge_conflict)
+        else
+            print("Optimal Solution Found! Cost = ",node.cost,"\n")
+            return node.solution, node.cost
+        end
+
+        # generate new nodes from constraints
+        for constraint in constraints
+            new_node = initialize_child_node(node)
+            if add_constraint!(new_node,constraint,mapf)
+                low_level_search!(mapf,new_node,[get_agent_id(constraint)])
+                if is_valid(new_node.solution, mapf)
+                    enqueue!(priority_queue, new_node => new_node.cost)
+                end
+            end
+        end
+    end
+    print("No Solution Found. Returning default solution")
+    return LowLevelSolution(), typemax(Int)
+end
 
 include("low_level_search/heuristics.jl")
 
