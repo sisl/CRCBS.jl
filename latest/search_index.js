@@ -13,7 +13,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "CRCBS.jl Documentation",
     "category": "section",
-    "text": "Welcome to the CRCBS.jl documentation."
+    "text": "Welcome to the CRCBS.jl documentation. The prurpose of this  project is to provide an example package structure which can be easily copied and modified."
 },
 
 {
@@ -21,23 +21,23 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Making A Custom Package Logo",
     "category": "section",
-    "text": "To make a custom package logo and include it in the documentation, simply add a logo.png file to /docs/assets/. For the logo to render well, it is recommended to be 500px by 500px and at least 144dpi."
+    "text": "To make a custom package logo and include it in the documentation, simply add a  logo.png file to /docs/assets/. For the logo to render well, it is recommended to be 500px by 500px and at least 144dpi."
 },
 
 {
-    "location": "modules/CRCBS/#",
-    "page": "CRCBS",
-    "title": "CRCBS",
+    "location": "modules/submodule/#",
+    "page": "Submodule",
+    "title": "Submodule",
     "category": "page",
     "text": ""
 },
 
 {
-    "location": "modules/CRCBS/#CRCBS-1",
-    "page": "CRCBS",
-    "title": "CRCBS",
+    "location": "modules/submodule/#Submodule-1",
+    "page": "Submodule",
+    "title": "Submodule",
     "category": "section",
-    "text": "GraphPath\ntraversal_time\nLowLevelSolution\nMAPF\nNodeConflict\ninvalid_node_conflict\nEdgeConflict\ninvalid_edge_conflict\nis_valid\nNodeConstraint\nConstraintTreeNode\nConstraintDict"
+    "text": "Write Markdown with inline comments to create documentation pages.your_function"
 },
 
 {
