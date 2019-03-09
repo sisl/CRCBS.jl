@@ -1,14 +1,19 @@
 let
     # const State = Int
-    struct State
-        v::Int # node index
-        t::Int # time step
+    @with_kw struct State
+        v::Int = -1 # node index
+        t::Int = -1# time step
     end
-    struct Action
-        e::Edge
-        Δt::Int # traversal_time
+    @with_kw struct Action
+        e::Edge = Edge(-1,-1)
+        Δt::Int = -1 # traversal_time
     end
-    struct GraphEnv{G} <: AbstractEnv{State,Action}
+    CRCBS.invalid_state(State) = State()
+    CRCBS.invalid_action(Action) = State()
+    invalid_state(State)
+    invalid_action(Action)
+
+    struct GraphEnv{G} <: AbstractLowLevelEnv{State,Action}
         g::G
         constraints::Set{Int}
     end

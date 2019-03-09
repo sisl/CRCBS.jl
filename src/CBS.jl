@@ -1,14 +1,3 @@
-module CRCBS
-
-using Parameters
-using DataStructures
-using LightGraphs, MetaGraphs
-using LinearAlgebra
-using NearestNeighbors
-
-include("utils.jl")
-include("low_level_search/a_star.jl")
-include("low_level_search/implicit_graphs.jl")
 
 export
     MAPF,
@@ -42,56 +31,54 @@ export
     AbstractMAPFSolver,
     CBS
 
-
-struct CBSLowLevelEnv{G <: AbstractGraph,C} <: AbstractLowLevelEnv{Int,Edge{Int}}
-    graph::G
-    constraints::C
-end
-struct ActionIter
-    env::CBSLowLevelEnv
-    s::Int # source state
-    edge_list::Vector{Int} # length of target edge list
-end
-struct ActionIterState
-    idx::Int # idx of target node
-end
-function Base.iterate(it::ActionIter)
-    iter_state = ActionIterState(0)
-    return iterate(it,iter_state)
-end
-function Base.iterate(it::ActionIter, iter_state::ActionIterState)
-    iter_state = ActionIterState(iter_state.idx+1)
-    if iter_state.idx > length(it.edge_list)
-        return nothing
-    end
-    Edge(it.s,it.edge_list[iter_state.idx]), iter_state
-end
-CRCBS.get_possible_actions(env::CBSLowLevelEnv,s::Int) = ActionIter(env,s,outneighbors(env.graph,s)) #outneighbors(env.graph,s)
-CRCBS.get_next_state(env::CBSLowLevelEnv,s::Int,a::Edge{Int}) = a.dst
-CRCBS.get_transition_cost(env::CBSLowLevelEnv,s::Int,a::Edge{Int},sp::Int) = 1
-function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{Int,Edge{Int}}, s::Int, a::Edge{Int}, sp::Int)
-    t = length(path) + 1
-    if get(env.constraints.node_constraints,NodeConstraint(env.constraints.a,sp,t),false)
-        return true
-    else
-        v1 = s
-        v2 = sp
-        if get(env.constraints.edge_constraints,EdgeConstraint(env.constraints.a,v1,v2,t),false)
-            return true
-        end
-    end
-    return false
-end
-CRCBS.check_termination_criteria(env::CBSLowLevelEnv,cost,path,s) = false
-CRCBS.invalid_state(a) = -1
-CRCBS.invalid_action(a) = Edge(-1,-1)
-
-""" Type alias for a path through the graph """
-const GraphPath = Path{Int,Edge{Int}}
-get_start_node(path::GraphPath) = get_initial_state(path)
-get_final_node(path::GraphPath) = get_terminal_state(path)
-traversal_time(path::GraphPath) = length(path)
-
+# @with_kw struct State
+#     v::Int = -1 # node index
+#     t::Int = -1# time step
+# end
+# @with_kw struct Action
+#     e::Edge = Edge(-1,-1)
+#     Δt::Int = -1 # traversal_time
+# end
+# CRCBS.invalid_state(State) = State()
+# CRCBS.invalid_action(Action) = State()
+#
+# struct GraphEnv{G} <: AbstractLowLevelEnv{State,Action}
+#     g::G
+#     constraints::Set{Int}
+# end
+#
+# struct ActionIter
+#     env::GraphEnv
+#     s::Int # source state
+#     edge_list::Vector{Int} # length of target edge list
+# end
+# struct ActionIterState
+#     idx::Int # idx of target node
+# end
+# function Base.iterate(it::ActionIter)
+#     iter_state = ActionIterState(0)
+#     return iterate(it,iter_state)
+# end
+# function Base.iterate(it::ActionIter, iter_state::ActionIterState)
+#     iter_state = ActionIterState(iter_state.idx+1)
+#     if iter_state.idx > length(it.edge_list)
+#         return nothing
+#     end
+#     Action(Edge(it.s,it.edge_list[iter_state.idx]),1.0), iter_state
+# end
+# CRCBS.get_possible_actions(env::GraphEnv,s::State) = ActionIter(env,s.v,outneighbors(env.g,s.v))
+# CRCBS.get_next_state(env::GraphEnv,s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
+# CRCBS.get_transition_cost(env::GraphEnv,s::State,a::Action,sp::State) = 1.0
+# CRCBS.get_path_cost(env::GraphEnv,path::Path{State,Action}) = get_terminal_state(path).t
+# function CRCBS.violates_constraints(env::GraphEnv,path::Path{State,Action},s::State,a::Action,sp::State)
+#     s.v in env.constraints ? true : false
+# end
+# function CRCBS.check_termination_criteria(env::GraphEnv, cost, path::Path{State,Action},s::State)
+#     if cost >= 20
+#         return true
+#     end
+#     return false
+# end
 
 """
     A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
@@ -99,36 +86,50 @@ traversal_time(path::GraphPath) = length(path)
     vertices on that graph. Note that this is the _labeled_ case, where each
     agent has a specific assigned destination.
 """
-struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
+struct MAPF{G} # Multi Agent Path Finding Problem
     graph::G
-    # dist_matrix::Matrix{Float64}
     starts::Vector{Int}
     goals::Vector{Int}
 end
 num_agents(mapf::MAPF) = length(mapf.starts)
 
+struct CBSLowLevelEnv{G} <: AbstractLowLevelEnv{Int,Edge{Int}}
+    graph::G
+    constraints::ConstraintDict
+end
+get_possible_actions(env::CBSLowLevelEnv,s::Int) = outneighbors(mapf.graph,s)
+get_next_state(env::CBSLowLevelEnv,s::Int,a::Edge{Int}) = a.dst
+get_transition_cost(env::CBSLowLevelEnv,s::Int,a::Int,sp::Int) = 1
+function violates_constraints(env::CBSLowLevelEnv, path::Path{Int,Edge{Int}}, s::Int, a::Edge{Int}, sp::Int)
+    t = length(path) + 1
+    if get(env.constraints.node_constraints,NodeConstraint(env.constraints.a,v,t),false)
+        return true
+    else
+        v1 = get_final_node(path)
+        v2 = sp
+        if get(env.constraints.edge_constraints,EdgeConstraint(env.constraints.a,v1,v2,t),false)
+            return true
+        end
+    end
+    return false
+end
+check_termination_criteria(env::CBSLowLevelEnv,cost,path,s) = false
+
 # """ Type alias for a path through the graph """
-# const GraphPath = Vector{Edge{Int}}
-# get_start_node(path::GraphPath) = get(path,1,Edge(-1,-1)).src
-# get_final_node(path::GraphPath) = get(path,length(path),Edge(-1,-1)).dst
-# traversal_time(path::GraphPath) = length(path)
+const GraphPath = Path{State,Action}
+get_start_node(path::GraphPath) = get_initial_state(path).s
+get_final_node(path::GraphPath) = get_terminal_state(path).sp
+traversal_time(path::GraphPath) = length(path)
 
 """
     Returns the edge at time t or a "self-loop" edge on the final node of the
     path
 """
-function get_edge(path::GraphPath, t::Int)
-    if length(path) < t
-        return Edge(get_final_node(path),get_final_node(path))
-    elseif length(path) > 0
-        return path[t].a
-    else
-        return Edge(-1,-1)
-    end
-end
+get_edge(path::GraphPath, t::Int) = get(path,t,Edge(get_final_node(path),get_final_node(path)))
 
 """ Type alias for a list of agent paths """
 const LowLevelSolution = Vector{GraphPath}
+# const LowLevelSolution = Vector{Path}
 
 """
     checks if a solution is valid
@@ -217,188 +218,6 @@ invalid_edge_conflict() = EdgeConflict(-1,-1,-1,-1,-1)
 
 """ checks if an edge node is invalid """
 is_valid(conflict::EdgeConflict) = (conflict.agent1_id != -1)
-
-abstract type CBSConstraint end
-get_agent_id(c::CBSConstraint) = c.a
-
-"""
-    Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
-"""
-struct NodeConstraint <: CBSConstraint
-    a::Int # agent ID
-    v::Int # vertex ID
-    t::Int # time ID
-end
-
-"""
-    Encodes a constraint that agent `a` may not traverse `Edge(v1,v2)` at time
-    step `t`
-"""
-struct EdgeConstraint <: CBSConstraint
-    a::Int # agent ID
-    v1::Int # ID of first vertex in edge
-    v2::Int # ID of second vertex in edge
-    t::Int # time ID
-end
-
-"""
-    Helper function for reversing an `EdgeConstraint`
-"""
-flip(c::EdgeConstraint) = EdgeConstraint(c.a,c.v2,c.v1,c.t)
-
-"""
-    constraint dictionary for fast constraint lookup within a_star
-"""
-@with_kw struct ConstraintDict
-    node_constraints::Dict{NodeConstraint,Bool} = Dict{NodeConstraint,Bool}()
-    edge_constraints::Dict{EdgeConstraint,Bool} = Dict{EdgeConstraint,Bool}()
-    a::Int = -1 # agent_id
-end
-
-""" Helper function to merge two instances of `ConstraintDict` """
-function Base.merge(d1::ConstraintDict,d2::ConstraintDict)
-    @assert(d1.a==d2.a)
-    ConstraintDict(
-        merge(d1.node_constraints,d2.node_constraints),
-        merge(d1.edge_constraints,d2.edge_constraints),
-        d1.a
-    )
-end
-
-"""
-     Combines two `Dict`s of `ConstraintDict`s into a single `Dict` of
-     `ConstraintDict`s where the value associated with each key in the
-     resulting dictionary is the union of the values for the input dictionaries
-     at that key
-"""
-function Base.merge(dict1::Dict{K,ConstraintDict},dict2::Dict{K,ConstraintDict}) where K
-    new_dict = typeof(dict1)()
-    for k in union(collect(keys(dict1)),collect(keys(dict2)))
-        new_dict[k] = merge(get(dict1,k,ConstraintDict()), get(dict1,k,ConstraintDict()))
-    end
-    return new_dict
-end
-
-"""
-    A node of a constraint tree. Each node has a set of constraints, a candidate
-    solution (set of robot paths), and a cost
-"""
-@with_kw mutable struct ConstraintTreeNode
-    # maps agent_id to the set of constraints involving that agent
-    constraints::Dict{Int,ConstraintDict} = Dict{Int,ConstraintDict}()
-    # set of paths (one per agent) through graph
-    solution::LowLevelSolution = LowLevelSolution()
-    # cost = sum([length(path) for path in solution])
-    cost::Int = -1
-    # index of parent node
-    parent::Int = -1
-    # indices of two child nodes
-    children::Tuple{Int,Int} = (-1,-1)
-    # unique id
-    id::Int = -1
-end
-const NULL_NODE = -1
-
-"""
-    Construct an empty `ConstraintTreeNode` from a `MAPF` instance
-"""
-function initialize_root_node(mapf::MAPF)
-    ConstraintTreeNode(
-        solution = LowLevelSolution([GraphPath() for a in 1:num_agents(mapf)]),
-        constraints = Dict{Int,ConstraintDict}(
-            i=>ConstraintDict(a=i) for i in 1:length(mapf.starts)
-            ))
-end
-
-"""
-    Initialize a new `ConstraintTreeNode` with the same `solution` and
-    `constraints` as the parent node
-"""
-function initialize_child_node(parent_node::ConstraintTreeNode)
-    ConstraintTreeNode(
-        solution = copy(parent_node.solution),
-        constraints = copy(parent_node.constraints)
-    )
-end
-
-"""
-    retrieve constraints corresponding to this node and this path
-"""
-function get_constraints(node::ConstraintTreeNode, path_id::Int)
-    return get(node.constraints, path_id, ConstraintDict())
-end
-
-"""
-    Check if a set of constraints would be violated by adding an Edge from
-    the final vertex of `path` to `v`
-"""
-function violates_constraints(constraints::ConstraintDict,v,path)
-    t = length(path) + 1
-    if get(constraints.node_constraints,NodeConstraint(constraints.a,v,t),false)
-        return true
-    else
-        v1 = get_final_node(path)
-        v2 = v
-        if get(constraints.edge_constraints,EdgeConstraint(constraints.a,v1,v2,t),false)
-            return true
-        end
-    end
-    return false
-end
-
-
-"""
-    adds a `NodeConstraint` to a ConstraintTreeNode
-"""
-function add_constraint!(node::ConstraintTreeNode,constraint::NodeConstraint,mapf::MAPF)
-    if (constraint.v != mapf.goals[constraint.a])
-        node.constraints[constraint.a].node_constraints[constraint] = true
-        return true
-    end
-    return false
-end
-
-"""
-    adds an `EdgeConstraint` to a ConstraintTreeNode
-"""
-function add_constraint!(node::ConstraintTreeNode,constraint::EdgeConstraint,mapf::MAPF)
-    if (constraint.v1 != mapf.goals[constraint.a]) && (constraint.v1 != mapf.goals[constraint.a])
-        node.constraints[constraint.a].edge_constraints[constraint] = true
-        node.constraints[constraint.a].edge_constraints[flip(constraint)] = true
-        return true
-    end
-    return false
-end
-
-# """
-#     checks to see if two `ConstraintTreeNode`s are identical (in terms of their
-#     constraints)
-# """
-# function compare_constraint_nodes(node1::ConstraintTreeNode,node2::ConstraintTreeNode)
-#     constraints1 = union([collect(keys(v)) for (k,v) in node1.constraints])
-#     constraints2 = union([collect(keys(v)) for (k,v) in node2.constraints])
-#     return length(setdiff(constraints1,constraints2)) == 0
-# end
-
-"""
-    Helper function to get the cost of a particular solution
-"""
-function get_cost(paths::LowLevelSolution)
-    return sum([length(p) for p in paths])
-end
-"""
-    Helper function to get the cost of a particular node
-"""
-function get_cost(node::ConstraintTreeNode)
-    return get_cost(node.solution)
-end
-
-"""
-    Returns an empty `ConstraintTreeNode`
-"""
-function empty_constraint_node()
-    ConstraintTreeNode()
-end
 
 """
     Returns a `NodeConflict` and an `EdgeConflict` next conflicts.
@@ -495,6 +314,188 @@ function get_conflicts(paths::LowLevelSolution)
     return node_conflicts, edge_conflicts
 end
 
+abstract type CBSConstraint end
+get_agent_id(c::CBSConstraint) = c.a
+
+"""
+    Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
+"""
+struct NodeConstraint <: CBSConstraint
+    a::Int # agent ID
+    v::Int # vertex ID
+    t::Int # time ID
+end
+
+"""
+    Encodes a constraint that agent `a` may not traverse `Edge(v1,v2)` at time
+    step `t`
+"""
+struct EdgeConstraint <: CBSConstraint
+    a::Int # agent ID
+    v1::Int # ID of first vertex in edge
+    v2::Int # ID of second vertex in edge
+    t::Int # time ID
+end
+
+"""
+    Helper function for reversing an `EdgeConstraint`
+"""
+flip(c::EdgeConstraint) = EdgeConstraint(c.a,c.v2,c.v1,c.t)
+
+"""
+    constraint dictionary for fast constraint lookup within a_star
+"""
+@with_kw struct ConstraintDict
+    node_constraints::Dict{NodeConstraint,Bool} = Dict{NodeConstraint,Bool}()
+    edge_constraints::Dict{EdgeConstraint,Bool} = Dict{EdgeConstraint,Bool}()
+    a::Int = -1 # agent_id
+end
+
+""" Helper function to merge two instances of `ConstraintDict` """
+function Base.merge(d1::ConstraintDict,d2::ConstraintDict)
+    @assert(d1.a==d2.a)
+    ConstraintDict(
+        merge(d1.node_constraints,d2.node_constraints),
+        merge(d1.edge_constraints,d2.edge_constraints),
+        d1.a
+    )
+end
+
+"""
+     Combines two `Dict`s of `ConstraintDict`s into a single `Dict` of
+     `ConstraintDict`s where the value associated with each key in the
+     resulting dictionary is the union of the values for the input dictionaries
+     at that key
+"""
+function Base.merge(dict1::Dict{K,ConstraintDict},dict2::Dict{K,ConstraintDict}) where K
+    new_dict = typeof(dict1)()
+    for k in union(collect(keys(dict1)),collect(keys(dict2)))
+        new_dict[k] = merge(get(dict1,k,ConstraintDict()), get(dict1,k,ConstraintDict()))
+    end
+    return new_dict
+end
+
+"""
+    A node of a constraint tree. Each node has a set of constraints, a candidate
+    solution (set of robot paths), and a cost
+"""
+@with_kw mutable struct ConstraintTreeNode
+    # maps agent_id to the set of constraints involving that agent
+    constraints::Vector{ConstraintDict} = Vector{ConstraintDict}()
+    # set of paths (one per agent) through graph
+    solution::LowLevelSolution = LowLevelSolution()
+    # cost = sum([length(path) for path in solution])
+    cost::Int = -1
+    # index of parent node
+    parent::Int = -1
+    # indices of two child nodes
+    children::Tuple{Int,Int} = (-1,-1)
+    # unique id
+    id::Int = -1
+end
+const NULL_NODE = -1
+
+"""
+    Construct an empty `ConstraintTreeNode` from a `MAPF` instance
+"""
+function initialize_root_node(mapf::MAPF)
+    ConstraintTreeNode(
+        solution = LowLevelSolution([GraphPath() for a in 1:num_agents(mapf)]),
+        constraints = Vector{ConstraintDict}([
+            ConstraintDict(a=i) for i in 1:length(mapf.starts)
+            ]))
+end
+
+"""
+    Initialize a new `ConstraintTreeNode` with the same `solution` and
+    `constraints` as the parent node
+"""
+function initialize_child_node(parent_node::ConstraintTreeNode)
+    ConstraintTreeNode(
+        solution = copy(parent_node.solution),
+        constraints = copy(parent_node.constraints)
+    )
+end
+
+"""
+    retrieve constraints corresponding to this node and this path
+"""
+function get_constraints(node::ConstraintTreeNode, path_id::Int)
+    return get(node.constraints, path_id, ConstraintDict())
+end
+
+"""
+    Check if a set of constraints would be violated by adding an Edge from
+    the final vertex of `path` to `v`
+"""
+function violates_constraints(constraints::ConstraintDict,v,path)
+    t = length(path) + 1
+    if get(constraints.node_constraints,NodeConstraint(constraints.a,v,t),false)
+        return true
+    else
+        v1 = get_final_node(path)
+        v2 = v
+        if get(constraints.edge_constraints,EdgeConstraint(constraints.a,v1,v2,t),false)
+            return true
+        end
+    end
+    return false
+end
+
+
+"""
+    adds a `NodeConstraint` to a ConstraintTreeNode
+"""
+function add_constraint!(node::ConstraintTreeNode,constraint::NodeConstraint,mapf::MAPF)
+    if (constraint.v != mapf.goals[constraint.a])
+        node.constraints[constraint.a].node_constraints[constraint] = true
+        return true
+    end
+    return false
+end
+
+"""
+    adds an `EdgeConstraint` to a ConstraintTreeNode
+"""
+function add_constraint!(node::ConstraintTreeNode,constraint::EdgeConstraint,mapf::MAPF)
+    if (constraint.v1 != mapf.goals[constraint.a]) && (constraint.v1 != mapf.goals[constraint.a])
+        node.constraints[constraint.a].edge_constraints[constraint] = true
+        node.constraints[constraint.a].edge_constraints[flip(constraint)] = true
+        return true
+    end
+    return false
+end
+
+# """
+#     checks to see if two `ConstraintTreeNode`s are identical (in terms of their
+#     constraints)
+# """
+# function compare_constraint_nodes(node1::ConstraintTreeNode,node2::ConstraintTreeNode)
+#     constraints1 = union([collect(keys(v)) for (k,v) in node1.constraints])
+#     constraints2 = union([collect(keys(v)) for (k,v) in node2.constraints])
+#     return length(setdiff(constraints1,constraints2)) == 0
+# end
+
+"""
+    Helper function to get the cost of a particular solution
+"""
+function get_cost(paths::LowLevelSolution)
+    return sum([length(p) for p in paths])
+end
+"""
+    Helper function to get the cost of a particular node
+"""
+function get_cost(node::ConstraintTreeNode)
+    return get_cost(node.solution)
+end
+
+"""
+    Returns an empty `ConstraintTreeNode`
+"""
+function empty_constraint_node()
+    ConstraintTreeNode()
+end
+
 """
     generates a set of constraints from a NodeConflict
 """
@@ -547,12 +548,7 @@ function low_level_search!(mapf::MAPF,
     # Only compute a path for the indices specified by idxs
     for i in idxs
         # TODO allow passing custom heuristic
-        # path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i))
-        path = A_star(
-            CBSLowLevelEnv(mapf.graph,get_constraints(node,i)),
-            mapf.starts[i],
-            s -> (s == mapf.goals[i])
-            )
+        path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i))
         node.solution[i] = path
     end
     node.cost = get_cost(node.solution)
@@ -589,9 +585,9 @@ function (solver::CBS)(mapf::MAPF,path_finder=LightGraphs.a_star)
         # check for conflicts
         node_conflict, edge_conflict = get_next_conflicts(node.solution)
         if is_valid(node_conflict)
-            @show constraints = generate_constraints_from_conflict(node_conflict)
+            constraints = generate_constraints_from_conflict(node_conflict)
         elseif is_valid(edge_conflict)
-            @show constraints = generate_constraints_from_conflict(edge_conflict)
+            constraints = generate_constraints_from_conflict(edge_conflict)
         else
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
             return node.solution, node.cost
@@ -659,7 +655,3 @@ function (solver::ICBS)(mapf::MAPF,path_finder=LightGraphs.a_star)    # priority
     print("No Solution Found. Returning default solution")
     return LowLevelSolution(), typemax(Int)
 end
-
-include("low_level_search/heuristics.jl")
-
-end # module

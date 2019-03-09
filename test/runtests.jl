@@ -1,6 +1,7 @@
 using Test
 using Logging
 using LightGraphs, MetaGraphs
+using Parameters
 # Package Under Test
 using CRCBS
 
@@ -43,9 +44,9 @@ end
     @time @testset "CRCBS.HeuristicTests" begin
         include(joinpath(testdir, "test_heuristics.jl"))
     end
-    @time @testset "CRCBS.ImplicitGraphsTests" begin
-        include(joinpath(testdir, "implicit_graph_tests.jl"))
-    end
+    # @time @testset "CRCBS.ImplicitGraphsTests" begin
+    #     include(joinpath(testdir, "implicit_graph_tests.jl"))
+    # end
     # @time @testset "CRCBS.DemoTests" begin
     #     include(joinpath(testdir, "test_demo.jl"))
     # end
