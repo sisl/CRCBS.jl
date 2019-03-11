@@ -72,6 +72,7 @@ let
     low_level_search!(mapf,node)
     conflict_table = detect_conflicts(node.solution)
     detect_conflicts!(conflict_table,node.solution,[1])
+    get_next_conflicts(conflict_table)
 end
 let
     #               6
