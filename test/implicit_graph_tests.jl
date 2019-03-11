@@ -40,7 +40,7 @@ let
     CRCBS.get_possible_actions(env::GraphEnv,s::State) = ActionIter(env,s.v,outneighbors(env.g,s.v))
     CRCBS.get_next_state(env::GraphEnv,s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
     CRCBS.get_transition_cost(env::GraphEnv,s::State,a::Action,sp::State) = 1.0
-    CRCBS.get_path_cost(env::GraphEnv,path::Path{State,Action}) = get_terminal_state(path).t
+    CRCBS.get_path_cost(env::GraphEnv,path::Path{State,Action}) = get_final_state(path).t
     CRCBS.violates_constraints(env::GraphEnv,path::Path{State,Action},s::State,a::Action,sp::State) = s.v in env.constraints ? true : false
     function CRCBS.check_termination_criteria(env::GraphEnv, cost, path::Path{State,Action},s::State)
         if cost >= 20

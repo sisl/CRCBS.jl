@@ -2,15 +2,15 @@
 
 ```@docs
 MAPF
-GraphPath
+CBSPath
 LowLevelSolution
 is_valid
-NodeConflict
-detect_node_conflict
-invalid_node_conflict
-EdgeConflict
-detect_edge_conflict
-invalid_edge_conflict
+StateConflict
+detect_state_conflict
+invalid_state_conflict
+ActionConflict
+detect_action_conflict
+invalid_action_conflict
 NodeConstraint
 EdgeConstraint
 ConstraintTreeNode

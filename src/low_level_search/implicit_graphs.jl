@@ -4,7 +4,7 @@ export
     Path,
     PathCost,
     get_initial_state,
-    get_terminal_state,
+    get_final_state,
     action_type,
     state_type,
     invalid_state,
@@ -29,7 +29,7 @@ end
 const Path{S,A} = Vector{PathNode{S,A}}
 const PathCost = Int
 get_initial_state(path::Path{S,A}) where {S,A} = get(path,1,PathNode{S,A}()).s
-get_terminal_state(path::Path{S,A}) where {S,A} = get(path,length(path),PathNode{S,A}()).sp
+get_final_state(path::Path{S,A}) where {S,A} = get(path,length(path),PathNode{S,A}()).sp
 # const PathCost = Int
 action_type(env::E where {S,A,E <: AbstractLowLevelEnv{S,A}}) = A
 state_type(env::E where {S,A,E <: AbstractLowLevelEnv{S,A}}) = S
