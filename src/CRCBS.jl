@@ -103,11 +103,11 @@ CRCBS.get_transition_cost(env::CBSLowLevelEnv,s::CBS_State,a::CBS_Action,sp::CBS
 # check for constraint violation
 function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{CBS_State,CBS_Action}, s::CBS_State, a::CBS_Action, sp::CBS_State)
     t = length(path) + 1
-    if get(env.constraints.node_constraints,NodeConstraint(get_agent_id(env.constraints),sp.vtx,t),false)
+    if get(env.constraints.node_constraints,NodeConstraint(get_agent_id(env.constraints),sp,t),false)
         return true
     else
-        v1 = s.vtx
-        v2 = sp.vtx
+        v1 = s
+        v2 = sp
         if get(env.constraints.edge_constraints,EdgeConstraint(get_agent_id(env.constraints),v1,v2,t),false)
             return true
         end
@@ -375,7 +375,7 @@ end
 function detect_conflicts!(conflict_table::ConflictTable, paths::LowLevelSolution, idxs=collect(1:length(paths)))
     for (i,path1) in enumerate(paths)
         for (j,path2) in enumerate(paths)
-            if (j ∈ idxs) && (j <= i) # save time by working only on the upper triangle
+            if !((j ∈ idxs) && (j > i)) # save time by working only on the upper triangle
                 continue
             end
             state_conflicts, action_conflicts = detect_conflicts(path1,path2,i,j)
@@ -421,11 +421,14 @@ function get_next_conflicts(conflict_table::ConflictTable)
 
     state_conflict = get(state_conflicts, 1, invalid_state_conflict())
     action_conflict = get(action_conflicts, 1, invalid_action_conflict())
-    if time_of(state_conflict) <= time_of(action_conflict)
-        return state_conflict, invalid_action_conflict()
-    else
-        return invalid_state_conflict(), action_conflict
+    if is_valid(state_conflict) && is_valid(action_conflict)
+        if time_of(state_conflict) <= time_of(action_conflict)
+            return state_conflict, invalid_action_conflict()
+        else
+            return invalid_state_conflict(), action_conflict
+        end
     end
+    return state_conflict, action_conflict
 end
 
 """
@@ -824,10 +827,13 @@ function (solver::CBS)(mapf::MAPF,path_finder=A_star)
     low_level_search!(mapf,root_node)
     detect_conflicts!(root_node.conflict_table,root_node.solution)
     if is_valid(root_node.solution,mapf)
+        @show root_node
         enqueue!(priority_queue, root_node => root_node.cost)
     end
 
+    k = 0
     while length(priority_queue) > 0
+        k += 1
         node = dequeue!(priority_queue)
         # check for conflicts
         state_conflict, action_conflict = get_next_conflicts(node.conflict_table)
@@ -850,6 +856,9 @@ function (solver::CBS)(mapf::MAPF,path_finder=A_star)
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end
             end
+        end
+        if k > 5
+            break
         end
     end
     print("No Solution Found. Returning default solution")

@@ -124,6 +124,7 @@ function A_star_impl!(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
             sp = get_next_state(env,s,a)
             # Skip node if it violates any of the constraints
             if violates_constraints(env,path,s,a,sp)
+                # @show s,a,sp
                 continue
             end
             if !get(explored,sp,false)

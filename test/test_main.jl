@@ -111,7 +111,8 @@ let
             PathNode{CBS_State,Edge{Int}}(CBS_State(2),Edge(2,1),CBS_State(1))
             ])
     ])
-    state_conflict, action_conflict = get_next_conflicts(solution)
+    detect_conflicts!(node.conflict_table, solution)
+    state_conflict, action_conflict = get_next_conflicts(node.conflict_table)
     @test state_conflict.t == 2
     @test state_conflict.node1_id == CBS_State(3)
     constraints = generate_constraints_from_conflict(state_conflict)
