@@ -70,7 +70,6 @@ CRCBS.invalid_action(t) = CBS_Action()
 """
 wait(s::CBS_State) = CBS_Action(s.vtx,s.vtx)
 
-
 struct CBSLowLevelEnv{G <: AbstractGraph,C} <: AbstractLowLevelEnv{CBS_State,CBS_Action}
     graph::G
     constraints::C
