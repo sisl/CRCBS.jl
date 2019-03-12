@@ -221,21 +221,7 @@ function get_constraints(node::ConstraintTreeNode, path_id::Int)
     return get(node.constraints, path_id, ConstraintDict())
 end
 
-""" Check if a set of constraints would be violated by adding an Edge from
-    the final vertex of `path` to `v`"""
-function violates_constraints(constraints::ConstraintDict,v,path)
-    t = length(path) + 1
-    if get(constraints.node_constraints,NodeConstraint(constraints.a,v,t),false)
-        return true
-    else
-        v1 = get_final_node(path)
-        v2 = v
-        if get(constraints.edge_constraints,EdgeConstraint(constraints.a,v1,v2,t),false)
-            return true
-        end
-    end
-    return false
-end
+
 
 """adds a `NodeConstraint` to a ConstraintTreeNode"""
 function add_constraint!(node::ConstraintTreeNode,constraint::NodeConstraint,mapf::MAPF)
@@ -259,6 +245,22 @@ end
 """ ------------------------------------------------------------------------
     ------------------------------------------------------------------------ """
 
+""" Check if a set of constraints would be violated by adding an Edge from
+    the final vertex of `path` to `v`"""
+function violates_constraints(constraints::ConstraintDict,v,path,mapf::MAPF)
+    t = traversal_time(path,mapf)
+
+    if get(constraints.node_constraints,NodeConstraint(constraints.a,v,t),false)
+        return true
+    else
+        v1 = get_final_node(path)
+        v2 = v
+        if get(constraints.edge_constraints,EdgeConstraint(constraints.a,v1,v2,t),false)
+            return true
+        end
+    end
+    return false
+end
 # --------------------------------------------------------------------------- #
 
 """Helper function to get the cost of a particular solution"""
@@ -280,23 +282,33 @@ end
 # --------------- Finding and sorting likely collisions --------------------- #
 
 function get_collision_probability(n1,t1,n2,t2,nn,t_delay,lambda)
-    """Returns the probability of two robots colliding with the associated
-    error estimate"""
-
-    function d(z)
-        return lambda^nn * z^(nn-1) * exp(-lambda*z) / factorial(nn-1)
-    end
 
     function f(x)
-        y = x(1)
-        t = x(2)
-        density = hcubature(d,[t2-t1+y],[Inf])(1) * lambda^(n1+n2) *  t^(n1-1) * (t+y)^(n2-1) * exp(-lambda*(y+2*t)) / (factorial(n1-1)*factorial(n2-1))
+        y = x[1]
+        t = x[2]
+        #density = hcubature(d1,[t2-t1+y],[1000],rtol = 0.5)[1] * lambda^(n1+n2) *  (t)^(n1-1) * (y+t)^(n2-1) * exp(-lambda*(y+2*t)) / (factorial(n1-1)*factorial(n2-1))
+        #density = hcubature(d1,[t2-t1+y],[1000],rtol = 0.5)[1] * (lambda^(n1) * (t)^(n1-1)  * exp(-lambda*(y+2*t)) / factorial(n1-1))*(lambda^(n2) * (y+t)^(n2-1)/factorial(n2-1))
+        density = (1-cdf(Gamma(nn,lambda),abs(t2-t1+y))) * pdf(Gamma(n1,lambda), t) * pdf(Gamma(n2,lambda),t-y)
         return density
     end
 
-    a = [0,0]
-    b = [Inf,Inf]
-    C,err = hcubature(f,a,b,rtol = 0.01)
+    function g(x)
+        y = x[1]
+        t = x[2]
+        #density = hcubature(d1,[t2-t1+y],[1000],rtol = 0.5)[1] * lambda^(n1+n2) *  (t)^(n1-1) * (y+t)^(n2-1) * exp(-lambda*(y+2*t)) / (factorial(n1-1)*factorial(n2-1))
+        #density = hcubature(d1,[t2-t1+y],[1000],rtol = 0.5)[1] * (lambda^(n1) * (t)^(n1-1)  * exp(-lambda*(y+2*t)) / factorial(n1-1))*(lambda^(n2) * (y+t)^(n2-1)/factorial(n2-1))
+        density = (1-cdf(Gamma(nn,lambda),abs(t2-t1+y))) * pdf(Gamma(n1,lambda), t+y) * pdf(Gamma(n2,lambda),t)
+        return density
+    end
+
+    a = [-1000.0;0.0]
+    b = [0.0,1000.0]
+    m = [0.0;0.0]
+    n = [1000.0,1000.0]
+    C1,err1 = hcubature(f,a,b)
+    C2,err2 = hcubature(g,m,n)
+    C = C1 + C2
+    err = err1 + err2
 
     return C, err
 end
@@ -348,9 +360,9 @@ function clear_graph_occupancy(mapf::MAPF)
     return mapf.graph
 end
 
-function fill_graph_with_solution()
-end
-
+function get_next_conflict(mapf::MAPF)
+    """At this point mapf.graph should be filled with occupancy information"""
+    num_robots = length(mapf.starts)
 
 # --------------------------------------------------------------------------- #
 
