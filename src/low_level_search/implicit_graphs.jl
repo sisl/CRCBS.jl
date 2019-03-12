@@ -1,107 +1,6 @@
 export
-    AbstractLowLevelEnv,
-    PathNode,
-    get_s,
-    get_a,
-    get_sp,
-    Path,
-    PathCost,
-    get_initial_state,
-    get_final_state,
-    action_type,
-    state_type,
-    invalid_state,
-    invalid_action,
-    get_possible_actions,
-    get_next_state,
-    get_transition_cost,
-    get_path_cost,
-    get_heuristic,
-    violates_constraints,
-    check_termination_criteria,
+    A_star_impl!,
     A_star
-
-"""
-    S is the State type and A is the action type. Both S and A must be default
-    constructible (i.e. you can call S() and A() without throwing errors)
-"""
-abstract type AbstractLowLevelEnv{S,A} end
-
-# const PathNode{S,A} = Tuple{S,A,S}
-@with_kw struct PathNode{S,A}
-    s::S = S() # state
-    a::A = A() # action
-    sp::S = S() # next state
-end
-get_s(p::PathNode) = p.s
-get_a(p::PathNode) = p.a
-get_sp(p::PathNode) = p.sp
-
-const Path{S,A} = Vector{PathNode{S,A}}
-const PathCost = Int
-get_initial_state(path::Path{S,A}) where {S,A} = get(path,1,PathNode{S,A}()).s
-get_final_state(path::Path{S,A}) where {S,A} = get(path,length(path),PathNode{S,A}()).sp
-# const PathCost = Int
-action_type(env::E where {S,A,E <: AbstractLowLevelEnv{S,A}}) = A
-state_type(env::E where {S,A,E <: AbstractLowLevelEnv{S,A}}) = S
-
-"""
-    invalid_state(env::E <: AbstractLowLevelEnv{S,A})
-    invalid_state(S::DataType)
-
-    returns an invalid state of type S
-"""
-function invalid_state end
-
-"""
-    invalid_action(env::E <: AbstractLowLevelEnv{S,A})
-
-    returns an invalid action
-"""
-function invalid_action end
-
-"""
-    get_possible_actions(env::E <: AbstractLowLevelEnv{S,A}, s::S)
-
-    return type must support iteration
-"""
-function get_possible_actions end
-
-"""
-    get_next_state(env::E <: AbstractLowLevelEnv{S,A}, s::S, a::A)
-
-    returns a next state s
-"""
-function get_next_state end
-
-"""
-    get_transition_cost(env::E <: AbstractLowLevelEnv{S,A},s::S,a::A,sp::S)
-
-    return scalar cost for transitioning from `s` to `sp` via `a`
-"""
-function get_transition_cost end
-
-"""
-    get_path_cost(env::E <: AbstractLowLevelEnv{S,A},path::Path{S,A})
-
-    get the cost associated with a search path so far
-"""
-function get_path_cost end
-
-"""
-    violates_constraints(env::E <: AbstractLowLevelEnv{S,A},path::Path{S,A},s::S,a::A,sp::S)
-
-    returns `true` if taking action `a` from state `s` violates any constraints
-    associated with `env`
-"""
-function violates_constraints end
-
-"""
-    check_termination_criteria(env::E <: AbstractLowLevelEnv{S,A}, cost, path::Path{S,A}, s::S)
-
-    returns true if any termination criterion is satisfied
-"""
-function check_termination_criteria end
 
 """
     The internal loop of the A* algorithm.
@@ -163,7 +62,7 @@ end
 """
 function A_star(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
     start_state::S,
-    is_goal::Function, # the end vertex
+    is_goal::Function; # the end vertex
     heuristic::Function = s -> 0.0) where {S,A}
 
     initial_cost = 0

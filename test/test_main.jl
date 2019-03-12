@@ -39,13 +39,13 @@ let
     NodeConstraint(1,2,3)
     EdgeConstraint(1,2,3,4)
 end
-let
-    node = empty_constraint_node()
-    get_constraints(node,1)
-end
+# let
+    # node = empty_constraint_node()
+    # get_constraints(node,1)
+# end
 let
     mapf = MAPF(Graph(), [1,2,3,4], [5,6,7,8])
-    empty_constraint_node()
+    # empty_constraint_node()
     node = initialize_root_node(mapf)
     add_constraint!(node,NodeConstraint(1,CBS_State(2),3),mapf)
     merge(node.constraints,node.constraints)
@@ -114,7 +114,7 @@ let
     detect_conflicts!(node.conflict_table, solution)
     state_conflict, action_conflict = get_next_conflicts(node.conflict_table)
     @test state_conflict.t == 2
-    @test state_conflict.node1_id == CBS_State(3)
+    @test state_conflict.state1 == CBS_State(3)
     constraints = generate_constraints_from_conflict(state_conflict)
     add_constraint!(node,constraints[1],mapf)
     # @test violates_constraints(node.constraints[1],3,[Edge(1,2)])
@@ -160,8 +160,8 @@ let
     ])
     state_conflict, action_conflict = get_next_conflicts(solution)
     @test action_conflict.t == 2
-    @test action_conflict.node1_id == CBS_State(2)
-    @test action_conflict.node2_id == CBS_State(3)
+    @test action_conflict.state1 == CBS_State(2)
+    @test action_conflict.state2 == CBS_State(3)
     constraints = generate_constraints_from_conflict(action_conflict)
     add_constraint!(node,constraints[1],mapf)
     # @test violates_constraints(node.constraints[1],3,[Edge(1,2)])

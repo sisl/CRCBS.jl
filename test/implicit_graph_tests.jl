@@ -8,10 +8,6 @@ let
         e::Edge = Edge(-1,-1)
         Δt::Int = -1 # traversal_time
     end
-    CRCBS.invalid_state(State) = State()
-    CRCBS.invalid_action(Action) = State()
-    invalid_state(State)
-    invalid_action(Action)
 
     struct GraphEnv{G} <: AbstractLowLevelEnv{State,Action}
         g::G
@@ -63,5 +59,5 @@ let
     heuristic(s) = dists[s.v]
     is_goal(s::State) = (s.v == goal_state.v)
 
-    A_star(env,start_state,is_goal,heuristic)
+    A_star(env,start_state,is_goal;heuristic=heuristic)
 end

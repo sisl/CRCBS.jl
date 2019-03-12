@@ -38,8 +38,11 @@ end
 # Define package tests
 @time @testset "CRCBS Package Tests" begin
     testdir = joinpath(dirname(@__DIR__), "test")
-    @time @testset "CRCBS.MainTests" begin
-        include(joinpath(testdir, "test_main.jl"))
+    # @time @testset "CRCBS.MainTests" begin
+    #     include(joinpath(testdir, "test_main.jl"))
+    # end
+    @time @testset "CRCBS.OverHaulTests" begin
+        include(joinpath(testdir, "test_overhaul.jl"))
     end
     @time @testset "CRCBS.HeuristicTests" begin
         include(joinpath(testdir, "test_heuristics.jl"))
