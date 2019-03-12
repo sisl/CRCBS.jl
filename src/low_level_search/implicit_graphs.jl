@@ -1,6 +1,9 @@
 export
     AbstractLowLevelEnv,
     PathNode,
+    get_s,
+    get_a,
+    get_sp,
     Path,
     PathCost,
     get_initial_state,
@@ -18,14 +21,22 @@ export
     check_termination_criteria,
     A_star
 
+"""
+    S is the State type and A is the action type. Both S and A must be default
+    constructible (i.e. you can call S() and A() without throwing errors)
+"""
 abstract type AbstractLowLevelEnv{S,A} end
 
 # const PathNode{S,A} = Tuple{S,A,S}
 @with_kw struct PathNode{S,A}
-    s::S = -1 # state
-    a::A = Edge(-1,-1) # action
-    sp::S = -1 # next state
+    s::S = S() # state
+    a::A = A() # action
+    sp::S = S() # next state
 end
+get_s(p::PathNode) = p.s
+get_a(p::PathNode) = p.a
+get_sp(p::PathNode) = p.sp
+
 const Path{S,A} = Vector{PathNode{S,A}}
 const PathCost = Int
 get_initial_state(path::Path{S,A}) where {S,A} = get(path,1,PathNode{S,A}()).s

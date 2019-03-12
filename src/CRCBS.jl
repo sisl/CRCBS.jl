@@ -13,8 +13,10 @@ include("low_level_search/implicit_graphs.jl")
 
 export
     CBSPath,
-    get_start_node,
-    get_final_node,
+    CBS_State,
+    CBS_Action,
+    # get_start_node,
+    # get_final_node,
     traversal_time,
     LowLevelSolution,
     is_valid,
@@ -46,11 +48,29 @@ export
     CBS
 
 
-const CBS_State = Int
-# struct CBS_State
-#     vtx::Int
-# end
+# const CBS_State = Int
+@with_kw struct CBS_State
+    vtx::Int = -1
+end
+
+"""
+    Check if `s1` and `s2` match. This does not necessarily reflect equality. It
+    is a helper to check if the start state matches the goal state
+"""
+states_match(s1::CBS_State,s2::CBS_State) = (s1.vtx == s2.vtx)
+
 const CBS_Action = Edge{Int}
+CBS_Action() = Edge(-1,-1)
+
+# return an invalid_state
+CRCBS.invalid_state(t) = CBS_State()
+CRCBS.invalid_action(t) = CBS_Action()
+"""
+    return a special `wait` state, where the agent remains in the current state
+"""
+wait(s::CBS_State) = CBS_Action(s.vtx,s.vtx)
+
+
 struct CBSLowLevelEnv{G <: AbstractGraph,C} <: AbstractLowLevelEnv{CBS_State,CBS_Action}
     graph::G
     constraints::C
@@ -75,21 +95,21 @@ function Base.iterate(it::ActionIter, iter_state::ActionIterState)
     end
     Edge(it.s,it.neighbor_list[iter_state.idx]), iter_state
 end
-CRCBS.get_possible_actions(env::CBSLowLevelEnv,s::CBS_State) = ActionIter(env,s,outneighbors(env.graph,s))
+CRCBS.get_possible_actions(env::CBSLowLevelEnv,s::CBS_State) = ActionIter(env,s.vtx,outneighbors(env.graph,s.vtx))
 # get_next_state
-CRCBS.get_next_state(env::CBSLowLevelEnv,s::CBS_State,a::CBS_Action) = a.dst
-CRCBS.get_next_state(s::CBS_State,a::CBS_Action) = a.dst
+CRCBS.get_next_state(env::CBSLowLevelEnv,s::CBS_State,a::CBS_Action) = CBS_State(a.dst)
+CRCBS.get_next_state(s::CBS_State,a::CBS_Action) = CBS_State(a.dst)
 # get_transition_cost
 CRCBS.get_transition_cost(env::CBSLowLevelEnv,s::CBS_State,a::CBS_Action,sp::CBS_State) = 1
 # check for constraint violation
 function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{CBS_State,CBS_Action}, s::CBS_State, a::CBS_Action, sp::CBS_State)
     t = length(path) + 1
-    if get(env.constraints.node_constraints,NodeConstraint(env.constraints.a,sp,t),false)
+    if get(env.constraints.node_constraints,NodeConstraint(get_agent_id(env.constraints),sp.vtx,t),false)
         return true
     else
-        v1 = s
-        v2 = sp
-        if get(env.constraints.edge_constraints,EdgeConstraint(env.constraints.a,v1,v2,t),false)
+        v1 = s.vtx
+        v2 = sp.vtx
+        if get(env.constraints.edge_constraints,EdgeConstraint(get_agent_id(env.constraints),v1,v2,t),false)
             return true
         end
     end
@@ -97,13 +117,6 @@ function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{CBS_State,CB
 end
 # check criteria for premature termination
 CRCBS.check_termination_criteria(env::CBSLowLevelEnv,cost,path,s) = false
-# return an invalid_state
-CRCBS.invalid_state(t) = -1
-CRCBS.invalid_action(t) = Edge(-1,-1)
-"""
-    return a special `wait` state, where the agent remains in the current state
-"""
-wait(s::CBS_State) = CBS_Action(s,s)
 
 """
     returns the tuple (s,a,s') corresponding to step t of `path`, or the tuple
@@ -159,16 +172,11 @@ function extend_path(path::Path,T::Int)
     return new_path
 end
 
-"""
-    Check if `s1` and `s2` match. This does not necessarily reflect equality. It
-    is a helper to check if the start state matches the goal state
-"""
-states_match(s1::CBS_State,s2::CBS_State) = (s1 == s2)
 
 """ Type alias for a path through the graph """
 const CBSPath = Path{CBS_State,CBS_Action}
-get_start_node(path::CBSPath) = get_initial_state(path)
-get_final_node(path::CBSPath) = get_final_state(path)
+# get_start_node(path::CBSPath) = get_initial_state(path)
+# get_final_node(path::CBSPath) = get_final_state(path)
 traversal_time(path::CBSPath) = length(path)
 
 """
@@ -216,11 +224,11 @@ abstract type CBSConflict end
     Encodes a conflict wherein two agents occupy a particular node at a
     particular time
 """
-struct StateConflict <: CBSConflict
+struct StateConflict{S} <: CBSConflict
     agent1_id::Int
     agent2_id::Int
-    node1_id::CBS_State
-    node2_id::CBS_State
+    node1_id::S
+    node2_id::S
     t::Int
 end
 agent1_id(conflict::StateConflict) = conflict.agent1_id
@@ -230,7 +238,7 @@ node2_id(conflict::StateConflict) = conflict.node2_id
 time_of(conflict::StateConflict) = conflict.t
 
 """ Returns an invalid StateConflict """
-invalid_state_conflict() = StateConflict(-1,-1,-1,-1,-1)
+invalid_state_conflict() = StateConflict(-1,-1,invalid_state(0),invalid_state(0),-1)
 
 """ Checks if a node conflict is valid """
 is_valid(conflict::StateConflict) = (agent1_id(conflict) != -1)
@@ -240,7 +248,7 @@ is_valid(conflict::StateConflict) = (agent1_id(conflict) != -1)
     specific path class
 """
 function detect_state_conflict(n1::PathNode{CBS_State,CBS_Action},n2::PathNode{CBS_State,CBS_Action})
-    if n1.sp == n2.sp
+    if n1.sp.vtx == n2.sp.vtx
         return true
     end
     return false
@@ -258,11 +266,11 @@ end
     Encodes a conflict between two agents at a particular edge at a particular
     time. This means that the agents are trying to swap places at time t.
 """
-struct ActionConflict <: CBSConflict
+struct ActionConflict{S} <: CBSConflict
     agent1_id::Int
     agent2_id::Int
-    node1_id::Int
-    node2_id::Int
+    node1_id::S
+    node2_id::S
     t::Int
 end
 agent1_id(conflict::ActionConflict) = conflict.agent1_id
@@ -272,7 +280,7 @@ node2_id(conflict::ActionConflict) = conflict.node2_id
 time_of(conflict::ActionConflict) = conflict.t
 
 """ Returns an invalid ActionConflict """
-invalid_action_conflict() = ActionConflict(-1,-1,-1,-1,-1)
+invalid_action_conflict() = ActionConflict(-1,-1,invalid_state(0),invalid_state(0),-1)
 
 """ checks if an edge node is invalid """
 is_valid(conflict::ActionConflict) = (agent1_id(conflict) != -1)
@@ -460,10 +468,10 @@ function get_next_conflicts(paths::LowLevelSolution,
         path2 = extended_paths[j]
         n2 = get_path_node(path2,t)
         if detect_state_conflict(n1,n2)
-            state_conflict = StateConflict(i,j,n1.sp,n2.sp,t)
+            state_conflict = StateConflict(i,j,get_sp(n1),get_sp(n2),t)
             return state_conflict, action_conflict
         elseif detect_action_conflict(n1,n2)
-            action_conflict = ActionConflict(i,j,n1.s,n2.s,t)
+            action_conflict = ActionConflict(i,j,get_s(n1),get_s(n2),t)
             return state_conflict, action_conflict
         end
     end
@@ -475,10 +483,10 @@ function get_next_conflicts(paths::LowLevelSolution,
                 path2 = extended_paths[j]
                 n2 = get_path_node(path2,t)
                 if detect_state_conflict(n1,n2)
-                    state_conflict = StateConflict(i,j,n1.sp,n2.sp,t)
+                    state_conflict = StateConflict(i,j,get_sp(n1),get_sp(n2),t)
                     return state_conflict, action_conflict
                 elseif detect_action_conflict(n1,n2)
-                    action_conflict = ActionConflict(i,j,n1.s,n2.s,t)
+                    action_conflict = ActionConflict(i,j,get_s(n1),get_s(n2),t)
                     return state_conflict, action_conflict
                 end
             end
@@ -550,9 +558,10 @@ get_agent_id(c::CBSConstraint) = c.a
 """
     Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
 """
-struct NodeConstraint <: CBSConstraint
+struct NodeConstraint{S} <: CBSConstraint
     a::Int # agent ID
-    v::Int # vertex ID
+    # v::Int # vertex ID
+    v::S
     t::Int # time ID
 end
 
@@ -560,17 +569,17 @@ end
     Encodes a constraint that agent `a` may not traverse `Edge(v1,v2)` at time
     step `t`
 """
-struct EdgeConstraint <: CBSConstraint
+struct EdgeConstraint{S} <: CBSConstraint
     a::Int # agent ID
-    v1::Int # ID of first vertex in edge
-    v2::Int # ID of second vertex in edge
+    v1::S # ID of first vertex in edge
+    v2::S # ID of second vertex in edge
     t::Int # time ID
 end
 
 """
     Helper function for reversing an `EdgeConstraint`
 """
-flip(c::EdgeConstraint) = EdgeConstraint(c.a,c.v2,c.v1,c.t)
+flip(c::EdgeConstraint) = EdgeConstraint(get_agent_id(c),c.v2,c.v1,c.t)
 
 """
     constraint dictionary for fast constraint lookup within a_star
@@ -580,14 +589,15 @@ flip(c::EdgeConstraint) = EdgeConstraint(c.a,c.v2,c.v1,c.t)
     edge_constraints::Dict{EdgeConstraint,Bool} = Dict{EdgeConstraint,Bool}()
     a::Int = -1 # agent_id
 end
+get_agent_id(c::ConstraintDict) = c.a
 
 """ Helper function to merge two instances of `ConstraintDict` """
 function Base.merge(d1::ConstraintDict,d2::ConstraintDict)
-    @assert(d1.a==d2.a)
+    @assert(get_agent_id(d1)==get_agent_id(d2))
     ConstraintDict(
         merge(d1.node_constraints,d2.node_constraints),
         merge(d1.edge_constraints,d2.edge_constraints),
-        d1.a
+        get_agent_id(d1)
     )
 end
 
@@ -663,30 +673,30 @@ function get_constraints(node::ConstraintTreeNode, path_id::Int)
     return get(node.constraints, path_id, ConstraintDict())
 end
 
-"""
-    Check if a set of constraints would be violated by adding an Edge from
-    the final vertex of `path` to `v`
-"""
-function violates_constraints(constraints::ConstraintDict,v,path)
-    t = length(path) + 1
-    if get(constraints.node_constraints,NodeConstraint(constraints.a,v,t),false)
-        return true
-    else
-        v1 = get_final_node(path)
-        v2 = v
-        if get(constraints.edge_constraints,EdgeConstraint(constraints.a,v1,v2,t),false)
-            return true
-        end
-    end
-    return false
-end
+# """
+#     Check if a set of constraints would be violated by adding an Edge from
+#     the final vertex of `path` to `v`
+# """
+# function violates_constraints(constraints::ConstraintDict,v,path)
+#     t = length(path) + 1
+#     if get(constraints.node_constraints,NodeConstraint(constraints.a,v,t),false)
+#         return true
+#     else
+#         v1 = get_final_node(path)
+#         v2 = v
+#         if get(constraints.edge_constraints,EdgeConstraint(constraints.a,v1,v2,t),false)
+#             return true
+#         end
+#     end
+#     return false
+# end
 
 """
     adds a `NodeConstraint` to a ConstraintTreeNode
 """
 function add_constraint!(node::ConstraintTreeNode,constraint::NodeConstraint,mapf::MAPF)
-    if (constraint.v != mapf.goals[constraint.a])
-        node.constraints[constraint.a].node_constraints[constraint] = true
+    if (constraint.v != mapf.goals[get_agent_id(constraint)])
+        node.constraints[get_agent_id(constraint)].node_constraints[constraint] = true
         return true
     end
     return false
@@ -696,9 +706,9 @@ end
     adds an `EdgeConstraint` to a ConstraintTreeNode
 """
 function add_constraint!(node::ConstraintTreeNode,constraint::EdgeConstraint,mapf::MAPF)
-    if (constraint.v1 != mapf.goals[constraint.a]) && (constraint.v1 != mapf.goals[constraint.a])
-        node.constraints[constraint.a].edge_constraints[constraint] = true
-        node.constraints[constraint.a].edge_constraints[flip(constraint)] = true
+    if (constraint.v1 != mapf.goals[get_agent_id(constraint)]) && (constraint.v1 != mapf.goals[get_agent_id(constraint)])
+        node.constraints[get_agent_id(constraint)].edge_constraints[constraint] = true
+        node.constraints[get_agent_id(constraint)].edge_constraints[flip(constraint)] = true
         return true
     end
     return false
@@ -836,7 +846,7 @@ function (solver::CBS)(mapf::MAPF,path_finder=A_star)
             new_node = initialize_child_node(node)
             if add_constraint!(new_node,constraint,mapf)
                 low_level_search!(mapf,new_node,[get_agent_id(constraint)])
-                detect_conflicts!(new_node.conflict_table,new_node.solution,[constraint.a]) # update conflicts related to this agent
+                detect_conflicts!(new_node.conflict_table,new_node.solution,[get_agent_id(constraint)]) # update conflicts related to this agent
                 if is_valid(new_node.solution, mapf)
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end

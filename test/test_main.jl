@@ -2,35 +2,35 @@ let
     MAPF(Graph(), [1,2,3,4], [5,6,7,8])
 end
 let
-    conflict = StateConflict(1,2,3,3,1)
+    conflict = StateConflict(1,2,CBS_State(3),CBS_State(3),1)
     @test is_valid(conflict)
     conflict = invalid_state_conflict()
     @test !is_valid(conflict)
     # @test detect_state_conflict(Edge(1,2),Edge(3,2))
     path1 = CBSPath([
-        PathNode{Int,Edge{Int}}(1,Edge(1,2),2),
-        PathNode{Int,Edge{Int}}(2,Edge(2,3),3)
+        PathNode{CBS_State,Edge{Int}}(CBS_State(1),Edge(1,2),CBS_State(2)),
+        PathNode{CBS_State,Edge{Int}}(CBS_State(2),Edge(2,3),CBS_State(3))
         ])
     path2 = CBSPath([
-        PathNode{Int,Edge{Int}}(4,Edge(4,5),5),
-        PathNode{Int,Edge{Int}}(5,Edge(5,3),3)
+        PathNode{CBS_State,Edge{Int}}(CBS_State(4),Edge(4,5),CBS_State(5)),
+        PathNode{CBS_State,Edge{Int}}(CBS_State(5),Edge(5,3),CBS_State(3))
         ])
     @test detect_state_conflict(path1,path2,2)
     # @test detect_state_conflict([Edge(1,2),Edge(2,3)],[Edge(4,5),Edge(5,3)],2)
 end
 let
-    conflict = ActionConflict(1,2,3,4,1)
+    conflict = ActionConflict(1,2,CBS_State(3),CBS_State(4),1)
     @test is_valid(conflict)
     conflict = invalid_action_conflict()
     @test !is_valid(conflict)
     # @test detect_action_conflict(Edge(1,2),Edge(2,1))
     path1 = CBSPath([
-        PathNode{Int,Edge{Int}}(3,Edge(3,2),2),
-        PathNode{Int,Edge{Int}}(2,Edge(2,1),1)
+        PathNode{CBS_State,Edge{Int}}(CBS_State(3),Edge(3,2),CBS_State(2)),
+        PathNode{CBS_State,Edge{Int}}(CBS_State(2),Edge(2,1),CBS_State(1))
         ])
     path2 = CBSPath([
-        PathNode{Int,Edge{Int}}(4,Edge(4,1),1),
-        PathNode{Int,Edge{Int}}(1,Edge(1,2),2)
+        PathNode{CBS_State,Edge{Int}}(CBS_State(4),Edge(4,1),CBS_State(1)),
+        PathNode{CBS_State,Edge{Int}}(CBS_State(1),Edge(1,2),CBS_State(2))
         ])
     @test detect_action_conflict(path1,path2,2)
     # @test detect_action_conflict([Edge(3,2),Edge(2,1)],[Edge(4,1),Edge(1,2)],2)
@@ -47,7 +47,7 @@ let
     mapf = MAPF(Graph(), [1,2,3,4], [5,6,7,8])
     empty_constraint_node()
     node = initialize_root_node(mapf)
-    add_constraint!(node,NodeConstraint(1,2,3),mapf)
+    add_constraint!(node,NodeConstraint(1,CBS_State(2),3),mapf)
     merge(node.constraints,node.constraints)
     # @test compare_constraint_nodes(ConstraintTreeNode(),ConstraintTreeNode())
 end
@@ -56,18 +56,18 @@ let
     G = initialize_regular_grid_graph()
 end
 let
-    mapf = MAPF(Graph(), [1,2], [3,4])
+    mapf = MAPF(Graph(), [CBS_State(1),CBS_State(2)], [CBS_State(3),CBS_State(4)])
     solution = LowLevelSolution([
         CBSPath([
-            PathNode{Int,Edge{Int}}(1,Edge(1,3),3)]),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(1),Edge(1,3),CBS_State(3))]),
         CBSPath([
-            PathNode{Int,Edge{Int}}(2,Edge(2,4),4)])
+            PathNode{CBS_State,Edge{Int}}(CBS_State(2),Edge(2,4),CBS_State(4))])
             ])
     @test is_valid(solution, mapf)
 end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=2,n_obstacles_y=2)
-    mapf = MAPF(G, [1,2,3], [7,6,5])
+    mapf = MAPF(G, [CBS_State(1),CBS_State(2),CBS_State(3)], [CBS_State(7),CBS_State(6),CBS_State(5)])
     node = initialize_root_node(mapf)
     low_level_search!(mapf,node)
     conflict_table = detect_conflicts(node.solution)
@@ -93,30 +93,30 @@ let
     add_edge!(G,7,3)
     add_edge!(G,3,8)
     add_edge!(G,8,9)
-    mapf = MAPF(G,[1,5],[5,1])
+    mapf = MAPF(G,[CBS_State(1),CBS_State(5)],[CBS_State(5),CBS_State(1)])
     node = initialize_root_node(mapf)
     low_level_search!(mapf,node)
     # check node conflict
     solution = LowLevelSolution([
         CBSPath([
-            PathNode{Int,Edge{Int}}(1,Edge(1,2),2),
-            PathNode{Int,Edge{Int}}(2,Edge(2,3),3),
-            PathNode{Int,Edge{Int}}(3,Edge(3,4),4),
-            PathNode{Int,Edge{Int}}(4,Edge(4,5),5)
+            PathNode{CBS_State,Edge{Int}}(CBS_State(1),Edge(1,2),CBS_State(2)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(2),Edge(2,3),CBS_State(3)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(3),Edge(3,4),CBS_State(4)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(4),Edge(4,5),CBS_State(5))
             ]),
         CBSPath([
-            PathNode{Int,Edge{Int}}(5,Edge(5,4),4),
-            PathNode{Int,Edge{Int}}(4,Edge(4,3),3),
-            PathNode{Int,Edge{Int}}(3,Edge(3,2),2),
-            PathNode{Int,Edge{Int}}(2,Edge(2,1),1)
+            PathNode{CBS_State,Edge{Int}}(CBS_State(5),Edge(5,4),CBS_State(4)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(4),Edge(4,3),CBS_State(3)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(3),Edge(3,2),CBS_State(2)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(2),Edge(2,1),CBS_State(1))
             ])
     ])
     state_conflict, action_conflict = get_next_conflicts(solution)
     @test state_conflict.t == 2
-    @test state_conflict.node1_id == 3
+    @test state_conflict.node1_id == CBS_State(3)
     constraints = generate_constraints_from_conflict(state_conflict)
     add_constraint!(node,constraints[1],mapf)
-    @test violates_constraints(node.constraints[1],3,[Edge(1,2)])
+    # @test violates_constraints(node.constraints[1],3,[Edge(1,2)])
 end
 let
     #               6
@@ -137,7 +137,7 @@ let
     add_edge!(G,7,3)
     add_edge!(G,3,8)
     add_edge!(G,8,9)
-    mapf = MAPF(G,[1,4],[4,1])
+    mapf = MAPF(G,[CBS_State(1),CBS_State(4)],[CBS_State(4),CBS_State(1)])
     node = initialize_root_node(mapf)
     low_level_search!(mapf,node)
     # check node conflict
@@ -147,34 +147,34 @@ let
     # ])
     solution = LowLevelSolution([
         CBSPath([
-            PathNode{Int,Edge{Int}}(1,Edge(1,2),2),
-            PathNode{Int,Edge{Int}}(2,Edge(2,3),3),
-            PathNode{Int,Edge{Int}}(3,Edge(3,4),4)
+            PathNode{CBS_State,Edge{Int}}(CBS_State(1),Edge(1,2),CBS_State(2)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(2),Edge(2,3),CBS_State(3)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(3),Edge(3,4),CBS_State(4))
             ]),
         CBSPath([
-            PathNode{Int,Edge{Int}}(4,Edge(4,3),3),
-            PathNode{Int,Edge{Int}}(3,Edge(3,2),2),
-            PathNode{Int,Edge{Int}}(2,Edge(2,1),1)
+            PathNode{CBS_State,Edge{Int}}(CBS_State(4),Edge(4,3),CBS_State(3)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(3),Edge(3,2),CBS_State(2)),
+            PathNode{CBS_State,Edge{Int}}(CBS_State(2),Edge(2,1),CBS_State(1))
             ])
     ])
     state_conflict, action_conflict = get_next_conflicts(solution)
     @test action_conflict.t == 2
-    @test action_conflict.node1_id == 2
-    @test action_conflict.node2_id == 3
+    @test action_conflict.node1_id == CBS_State(2)
+    @test action_conflict.node2_id == CBS_State(3)
     constraints = generate_constraints_from_conflict(action_conflict)
     add_constraint!(node,constraints[1],mapf)
     # @test violates_constraints(node.constraints[1],3,[Edge(1,2)])
 end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    mapf = MAPF(G.graph, [1,2], [5,6])
+    mapf = MAPF(G.graph, [CBS_State(1),CBS_State(2)], [CBS_State(5),CBS_State(6)])
     node = initialize_root_node(mapf)
     low_level_search!(mapf,node)
     state_conflicts, action_conflicts = get_conflicts(node.solution)
 end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=2,n_obstacles_y=2)
-    mapf = MAPF(G, [1,3,2], [5,6,7])
+    mapf = MAPF(G, [CBS_State(1),CBS_State(3),CBS_State(2)], [CBS_State(5),CBS_State(6),CBS_State(7)])
     solver = CBS()
     solver(mapf)
 end
