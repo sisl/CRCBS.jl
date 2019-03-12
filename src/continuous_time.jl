@@ -6,6 +6,9 @@ using LightGraphs, MetaGraphs
 using LinearAlgebra
 using NearestNeighbors
 
+using Distributions
+using HCurbature
+
 include("utils.jl")
 include("CT_graph.jl") #Contains functions to generate and use CT graphs
 
@@ -19,23 +22,33 @@ include("CT_graph.jl") #Contains functions to generate and use CT graphs
 const GraphPath = Vector{Edge}
 get_start_node(path::GraphPath) = get(path,1,Edge(-1,-1)).src
 get_final_node(path::GraphPath) = get(path,length(path),Edge(-1,-1)).dst
-traversal_time(path::GraphPath) = sum([get_prop(path,e,:weight) for e in path])
+traversal_time(path::GraphPath,mapf::MAPF) = sum([get_prop(mapf.graph,e,:weight) for e in path])
 
-"""
-    type alias for a list of agent paths
-"""
+"""type alias for a list of agent paths"""
 const LowLevelSolution = Vector{GraphPath}
 
-"""
-    A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
+function is_valid(solution::LowLevelSolution,mapf::MAPF)
+    """checks if a solution is valid"""
+    for (i,path) in enumerate(solution)
+        if get_start_node(path) != mapf.starts[i]
+            return false
+        end
+        if get_final_node(path) != mapf.goals[i]
+            return false
+        end
+    end
+    return true
+end
+
+"""A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
     a graph `G` whose edges have unit length, as well as a set of start and goal
     vertices on that graph. Note that this is the _labeled_ case, where each
-    agent has a specific assigned destination.
-"""
+    agent has a specific assigned destination."""
 struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
     graph::G
     starts::Vector{Int}
     goals::Vector{Int}
+    lambda::Float64
 end
 
 """ ------------------------------------------------------------------------
@@ -49,19 +62,16 @@ struct NodeConflict
     agent1_id::Int
     agent2_id::Int
     node_id::Int
+    conflict_probability::Float
 end
 
-"""
-    Returns an invalid NodeConflict
-"""
 function invalid_node_conflict()
-    NodeConflict(-1,-1,-1)
+    """Returns an invalid NodeConflict"""
+    NodeConflict(-1,-1,-1,-1)
 end
 
-"""
-    checks if a node conflict is valid
-"""
 function is_valid(conflict::NodeConflict)
+    """checks if a node conflict is valid"""
     return (conflict.agent1_id != -1)
 end
 # --------------------------------------------------------------------------- #
@@ -80,13 +90,14 @@ struct EdgeConflict
     agent2_id::Int
     node1_id::Int
     node2_id::Int
+    conflict_probability::Float
 end
 
 """
     returns an invalid EdgeConflict
 """
 function invalid_edge_conflict()
-    return EdgeConflict(-1,-1,-1,-1)
+    return EdgeConflict(-1,-1,-1,-1,-1)
 end
 
 """
@@ -235,7 +246,7 @@ function add_constraint!(node::ConstraintTreeNode,constraint::NodeConstraint,map
     return false
 end
 
-"""adds an `EdgeConstraint` to a ConstraintTreeNode"""
+"""adds an `EdgeConstraint` t o a ConstraintTreeNode"""
 function add_constraint!(node::ConstraintTreeNode,constraint::EdgeConstraint,mapf::MAPF)
     if (constraint.v1 != mapf.goals[constraint.a]) && (constraint.v1 != mapf.goals[constraint.a])
         node.constraints[constraint.a].edge_constraints[constraint] = true
@@ -251,8 +262,8 @@ end
 # --------------------------------------------------------------------------- #
 
 """Helper function to get the cost of a particular solution"""
-function get_cost(paths::LowLevelSolution,graph::MAPF)
-    return sum([sum([get_prop(graph,e,:weight) for e in p]) for p in paths])
+function get_cost(paths::LowLevelSolution,mapf::MAPF)
+    return sum([sum([get_prop(maph.graph,e,:weight) for e in p]) for p in paths])
 end
 
 """Helper function to get the cost of a particular node"""
@@ -266,12 +277,79 @@ function empty_constraint_node()
 end
 
 
-# ------------------------------ CTCBS -------------------------------------- #
+# --------------- Finding and sorting likely collisions --------------------- #
 
-"""Adds occupancy to a MetaGraph property with nominal times of arrival
-at each node and each edge"""
+function get_collision_probability(n1,t1,n2,t2,nn,t_delay,lambda)
+    """Returns the probability of two robots colliding with the associated
+    error estimate"""
 
+    function d(z)
+        return lambda^nn * z^(nn-1) * exp(-lambda*z) / factorial(nn-1)
+    end
 
+    function f(x)
+        y = x(1)
+        t = x(2)
+        density = hcubature(d,[t2-t1+y],[Inf])(1) * lambda^(n1+n2) *  t^(n1-1) * (t+y)^(n2-1) * exp(-lambda*(y+2*t)) / (factorial(n1-1)*factorial(n2-1))
+        return density
+    end
+
+    a = [0,0]
+    b = [Inf,Inf]
+    C,err = hcubature(f,a,b,rtol = 0.01)
+
+    return C, err
+end
+
+function fill_graph_with_path(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
+    """This function adds the path traversed by the robot to the nodes and
+    edges of the metagraph"""
+
+    # Initialize at 1 instead of 0 to avoid bugs
+    sum_ns_traversed = get_prop(mapf.Graph,robotpath[1][1], :n_delay)
+    time_traversed = 0
+    set_prop!(mapf.Graph,robotpath[1][1],:occupancy,(robot_id, sum_ns_traversed, 0))
+
+    # Loop through all edges
+    for e in robotpath:
+
+        # Get properties of the edge and last vertex
+        t_edge = get_prop(mapf.Graph,e, :weight)
+        n_next_node = get_prop(mapf.Graph, e[2], :n_delay)
+
+        # Add occupancy for the edge
+        occupancy = get_prop(mapf.Graph,e,:occupancy)
+        setindex!(occupancy,(sum_ns_traversed, time_traversed),robot_id) #robot_id is the key
+        set_prop!(mapf.Graph,e,:occupancy,occupancy)
+
+        # Update nominal time
+        time_traversed += t_edge
+
+        # Add occupancy for second vertex of the edge
+        occupancy = get_prop(mapf.Graph,e[2],:occupancy)
+        setindex!(occupancy,(sum_ns_traversed, time_traversed),robot_id) #robot_id is the key
+        set_prop!(mapf.Graph,e,:occupancy,occupancy)
+
+        # Update sum of ns traversed
+        sum_ns_traversed += n_next_node
+
+    return mapf
+end
+
+function clear_graph_occupancy(mapf::MAPF)
+    """Removes all occupancies from the graph. We should only care about removing
+    occupancy information concerning one robot at a time and not use this function."""
+    for v in vertices(mapf.graph)
+        rem_prop!(mapf.graph, v, :occupancy)
+    end
+    for e in edges(mapf.graph)
+        rem_prop!(mapf.graph, e, :occupancy)
+    end
+    return mapf.graph
+end
+
+function fill_graph_with_solution()
+end
 
 
 # --------------------------------------------------------------------------- #
