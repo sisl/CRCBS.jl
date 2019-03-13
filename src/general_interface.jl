@@ -16,6 +16,7 @@ export
     get_initial_state,
     get_final_state,
 
+    LowLevelSolution,
     PathCost,
 
     states_match,
@@ -28,6 +29,8 @@ export
     get_heuristic,
     violates_constraints,
     check_termination_criteria
+
+struct DefaultState end
 
 """
     `AbstractLowLevelEnv{S,A}`
@@ -94,15 +97,6 @@ end
 """
 function get_action(path::Path{S,A}, t::Int) where {S,A}
     get_a(get_path_node(path,t))
-    # if length(path) < t
-    #     return wait(get_final_state(path))
-    # elseif length(path) > 0
-    #     return get_a(path[t])
-    # else
-    #     a = invalid_action(t) # must be overridden
-    #     @assert(typeof(a) == A)
-    #     return a
-    # end
 end
 
 """

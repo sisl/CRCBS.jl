@@ -16,7 +16,7 @@ export
     violates_constraints,
     get_cost,
     empty_constraint_node,
-    get_next_conflicts,
+    get_next_conflict,
     # get_conflicts,
     generate_constraints_from_conflict,
     low_level_search!,
@@ -28,7 +28,7 @@ export
 @with_kw struct CBS_State
     vtx::Int = -1
 end
-CRCBS.states_match(s1::CBS_State,s2::CBS_State) = (s1.vtx == s2.vtx)
+states_match(s1::CBS_State,s2::CBS_State) = (s1.vtx == s2.vtx)
 const CBS_Action = Edge{Int}
 CBS_Action() = Edge(-1,-1)
 wait(s::CBS_State) = CBS_Action(s.vtx,s.vtx)
@@ -89,8 +89,7 @@ const CBSPath = Path{CBS_State,CBS_Action}
 invalid_state_conflict() = StateConflict{CBS_State,CBS_State}()
 
 """
-    Detect a `StateConflict` between two path nodes. Must be overridden for each
-    specific path class
+    Detect a `StateConflict` between two CBS path nodes.
 """
 function detect_state_conflict(n1::PathNode{CBS_State,CBS_Action},n2::PathNode{CBS_State,CBS_Action})
     if n1.sp.vtx == n2.sp.vtx
@@ -99,36 +98,12 @@ function detect_state_conflict(n1::PathNode{CBS_State,CBS_Action},n2::PathNode{C
     return false
 end
 
-"""
-    Encodes a conflict between two agents at a particular edge at a particular
-    time. This means that the agents are trying to swap places at time t.
-
-    Default constructor returns an INVALID instance
-"""
-@with_kw struct ActionConflict{S1,S2} <: CBSConflict
-    agent1_id::Int = -1
-    agent2_id::Int = -1
-    state1::S1 = S1()
-    state2::S2 = S2()
-    t::Int = -1
-end
-conflict_type(s::ActionConflict) = ActionConflict
-agent1_id(conflict::ActionConflict) = conflict.agent1_id
-agent2_id(conflict::ActionConflict) = conflict.agent2_id
-state1(conflict::ActionConflict) = conflict.state1
-state2(conflict::ActionConflict) = conflict.state2
-time_of(conflict::ActionConflict) = conflict.t
-
 """ Returns an invalid ActionConflict """
 # invalid_action_conflict() = ActionConflict(-1,-1,invalid_state(0),invalid_state(0),-1)
 invalid_action_conflict() = ActionConflict{CBS_State,CBS_State}()
 
-""" checks if an edge node is invalid """
-is_valid(conflict::ActionConflict) = (agent1_id(conflict) != -1)
-
 """
-    Detect an `ActionConflict` between two path nodes. Must be overridden for
-    each specific path class
+    Detect an `ActionConflict` between two CBS path nodes.
 """
 function detect_action_conflict(n1::PathNode{CBS_State,CBS_Action},n2::PathNode{CBS_State,CBS_Action})
     if (n1.a.src == n2.a.dst) && (n1.a.dst == n2.a.src)
@@ -137,94 +112,118 @@ function detect_action_conflict(n1::PathNode{CBS_State,CBS_Action},n2::PathNode{
     return false
 end
 
-""" Checks for an `ActionConflict` between two `CBSPath`s at time t """
-function detect_action_conflict(path1::Path{S,A} where {S,A}, path2::Path{S,A} where {S,A},t::Int)
-    if detect_action_conflict(get_path_node(path1,t),get_path_node(path2,t))
-        return true
-    end
-    return false
-end
-
-"""
-    A lookup table to store all conflicts that have been detected
-"""
-@with_kw struct ConflictTable
-    state_conflicts::Dict{Tuple{Int,Int},Vector{StateConflict}} = Dict{Tuple{Int,Int},Vector{StateConflict}}()
-    action_conflicts::Dict{Tuple{Int,Int},Vector{ActionConflict}} = Dict{Tuple{Int,Int},Vector{ActionConflict}}()
-end
-
-""" helper for retrieving conflicts associated with agents i and j """
-function get_conflicts(conflict_table::ConflictTable,i::Int,j::Int)
-    if i < j
-        state_conflicts = get(conflict_table.state_conflicts, (i,j), Vector{StateConflict}())
-        action_conflicts = get(conflict_table.action_conflicts, (i,j), Vector{ActionConflict}())
-    else
-        state_conflicts = get(conflict_table.state_conflicts, (j,i), Vector{StateConflict}())
-        action_conflicts = get(conflict_table.action_conflicts, (j,i), Vector{ActionConflict}())
-    end
-    return state_conflicts, action_conflicts
-end
-
-"""
-    helper to insert conflicts into ConflictTable
-"""
-function add_conflict!(conflict_table::ConflictTable,conflict)
-    i = agent1_id(conflict)
-    j = agent2_id(conflict)
-    if conflict_type(conflict) == StateConflict
-        push!(conflict_table.state_conflicts[(i,j)], conflict)
-    elseif conflict_type(conflict_type) == ActionConflict
-        push!(conflict_table.action_conflicts[(i,j)], conflict)
-    end
-end
-
-""" add detected conflicts to conflict table """
-function detect_conflicts!(conflicts::ConflictTable,n1::PathNode,n2::PathNode,i::Int,j::Int,t::Int)
-    # state conflict
-    if detect_state_conflict(n1,n2)
-        add_conflict!(conflicts,StateConflict(
-            agent1_id = i,
-            agent2_id = j,
-            node1 = n1,
-            node2 = n2,
-            t = t
-        ))
-    end
-    if detect_action_conflict(n1,n2)
-        add_conflict!(conflicts,ActionConflict(
-            agent1_id = i,
-            agent2_id = j,
-            node1 = n1,
-            node2 = n2,
-            t = t
-        ))
-    end
-end
-
-function Base.copy(c::ConflictTable)
-   c_new = ConflictTable()
-   for (k,v) in c.state_conflicts
-       c_new.state_conflicts[k] = copy(v)
-   end
-   for (k,v) in c.action_conflicts
-       c_new.action_conflicts[k] = copy(v)
-   end
-   return c_new
-end
-
-"""
-    Returns a `ConflictTable` of all conflicts that occur in a given solution
-
-    args:
-    - conflict_table        a `ConflictTable` to store the detected conflicts
-    - paths:                a list of `Path`s, one for each individual agent
-    - idxs                  (optional) a list of agent ids for which to check
-                            collisions against all other agents
-"""
-function detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))
-    conflict_table = ConflictTable()
-    detect_conflicts!(conflict_table,paths,idxs)
-end
+# """
+#     A lookup table to store all conflicts that have been detected
+# """
+# @with_kw struct ConflictTable
+#     state_conflicts::Dict{Tuple{Int,Int},Vector{StateConflict}} = Dict{Tuple{Int,Int},Vector{StateConflict}}()
+#     action_conflicts::Dict{Tuple{Int,Int},Vector{ActionConflict}} = Dict{Tuple{Int,Int},Vector{ActionConflict}}()
+# end
+#
+# """ helper for retrieving conflicts associated with agents i and j """
+# function get_conflicts(conflict_table::ConflictTable,i::Int,j::Int)
+#     if i < j
+#         state_conflicts = get(conflict_table.state_conflicts, (i,j), Vector{StateConflict}())
+#         action_conflicts = get(conflict_table.action_conflicts, (i,j), Vector{ActionConflict}())
+#     else
+#         return get_conflicts(conflict_table,j,i)
+#     end
+#     return state_conflicts, action_conflicts
+# end
+#
+# """
+#     helper to insert conflicts into ConflictTable
+# """
+# function add_conflict!(conflict_table::ConflictTable,conflict)
+#     i = agent1_id(conflict)
+#     j = agent2_id(conflict)
+#     if conflict_type(conflict) == StateConflict
+#         push!(conflict_table.state_conflicts[(i,j)], conflict)
+#     elseif conflict_type(conflict_type) == ActionConflict
+#         push!(conflict_table.action_conflicts[(i,j)], conflict)
+#     end
+# end
+#
+# """ add detected conflicts to conflict table """
+# function detect_conflicts!(conflicts::ConflictTable,n1::PathNode,n2::PathNode,i::Int,j::Int,t::Int)
+#     # state conflict
+#     if detect_state_conflict(n1,n2)
+#         add_conflict!(conflicts,StateConflict(
+#             agent1_id = i,
+#             agent2_id = j,
+#             node1 = n1,
+#             node2 = n2,
+#             t = t
+#         ))
+#     end
+#     if detect_action_conflict(n1,n2)
+#         add_conflict!(conflicts,ActionConflict(
+#             agent1_id = i,
+#             agent2_id = j,
+#             node1 = n1,
+#             node2 = n2,
+#             t = t
+#         ))
+#     end
+# end
+#
+# """
+#     returns the next conflict (temporally) that occurs in a conflict table
+# """
+# function get_next_conflict(conflict_table::ConflictTable)
+#     conflicts = sort(union(conflict_table.state_conflicts,conflict_table.action_conflicts))
+#     return get(conflicts,1,Conflict())
+#     # state_conflicts = Vector{StateConflict}()
+#     # for (k,v) in conflict_table.state_conflicts
+#     #     if length(v) > 0
+#     #         push!(state_conflicts, v[1])
+#     #     end
+#     # end
+#     # sort!(state_conflicts, by=c->time_of(c))
+#     # action_conflicts = Vector{ActionConflict}()
+#     # for (k,v) in conflict_table.action_conflicts
+#     #     if length(v) > 0
+#     #         push!(action_conflicts, v[1])
+#     #     end
+#     # end
+#     # sort!(action_conflicts, by=c->time_of(c))
+#     #
+#     # state_conflict = get(state_conflicts, 1, invalid_state_conflict())
+#     # action_conflict = get(action_conflicts, 1, invalid_action_conflict())
+#     # if is_valid(state_conflict) && is_valid(action_conflict)
+#     #     if time_of(state_conflict) <= time_of(action_conflict)
+#     #         return state_conflict, invalid_action_conflict()
+#     #     else
+#     #         return invalid_state_conflict(), action_conflict
+#     #     end
+#     # end
+#     # return state_conflict, action_conflict
+# end
+#
+# function Base.copy(c::ConflictTable)
+#    c_new = ConflictTable()
+#    for (k,v) in c.state_conflicts
+#        c_new.state_conflicts[k] = copy(v)
+#    end
+#    for (k,v) in c.action_conflicts
+#        c_new.action_conflicts[k] = copy(v)
+#    end
+#    return c_new
+# end
+#
+# """
+#     Returns a `ConflictTable` of all conflicts that occur in a given solution
+#
+#     args:
+#     - conflict_table        a `ConflictTable` to store the detected conflicts
+#     - paths:                a list of `Path`s, one for each individual agent
+#     - idxs                  (optional) a list of agent ids for which to check
+#                             collisions against all other agents
+# """
+# function detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))
+#     conflict_table = ConflictTable()
+#     detect_conflicts!(conflict_table,paths,idxs)
+# end
 
 # """
 #     returns the next conflict (temporally) that occurs in a conflict table
@@ -452,7 +451,7 @@ end
     adds a `StateConstraint` to a ConstraintTreeNode
 """
 function add_constraint!(node::ConstraintTreeNode,constraint::StateConstraint,mapf::MAPF)
-    if !(states_match(constraint.v, mapf.goals[get_agent_id(constraint)])
+    if !(states_match(constraint.v, mapf.goals[get_agent_id(constraint)]))
         node.constraints[get_agent_id(constraint)].state_constraints[constraint] = true
         return true
     end
@@ -494,7 +493,6 @@ end
 function get_cost(node::ConstraintTreeNode)
     return get_cost(node.solution)
 end
-
 
 """
     generates a set of constraints from a StateConflict

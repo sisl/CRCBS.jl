@@ -45,6 +45,8 @@ let
 
     conflict = Conflict{P,P}()
     @test !is_valid(conflict)
+    @test !is_valid(StateConflict{P,P}())
+    @test !is_valid(ActionConflict{P,P}())
 
     conflict_table = CommonTests.ConflictTable()
     CommonTests.add_conflict!(conflict_table,conflict)
@@ -56,5 +58,11 @@ let
 
     add_constraint!(constraint_dict, state_constraint)
     add_constraint!(constraint_dict, action_constraint)
+
+    new_dict = merge(constraint_dict,constraint_dict)
+    add_constraint!(new_dict, StateConstraint{Int}(1,2,3))
+
+    node_dict = Dict{Int,ConstraintDict}()
+    merge(node_dict,node_dict)
 
 end
