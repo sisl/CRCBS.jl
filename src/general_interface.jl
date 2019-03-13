@@ -19,6 +19,7 @@ export
     PathCost,
 
     states_match,
+    is_goal,
     wait,
     get_possible_actions,
     get_next_state,
@@ -167,6 +168,13 @@ struct MakeSpan <: CostModel end
     returns true if s1 and s2 match (not necessarily the same as equal)
 """
 function states_match end
+
+"""
+    is_goal(env,s)
+
+    Returns true if state `s` satisfies the goal condition of environment `env`
+"""
+function is_goal end
 
 """
     wait(s)

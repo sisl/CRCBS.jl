@@ -36,8 +36,8 @@ let
     # @test detect_action_conflict([Edge(3,2),Edge(2,1)],[Edge(4,1),Edge(1,2)],2)
 end
 let
-    NodeConstraint(1,2,3)
-    EdgeConstraint(1,2,3,4)
+    StateConstraint(1,2,3)
+    ActionConstraint(1,2,3,4)
 end
 # let
     # node = empty_constraint_node()
@@ -47,7 +47,7 @@ let
     mapf = MAPF(Graph(), [1,2,3,4], [5,6,7,8])
     # empty_constraint_node()
     node = initialize_root_node(mapf)
-    add_constraint!(node,NodeConstraint(1,CBS_State(2),3),mapf)
+    add_constraint!(node,StateConstraint(1,CBS_State(2),3),mapf)
     merge(node.constraints,node.constraints)
     # @test compare_constraint_nodes(ConstraintTreeNode(),ConstraintTreeNode())
 end

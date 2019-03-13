@@ -8,6 +8,8 @@ using NearestNeighbors
 
 include("problem_definitions.jl")
 include("general_interface.jl")
+include("common.jl")
+
 include("utils.jl")
 # include("low_level_search/a_star.jl")
 include("low_level_search/implicit_graphs.jl")

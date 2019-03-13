@@ -11,8 +11,8 @@ invalid_state_conflict
 ActionConflict
 detect_action_conflict
 invalid_action_conflict
-NodeConstraint
-EdgeConstraint
+StateConstraint
+ActionConstraint
 ConstraintTreeNode
 initialize_root_node
 initialize_child_node

@@ -4,18 +4,9 @@ export
     CBS_Action,
     CBSLowLevelEnv,
 
-    is_valid,
-    StateConflict,
-    detect_state_conflict,
     invalid_state_conflict,
-    ActionConflict,
-    detect_action_conflict,
     invalid_action_conflict,
-    ConflictTable,
-    detect_conflicts,
-    detect_conflicts!,
-    NodeConstraint,
-    EdgeConstraint,
+
     ConstraintTreeNode,
     initialize_root_node,
     initialize_child_node,
@@ -26,7 +17,7 @@ export
     get_cost,
     empty_constraint_node,
     get_next_conflicts,
-    get_conflicts,
+    # get_conflicts,
     generate_constraints_from_conflict,
     low_level_search!,
     AbstractMAPFSolver,
@@ -41,6 +32,7 @@ CRCBS.states_match(s1::CBS_State,s2::CBS_State) = (s1.vtx == s2.vtx)
 const CBS_Action = Edge{Int}
 CBS_Action() = Edge(-1,-1)
 wait(s::CBS_State) = CBS_Action(s.vtx,s.vtx)
+
 @with_kw struct CBSLowLevelEnv{G <: AbstractGraph,C} <: AbstractLowLevelEnv{CBS_State,CBS_Action}
     graph::G = Graph()
     constraints::C = Vector()
@@ -74,14 +66,14 @@ CRCBS.get_next_state(s::CBS_State,a::CBS_Action) = CBS_State(a.dst)
 CRCBS.get_transition_cost(env::CBSLowLevelEnv,s::CBS_State,a::CBS_Action,sp::CBS_State) = 1
 function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{CBS_State,CBS_Action}, s::CBS_State, a::CBS_Action, sp::CBS_State)
     t = length(path) + 1
-    # if get(env.constraints.node_constraints,NodeConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t),false)
-    if get(env.constraints.node_constraints,NodeConstraint(get_agent_id(env.constraints),sp,t),false)
+    # if get(env.constraints.state_constraints,StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t),false)
+    if get(env.constraints.state_constraints,StateConstraint(get_agent_id(env.constraints),sp,t),false)
         return true
     else
         v1 = s
         v2 = sp
-        # if get(env.constraints.edge_constraints,EdgeConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t),false)
-        if get(env.constraints.edge_constraints,EdgeConstraint(get_agent_id(env.constraints),v1,v2,t),false)
+        # if get(env.constraints.action_constraints,ActionConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t),false)
+        if get(env.constraints.action_constraints,ActionConstraint(get_agent_id(env.constraints),v1,v2,t),false)
             return true
         end
     end
@@ -92,91 +84,9 @@ CRCBS.check_termination_criteria(env::CBSLowLevelEnv,cost,path,s) = false
 """ Type alias for a path through the graph """
 const CBSPath = Path{CBS_State,CBS_Action}
 
-"""
-    Checks if an individual path satisfies start and end constraints
-"""
-function is_valid(path::Path{S,A},start::S,goal::S) where {S,A}
-    return (states_match(get_initial_state(path), start)
-        && states_match(get_final_state(path), goal))
-end
-
-"""
-    checks if a solution is valid
-"""
-function is_valid(solution::LowLevelSolution{S,A},starts::Vector{S},goals::Vector{S}) where {S,A}
-    for (i,path) in enumerate(solution)
-        if !is_valid(path,starts[i],goals[i])
-            return false
-        end
-    end
-    return true
-end
-
-"""
-    checks if a solution is valid
-"""
-function is_valid(solution::LowLevelSolution,mapf::MAPF)
-    is_valid(solution,mapf.starts,mapf.goals)
-end
-
-abstract type CBSConflict end
-
-@enum ConflictType begin
-    NULL_CONFLICT   = 0
-    STATE_CONFLICT  = 1
-    ACTION_CONFLICT = 2
-end
-@with_kw struct Conflict{P1 <: PathNode,P2 <: PathNode}
-    conflict_type::ConflictType = NULL_CONFLICT
-    agent1_id::Int = -1
-    agent2_id::Int = -1
-    node1::P1 = P1()
-    node2::P2 = P2()
-    t::Int = -1
-end
-conflict_type(conflict::Conflict) = conflict.conflict_type
-agent1_id(conflict::Conflict) = conflict.agent1_id
-agent2_id(conflict::Conflict) = conflict.agent2_id
-node1(conflict::Conflict) = conflict.node1
-node2(conflict::Conflict) = conflict.node2
-state1(conflict::Conflict) = get_s(node1(conflict))
-state2(conflict::Conflict) = get_s(node2(conflict))
-action1(conflict::Conflict) = get_a(node1(conflict))
-action2(conflict::Conflict) = get_a(node2(conflict))
-next_state1(conflict::Conflict) = get_sp(node1(conflict))
-next_state2(conflict::Conflict) = get_sp(node2(conflict))
-time_of(conflict::Conflict) = conflict.t
-
-""" Checks if a conflict is valid """
-is_valid(conflict::Conflict) = (conflict_type(conflict) != NULL_CONFLICT)
-
-"""
-    Encodes a conflict wherein two agents occupy a particular node at a
-    particular time.
-
-    Default constructor returns an INVALID instance
-"""
-@with_kw struct StateConflict{S1,S2} <: CBSConflict
-    agent1_id::Int = -1
-    agent2_id::Int = -1
-    state1::S1 = S1()
-    state2::S2 = S2()
-    t::Int = -1
-end
-conflict_type(s::StateConflict) = StateConflict
-agent1_id(conflict::StateConflict) = conflict.agent1_id
-agent2_id(conflict::StateConflict) = conflict.agent2_id
-state1(conflict::StateConflict) = conflict.state1
-state2(conflict::StateConflict) = conflict.state2
-time_of(conflict::StateConflict) = conflict.t
-
 """ Returns an invalid StateConflict """
 # invalid_state_conflict() = StateConflict(-1,-1,invalid_state(0),invalid_state(0),-1)
 invalid_state_conflict() = StateConflict{CBS_State,CBS_State}()
-
-
-""" Checks if a node conflict is valid """
-is_valid(conflict::StateConflict) = (agent1_id(conflict) != -1)
 
 """
     Detect a `StateConflict` between two path nodes. Must be overridden for each
@@ -184,14 +94,6 @@ is_valid(conflict::StateConflict) = (agent1_id(conflict) != -1)
 """
 function detect_state_conflict(n1::PathNode{CBS_State,CBS_Action},n2::PathNode{CBS_State,CBS_Action})
     if n1.sp.vtx == n2.sp.vtx
-        return true
-    end
-    return false
-end
-
-""" Checks for a `StateConflict` between two `CBSPath`s at time t """
-function detect_state_conflict(path1::Path{S,A} where {S,A},path2::Path{S,A} where {S,A},t::Int)
-    if detect_state_conflict(get_path_node(path1,t),get_path_node(path2,t))
         return true
     end
     return false
@@ -311,60 +213,6 @@ function Base.copy(c::ConflictTable)
 end
 
 """
-    detect conflicts between paths
-"""
-# function detect_conflicts(path1::Path,path2::Path,i::Int,j::Int)
-function detect_conflicts!(conflicts::C,path1::Path,path2::Path,i::Int,j::Int) where C
-    # state_conflicts = Vector{StateConflict}()
-    # action_conflicts = Vector{ActionConflict}()
-    if length(path1) > length(path2)
-        path2 = extend_path(path2,length(path1))
-    elseif length(path1) < length(path2)
-        path1 = extend_path(path1,length(path2))
-    end
-    @assert(length(path1) == length(path2))
-    for t in 1:length(path1)
-        path_node1 = path1[t]
-        path_node2 = path2[t]
-        # check for state conflicts
-        # if detect_state_conflict(path_node1,path_node2)
-        #     push!(state_conflicts, StateConflict(i,j,get_sp(path_node1),get_sp(path_node2),t))
-        # end
-        # # check for action conflicts
-        # if detect_action_conflict(path_node1,path_node2)
-        #     push!(action_conflicts, ActionConflict(i,j,get_s(path_node1),get_s(path_node2),t))
-        # end
-        # check for conflicts
-        detect_conflicts!(conflicts,path_node1,path_node2,i,j,t)
-    end
-    return state_conflicts, action_conflicts
-end
-
-"""
-    Populates a `ConflictTable` with all conflicts that occur in a given solution
-
-    args:
-    - conflict_table        a `ConflictTable` to store the detected conflicts
-    - paths:                a list of `Path`s, one for each individual agent
-    - idxs                  (optional) a list of agent ids for which to check
-                            collisions against all other agents
-"""
-function detect_conflicts!(conflict_table::ConflictTable, paths::LowLevelSolution, idxs=collect(1:length(paths)))
-    for (i,path1) in enumerate(paths)
-        for (j,path2) in enumerate(paths)
-            if !((j ∈ idxs) && (j > i)) # save time by working only on the upper triangle
-                continue
-            end
-            state_conflicts, action_conflicts = detect_conflicts(path1,path2,i,j)
-            # state_conflicts, action_conflicts = detect_conflicts!(conflict_table,path1,path2,i,j)
-            conflict_table.state_conflicts[(i,j)] = state_conflicts
-            conflict_table.action_conflicts[(i,j)] = action_conflicts
-        end
-    end
-    return conflict_table
-end
-
-"""
     Returns a `ConflictTable` of all conflicts that occur in a given solution
 
     args:
@@ -378,222 +226,165 @@ function detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths))
     detect_conflicts!(conflict_table,paths,idxs)
 end
 
-"""
-    returns the next conflict (temporally) that occurs in a conflict table
-"""
-function get_next_conflicts(conflict_table::ConflictTable)
-    state_conflicts = Vector{StateConflict}()
-    for (k,v) in conflict_table.state_conflicts
-        if length(v) > 0
-            push!(state_conflicts, v[1])
-        end
-    end
-    sort!(state_conflicts, by=c->time_of(c))
-    action_conflicts = Vector{ActionConflict}()
-    for (k,v) in conflict_table.action_conflicts
-        if length(v) > 0
-            push!(action_conflicts, v[1])
-        end
-    end
-    sort!(action_conflicts, by=c->time_of(c))
-
-    state_conflict = get(state_conflicts, 1, invalid_state_conflict())
-    action_conflict = get(action_conflicts, 1, invalid_action_conflict())
-    if is_valid(state_conflict) && is_valid(action_conflict)
-        if time_of(state_conflict) <= time_of(action_conflict)
-            return state_conflict, invalid_action_conflict()
-        else
-            return invalid_state_conflict(), action_conflict
-        end
-    end
-    return state_conflict, action_conflict
-end
-
-"""
-    Returns a `StateConflict` and an `ActionConflict` next conflicts.
-    The function returns after finding the FIRST conflice (StateConflict or
-        ActionConflict), which means that at least one of the returned conflicts
-        will always be invalid. The rational for returning both anyway is to
-        preserve stability of the function's return type.
-    If state_conflict and action_conflict are both invalid, the search has reached
-        the end of the paths.
-
-    args:
-    - t_:       time index at which to begin the search
-    - i_:       index of path 1 at which to begin the search
-    - j_:       index of path 2 at which to begin the search
-    - tmax:     maximum lookahead time (defaults to the length of the longest
-        path)
-    Search begins at time `t_`, `paths[i_]`, `paths[j_]`, then returns after
-        finding the first conflict.
-"""
-function get_next_conflicts(paths::LowLevelSolution,
-        i_::Int=1,
-        j_::Int=2,
-        t_::Int=1,
-        tmax::Int=maximum([length(p) for p in paths])
-        )
-    state_conflict = invalid_state_conflict()
-    action_conflict = invalid_action_conflict()
-
-    # extend paths so that they all match in length
-    extended_paths = [extend_path(path,tmax) for path in paths]
-
-    # begin search from time t, paths[i_], paths[j_]
-    t = t_; i = i_; j_ = max(j_,i+1)
-
-    path1 = get(extended_paths,i,CBSPath()) # in case i is beyond the length of paths
-    n1 = get_path_node(path1,t)
-    for j in j_:length(extended_paths)
-        path2 = extended_paths[j]
-        n2 = get_path_node(path2,t)
-        if detect_state_conflict(n1,n2)
-            state_conflict = StateConflict(i,j,get_sp(n1),get_sp(n2),t)
-            return state_conflict, action_conflict
-        elseif detect_action_conflict(n1,n2)
-            action_conflict = ActionConflict(i,j,get_s(n1),get_s(n2),t)
-            return state_conflict, action_conflict
-        end
-    end
-    # Continue search from next time step
-    for t in t_+1:tmax
-        for (i,path1) in enumerate(extended_paths)
-            n1 = get_path_node(path1,t)
-            for j in i+1:length(extended_paths)
-                path2 = extended_paths[j]
-                n2 = get_path_node(path2,t)
-                if detect_state_conflict(n1,n2)
-                    state_conflict = StateConflict(i,j,get_sp(n1),get_sp(n2),t)
-                    return state_conflict, action_conflict
-                elseif detect_action_conflict(n1,n2)
-                    action_conflict = ActionConflict(i,j,get_s(n1),get_s(n2),t)
-                    return state_conflict, action_conflict
-                end
-            end
-        end
-    end
-    return state_conflict, action_conflict
-end
-
-"""
-    Returns a list of all conflicts that occur in a given solution
-
-    args:
-    - paths:        a list of graph edges to be traversed by the agents
-"""
-function get_all_conflicts(paths::LowLevelSolution)
-    state_conflicts = Vector{StateConflict}()
-    action_conflicts = Vector{ActionConflict}()
-    for (i,path1) in paths
-        for (j,path2) in paths
-            if j <= i
-                continue
-            end
-            s_conflicts, a_conflicts = detect_conflicts(path1,path2,i,j)
-            union!(state_conflicts, s_conflicts)
-            union!(action_conflicts, a_conflicts)
-        end
-    end
-    sort!(state_conflicts,by=c->time_of(c))
-    sort!(action_conflicts,by=c->time_of(c))
-    return state_conflicts, action_conflicts
-end
-
-"""
-    Returns a list of all conflicts that occur in a given solution
-
-    args:
-    - paths:        a list of graph edges to be traversed by the agents
-"""
-function get_conflicts(paths::LowLevelSolution)
-    # TODO Make this way faster
-    state_conflicts = Vector{StateConflict}()
-    action_conflicts = Vector{ActionConflict}()
-    t_max = maximum([length(path) for path in paths])
-    nc, ec = get_next_conflicts(paths)
-    while true
-        if is_valid(nc)
-            push!(state_conflicts, nc)
-            conflict = nc
-        elseif is_valid(ec)
-            push!(action_conflicts, ec)
-            conflict = ec
-        else
-            break
-        end
-        nc, ec = get_next_conflicts(
-            paths,
-            agent1_id(conflict),
-            agent2_id(conflict)+1,
-            time_of(conflict),
-            t_max
-            )
-    end
-    return state_conflicts, action_conflicts
-end
-
-abstract type CBSConstraint end
-get_agent_id(c::CBSConstraint) = c.a
+# """
+#     returns the next conflict (temporally) that occurs in a conflict table
+# """
+# function get_next_conflicts(conflict_table::ConflictTable)
+#     state_conflicts = Vector{StateConflict}()
+#     for (k,v) in conflict_table.state_conflicts
+#         if length(v) > 0
+#             push!(state_conflicts, v[1])
+#         end
+#     end
+#     sort!(state_conflicts, by=c->time_of(c))
+#     action_conflicts = Vector{ActionConflict}()
+#     for (k,v) in conflict_table.action_conflicts
+#         if length(v) > 0
+#             push!(action_conflicts, v[1])
+#         end
+#     end
+#     sort!(action_conflicts, by=c->time_of(c))
+#
+#     state_conflict = get(state_conflicts, 1, invalid_state_conflict())
+#     action_conflict = get(action_conflicts, 1, invalid_action_conflict())
+#     if is_valid(state_conflict) && is_valid(action_conflict)
+#         if time_of(state_conflict) <= time_of(action_conflict)
+#             return state_conflict, invalid_action_conflict()
+#         else
+#             return invalid_state_conflict(), action_conflict
+#         end
+#     end
+#     return state_conflict, action_conflict
+# end
+#
+# """
+#     Returns a `StateConflict` and an `ActionConflict` next conflicts.
+#     The function returns after finding the FIRST conflice (StateConflict or
+#         ActionConflict), which means that at least one of the returned conflicts
+#         will always be invalid. The rational for returning both anyway is to
+#         preserve stability of the function's return type.
+#     If state_conflict and action_conflict are both invalid, the search has reached
+#         the end of the paths.
+#
+#     args:
+#     - t_:       time index at which to begin the search
+#     - i_:       index of path 1 at which to begin the search
+#     - j_:       index of path 2 at which to begin the search
+#     - tmax:     maximum lookahead time (defaults to the length of the longest
+#         path)
+#     Search begins at time `t_`, `paths[i_]`, `paths[j_]`, then returns after
+#         finding the first conflict.
+# """
+# function get_next_conflicts(paths::LowLevelSolution,
+#         i_::Int=1,
+#         j_::Int=2,
+#         t_::Int=1,
+#         tmax::Int=maximum([length(p) for p in paths])
+#         )
+#     state_conflict = invalid_state_conflict()
+#     action_conflict = invalid_action_conflict()
+#
+#     # extend paths so that they all match in length
+#     extended_paths = [extend_path(path,tmax) for path in paths]
+#
+#     # begin search from time t, paths[i_], paths[j_]
+#     t = t_; i = i_; j_ = max(j_,i+1)
+#
+#     path1 = get(extended_paths,i,CBSPath()) # in case i is beyond the length of paths
+#     n1 = get_path_node(path1,t)
+#     for j in j_:length(extended_paths)
+#         path2 = extended_paths[j]
+#         n2 = get_path_node(path2,t)
+#         if detect_state_conflict(n1,n2)
+#             state_conflict = StateConflict(i,j,get_sp(n1),get_sp(n2),t)
+#             return state_conflict, action_conflict
+#         elseif detect_action_conflict(n1,n2)
+#             action_conflict = ActionConflict(i,j,get_s(n1),get_s(n2),t)
+#             return state_conflict, action_conflict
+#         end
+#     end
+#     # Continue search from next time step
+#     for t in t_+1:tmax
+#         for (i,path1) in enumerate(extended_paths)
+#             n1 = get_path_node(path1,t)
+#             for j in i+1:length(extended_paths)
+#                 path2 = extended_paths[j]
+#                 n2 = get_path_node(path2,t)
+#                 if detect_state_conflict(n1,n2)
+#                     state_conflict = StateConflict(i,j,get_sp(n1),get_sp(n2),t)
+#                     return state_conflict, action_conflict
+#                 elseif detect_action_conflict(n1,n2)
+#                     action_conflict = ActionConflict(i,j,get_s(n1),get_s(n2),t)
+#                     return state_conflict, action_conflict
+#                 end
+#             end
+#         end
+#     end
+#     return state_conflict, action_conflict
+# end
+#
+# """
+#     Returns a list of all conflicts that occur in a given solution
+#
+#     args:
+#     - paths:        a list of graph edges to be traversed by the agents
+# """
+# function get_all_conflicts(paths::LowLevelSolution)
+#     state_conflicts = Vector{StateConflict}()
+#     action_conflicts = Vector{ActionConflict}()
+#     for (i,path1) in paths
+#         for (j,path2) in paths
+#             if j <= i
+#                 continue
+#             end
+#             s_conflicts, a_conflicts = detect_conflicts(path1,path2,i,j)
+#             union!(state_conflicts, s_conflicts)
+#             union!(action_conflicts, a_conflicts)
+#         end
+#     end
+#     sort!(state_conflicts,by=c->time_of(c))
+#     sort!(action_conflicts,by=c->time_of(c))
+#     return state_conflicts, action_conflicts
+# end
+#
+# """
+#     Returns a list of all conflicts that occur in a given solution
+#
+#     args:
+#     - paths:        a list of graph edges to be traversed by the agents
+# """
+# function get_conflicts(paths::LowLevelSolution)
+#     # TODO Make this way faster
+#     state_conflicts = Vector{StateConflict}()
+#     action_conflicts = Vector{ActionConflict}()
+#     t_max = maximum([length(path) for path in paths])
+#     nc, ec = get_next_conflicts(paths)
+#     while true
+#         if is_valid(nc)
+#             push!(state_conflicts, nc)
+#             conflict = nc
+#         elseif is_valid(ec)
+#             push!(action_conflicts, ec)
+#             conflict = ec
+#         else
+#             break
+#         end
+#         nc, ec = get_next_conflicts(
+#             paths,
+#             agent1_id(conflict),
+#             agent2_id(conflict)+1,
+#             time_of(conflict),
+#             t_max
+#             )
+#     end
+#     return state_conflicts, action_conflicts
+# end
 
 """
-    Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
+    Helper function for reversing an `ActionConstraint`
 """
-struct NodeConstraint{S} <: CBSConstraint
-    a::Int # agent ID
-    # v::Int # vertex ID
-    v::S
-    t::Int # time ID
-end
+flip(c::ActionConstraint) = ActionConstraint(get_agent_id(c),c.v2,c.v1,c.t)
 
-"""
-    Encodes a constraint that agent `a` may not traverse `Edge(v1,v2)` at time
-    step `t`
-"""
-struct EdgeConstraint{S} <: CBSConstraint
-    a::Int # agent ID
-    v1::S # ID of first vertex in edge
-    v2::S # ID of second vertex in edge
-    t::Int # time ID
-end
-
-"""
-    Helper function for reversing an `EdgeConstraint`
-"""
-flip(c::EdgeConstraint) = EdgeConstraint(get_agent_id(c),c.v2,c.v1,c.t)
-
-"""
-    constraint dictionary for fast constraint lookup within a_star
-"""
-@with_kw struct ConstraintDict
-    node_constraints::Dict{NodeConstraint,Bool} = Dict{NodeConstraint,Bool}()
-    edge_constraints::Dict{EdgeConstraint,Bool} = Dict{EdgeConstraint,Bool}()
-    a::Int = -1 # agent_id
-end
-get_agent_id(c::ConstraintDict) = c.a
-
-""" Helper function to merge two instances of `ConstraintDict` """
-function Base.merge(d1::ConstraintDict,d2::ConstraintDict)
-    @assert(get_agent_id(d1)==get_agent_id(d2))
-    ConstraintDict(
-        merge(d1.node_constraints,d2.node_constraints),
-        merge(d1.edge_constraints,d2.edge_constraints),
-        get_agent_id(d1)
-    )
-end
-
-"""
-     Combines two `Dict`s of `ConstraintDict`s into a single `Dict` of
-     `ConstraintDict`s where the value associated with each key in the
-     resulting dictionary is the union of the values for the input dictionaries
-     at that key
-"""
-function Base.merge(dict1::Dict{K,ConstraintDict},dict2::Dict{K,ConstraintDict}) where K
-    new_dict = typeof(dict1)()
-    for k in union(collect(keys(dict1)),collect(keys(dict2)))
-        new_dict[k] = merge(get(dict1,k,ConstraintDict()), get(dict1,k,ConstraintDict()))
-    end
-    return new_dict
-end
 
 """
     A node of a constraint tree. Each node has a set of constraints, a candidate
@@ -658,23 +449,23 @@ function get_constraints(node::ConstraintTreeNode, path_id::Int)
 end
 
 """
-    adds a `NodeConstraint` to a ConstraintTreeNode
+    adds a `StateConstraint` to a ConstraintTreeNode
 """
-function add_constraint!(node::ConstraintTreeNode,constraint::NodeConstraint,mapf::MAPF)
-    if (constraint.v != mapf.goals[get_agent_id(constraint)])
-        node.constraints[get_agent_id(constraint)].node_constraints[constraint] = true
+function add_constraint!(node::ConstraintTreeNode,constraint::StateConstraint,mapf::MAPF)
+    if !(states_match(constraint.v, mapf.goals[get_agent_id(constraint)])
+        node.constraints[get_agent_id(constraint)].state_constraints[constraint] = true
         return true
     end
     return false
 end
 
 """
-    adds an `EdgeConstraint` to a ConstraintTreeNode
+    adds an `ActionConstraint` to a ConstraintTreeNode
 """
-function add_constraint!(node::ConstraintTreeNode,constraint::EdgeConstraint,mapf::MAPF)
+function add_constraint!(node::ConstraintTreeNode,constraint::ActionConstraint,mapf::MAPF)
     if (constraint.v1 != mapf.goals[get_agent_id(constraint)]) && (constraint.v1 != mapf.goals[get_agent_id(constraint)])
-        node.constraints[get_agent_id(constraint)].edge_constraints[constraint] = true
-        node.constraints[get_agent_id(constraint)].edge_constraints[flip(constraint)] = true
+        node.constraints[get_agent_id(constraint)].action_constraints[constraint] = true
+        node.constraints[get_agent_id(constraint)].action_constraints[flip(constraint)] = true
         return true
     end
     return false
@@ -711,13 +502,13 @@ end
 function generate_constraints_from_conflict(conflict::StateConflict)
     return [
         # Agent 1 may not occupy node at time t + 1
-        NodeConstraint(
+        StateConstraint(
             agent1_id(conflict),
             state1(conflict),
             time_of(conflict)
         ),
         # Agent 2 may not occupy node at time t + 1
-        NodeConstraint(
+        StateConstraint(
             agent2_id(conflict),
             state2(conflict),
             time_of(conflict)
@@ -731,14 +522,14 @@ end
 function generate_constraints_from_conflict(conflict::ActionConflict)
     return [
         # Agent 1 may not traverse Edge(node1,node2) at time t
-        EdgeConstraint(
+        ActionConstraint(
             agent1_id(conflict),
             state1(conflict),
             state2(conflict),
             time_of(conflict) # + 1
         ),
         # Agent 2 may not traverse Edge(node2,node1) at time t
-        EdgeConstraint(
+        ActionConstraint(
             agent2_id(conflict),
             state2(conflict),
             state1(conflict),

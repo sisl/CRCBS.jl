@@ -6,14 +6,13 @@ export
     The internal loop of the A* algorithm.
 """
 function A_star_impl!(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
-    is_goal::Function, # the end vertex
     frontier,               # an initialized heap containing the active nodes
     explored::Dict{S,Bool},
     heuristic::Function) where {S,A}
 
     while !isempty(frontier)
         (cost_so_far, path, s) = dequeue!(frontier)
-        if is_goal(s)
+        if is_goal(env,s)
             return path
         elseif check_termination_criteria(env,cost_so_far,path,s)
             break
@@ -62,7 +61,6 @@ end
 """
 function A_star(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
     start_state::S,
-    is_goal::Function; # the end vertex
     heuristic::Function = s -> 0.0) where {S,A}
 
     initial_cost = 0
@@ -70,5 +68,5 @@ function A_star(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
     enqueue!(frontier, (initial_cost, Path{S,A}(), start_state)=>initial_cost)
     explored = Dict{S,Bool}()
 
-    A_star_impl!(env,is_goal,frontier,explored,heuristic)
+    A_star_impl!(env,frontier,explored,heuristic)
 end

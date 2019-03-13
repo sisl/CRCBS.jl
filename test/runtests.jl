@@ -41,15 +41,18 @@ end
     # @time @testset "CRCBS.MainTests" begin
     #     include(joinpath(testdir, "test_main.jl"))
     # end
-    @time @testset "CRCBS.OverHaulTests" begin
-        include(joinpath(testdir, "test_overhaul.jl"))
+    @time @testset "CRCBS.CommonTests" begin
+        include(joinpath(testdir, "test_common.jl"))
     end
-    @time @testset "CRCBS.HeuristicTests" begin
-        include(joinpath(testdir, "test_heuristics.jl"))
+    @time @testset "CRCBS.CBSTests" begin
+        include(joinpath(testdir, "cbs_tests.jl"))
     end
-    # @time @testset "CRCBS.ImplicitGraphsTests" begin
-    #     include(joinpath(testdir, "implicit_graph_tests.jl"))
+    # @time @testset "CRCBS.HeuristicTests" begin
+    #     include(joinpath(testdir, "test_heuristics.jl"))
     # end
+    @time @testset "CRCBS.ImplicitGraphsTests" begin
+        include(joinpath(testdir, "implicit_graph_tests.jl"))
+    end
     # @time @testset "CRCBS.DemoTests" begin
     #     include(joinpath(testdir, "test_demo.jl"))
     # end
