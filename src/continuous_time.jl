@@ -11,6 +11,7 @@ using HCurbature
 
 include("utils.jl")
 include("CT_graph.jl") #Contains functions to generate and use CT graphs
+include("low_level_search/a_star.jl") #Modified version of astar
 
 """ ------------------------------------------------------------------------
                        Common between CT and CBS
@@ -113,26 +114,29 @@ end
 abstract type CBSConstraint end
 get_agent_id(c::CBSConstraint) = c.a
 
-"""
-Encodes a constraint that agent `a` may not occupy vertex `v` until time `t`
-"""
+"""Encodes a constraint that agent `a` may not occupy vertex `v` until time `t`"""
 struct NodeConstraint <: CBSConstraint
     a::Int # agent ID
     v::Int # vertex ID
     t::Float# time ID
 end
 
-"""
-    Encodes a constraint that agent `a` may not occupy edge [node1_id,node2_id]
+"""Encodes a constraint that agent `a` may not occupy edge [node1_id,node2_id]
     until time `t`.
     This does not restrict occupancy of node1_id at all (nodeconflicts take
-    care of this), so t designates the nominal departure time.
-"""
+    care of this), so t designates the nominal departure time."""
 struct EdgeConstraint <: CBSConstraint
     a::Int # agent ID
     node1_id::Int
     node2_id::Int
     t::Float # time ID
+end
+
+function verifies_NodeConstraint(Constraint_to_test::NodeConstraint,
+    Constraint_to_verify_against::NodeConstraint)
+    """Checks if constraint 1 verifies constraint 2"""
+    t_max = Constraint_to_verify_against.t
+    return Constraint_to_test.t >= t_max #This means that the constraint is not violated
 end
 
 """Helper function for reversing an `EdgeConstraint`"""
