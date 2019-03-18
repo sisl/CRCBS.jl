@@ -8,6 +8,7 @@ using NearestNeighbors
 
 using Distributions
 using HCurbature
+using Combinatorics
 
 include("utils.jl")
 include("CT_graph.jl") #Contains functions to generate and use CT graphs
@@ -63,12 +64,13 @@ struct NodeConflict
     agent1_id::Int
     agent2_id::Int
     node_id::Int
-    conflict_probability::Float
+    t1::Float
+    t2::Float
 end
 
 function invalid_node_conflict()
     """Returns an invalid NodeConflict"""
-    NodeConflict(-1,-1,-1,-1)
+    NodeConflict(-1,-1,-1,-1,-1)
 end
 
 function is_valid(conflict::NodeConflict)
@@ -91,14 +93,15 @@ struct EdgeConflict
     agent2_id::Int
     node1_id::Int
     node2_id::Int
-    conflict_probability::Float
+    t1::Float #Nominal time of arrival of robot 1 at node 1
+    t2::Float #Nominal time of arrival of robot 2 at node 2
 end
 
 """
     returns an invalid EdgeConflict
 """
 function invalid_edge_conflict()
-    return EdgeConflict(-1,-1,-1,-1,-1)
+    return EdgeConflict(-1,-1,-1,-1,-1,-1)
 end
 
 """
@@ -123,8 +126,9 @@ end
 
 """Encodes a constraint that agent `a` may not occupy edge [node1_id,node2_id]
     until time `t`.
-    This does not restrict occupancy of node1_id at all (nodeconflicts take
-    care of this), so t designates the nominal departure time."""
+    This does restrict occupancy of node1_id (nodeconflicts take
+    care of collision probability, but presence of robot at node1 would enable
+    robots to swap positions), so t designates the nominal arrival time."""
 struct EdgeConstraint <: CBSConstraint
     a::Int # agent ID
     node1_id::Int
@@ -157,8 +161,8 @@ flip(c::EdgeConstraint) = EdgeConstraint(c.a,c.node2_id,c.node1_id,c.t)
 
 """constraint dictionary for fast constraint lookup within a_star"""
 @with_kw struct ConstraintDict
-    node_constraints::Dict{Tuple,Float64} = Dict{Tuple,Float64}()
-    edge_constraints::Dict{Tuple,Float64} = Dict{Tuple,Float64}()
+    node_constraints::Dict{Int,Float64} = Dict{Int,Float64}()
+    edge_constraints::Dict{Tuple{Int,Int},Float64} = Dict{Tuple{Int,Int},Float64}()
     a::Int = -1 # agent_id
 end
 
@@ -242,7 +246,7 @@ end
 """adds a `NodeConstraint` to a ConstraintTreeNode"""
 function add_constraint!(node::ConstraintTreeNode,constraint::NodeConstraint,mapf::MAPF)
     if (constraint.v != mapf.goals[constraint.a])
-        node.constraints[constraint.a].node_constraints[constraint] = true
+        node.constraints[constraint.a].node_constraints[constraint.v] = constraint.t
         return true
     end
     return false
@@ -251,8 +255,9 @@ end
 """adds an `EdgeConstraint` t o a ConstraintTreeNode"""
 function add_constraint!(node::ConstraintTreeNode,constraint::EdgeConstraint,mapf::MAPF)
     if (constraint.v1 != mapf.goals[constraint.a]) && (constraint.v1 != mapf.goals[constraint.a])
-        node.constraints[constraint.a].edge_constraints[constraint] = true
-        node.constraints[constraint.a].edge_constraints[flip(constraint)] = true
+        node.constraints[constraint.a].edge_constraints[(constraint.node1_id,constraint.node2_id)] = constraint.t
+        # For the moment we only want edge constraints to be unidirectional
+        #node.constraints[constraint.a].edge_constraints[(constraint.node2_id,constraint.node1_id)] = constraint.t
         return true
     end
     return false
@@ -264,19 +269,39 @@ end
 
 function violates_constraints(constraints::ConstraintDict,v,path,mapf::MAPF)
     """ Check if a set of constraints would be violated by adding an Edge from
-        the final vertex of `path` to `v`"""
-    t = traversal_time(path,mapf)
+        the final vertex of `path` to `v`
+        returning true means the constraints are violated"""
 
+    # Time it takes to go through path
+    t1 = traversal_time(path,mapf)
 
+    # We add the time it takes to go to v from the end of path
+    v1 = get_final_node(path)
+    v2 = v
+    e = Edge(v1,v2)
+    t = t1 + get_prop(mapf.graph,e,:weight)
 
+    # If such constraint exists, agent is only authorized to visit v after t_min
+    t_min = get(constraints.node_constraints,v,false)
 
-    if get(constraints.node_constraints,NodeConstraint(constraints.a,v,t),false)
-        return true
-    else
-        v1 = get_final_node(path)
-        v2 = v
-        if get(constraints.edge_constraints,EdgeConstraint(constraints.a,v1,v2,t),false)
+    # -- Node Check -- #
+    # If there is a time constraint for this agent and vertex
+    # and if agent wants to visit v before authorized time t_min
+    if t_min != false
+        if t_min < t
             return true
+        end
+
+    # -- Edge Check -- #
+    else
+        t_min_edge = get(constraints.edge_constraints,(v1,v2)),false)
+
+        # If there is a time constraint for this agent and edge
+        # and if agent wants to visit e before authorized time t_min_edge
+        if t_min_edge != false
+            if t1 < t_min_edge #Arrives at the first node of the edge before min time
+                return true
+            end
         end
     end
     return false
@@ -301,7 +326,7 @@ end
 
 # --------------- Finding and sorting likely collisions --------------------- #
 
-function get_collision_probability(n1,t1,n2,t2,nn,t_delay,lambda)
+function get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
 
     function f(x)
         y = x[1]
@@ -325,6 +350,44 @@ function get_collision_probability(n1,t1,n2,t2,nn,t_delay,lambda)
     b = [0.0,1000.0]
     m = [0.0;0.0]
     n = [1000.0,1000.0]
+    C1,err1 = hcubature(f,a,b)
+    C2,err2 = hcubature(g,m,n)
+    C = C1 + C2
+    err = err1 + err2
+
+    return C, err
+end
+
+function get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+
+    function f(x)
+        z = x[1]
+        t = x[2]
+        #density = hcubature(d1,[t2-t1+y],[1000],rtol = 0.5)[1] * lambda^(n1+n2) *  (t)^(n1-1) * (y+t)^(n2-1) * exp(-lambda*(y+2*t)) / (factorial(n1-1)*factorial(n2-1))
+        #density = hcubature(d1,[t2-t1+y],[1000],rtol = 0.5)[1] * (lambda^(n1) * (t)^(n1-1)  * exp(-lambda*(y+2*t)) / factorial(n1-1))*(lambda^(n2) * (y+t)^(n2-1)/factorial(n2-1))
+        density = pdf(Gamma(n1,lambda), t) * pdf(Gamma(n2,lambda),t-z)
+        return density
+    end
+
+    function g(x)
+        z = x[1]
+        t = x[2]
+        #density = hcubature(d1,[t2-t1+y],[1000],rtol = 0.5)[1] * lambda^(n1+n2) *  (t)^(n1-1) * (y+t)^(n2-1) * exp(-lambda*(y+2*t)) / (factorial(n1-1)*factorial(n2-1))
+        #density = hcubature(d1,[t2-t1+y],[1000],rtol = 0.5)[1] * (lambda^(n1) * (t)^(n1-1)  * exp(-lambda*(y+2*t)) / factorial(n1-1))*(lambda^(n2) * (y+t)^(n2-1)/factorial(n2-1))
+        density = pdf(Gamma(n1,lambda), t+z) * pdf(Gamma(n2,lambda),t)
+        return density
+    end
+
+    z1 = minimum([t1-t2-t_edge,0])
+    z2 = minimum([t1-t2+t_edge,0])
+
+    z3 = maximum([t1-t2-t_edge,0])
+    z4 = maximum([t1-t2+t_edge,0])
+
+    a = [z1;0.0]
+    b = [z2,1000.0]
+    m = [z3;0.0]
+    n = [z4,1000.0]
     C1,err1 = hcubature(f,a,b)
     C2,err2 = hcubature(g,m,n)
     C = C1 + C2
@@ -380,15 +443,233 @@ function clear_graph_occupancy(mapf::MAPF)
     return mapf.graph
 end
 
-function get_next_conflict(mapf::MAPF)
-    """At this point mapf.graph should be filled with occupancy information"""
-    num_robots = length(mapf.starts)
+function get_most_likely_conflicts(mapf::MAPF,epsilon::Float,paths::LowLevelSolution,lambda::Float)
+    """Returns the most likely conflict that occurs in a given solution:
+    - paths:        a list of graph edges to be traversed by the agents"""
 
+    # The first step is to fill the graph with occupancy information
+    mapf_occupied = mapf
+    for (robot_id,robotpath) in enumerate(paths)
+        mapf_occupied = fill_graph_with_path(robot_id,robotpath,mapf_occupied)
+    end
+
+    node_conflict = invalid_node_conflict()
+    edge_conflict = invalid_edge_conflict()
+
+    # Initialize max conflict probabilities at 0
+    node_conflict_p = 0
+    edge_conflict_p = 0
+
+    # ----- Node conflicts ----- #
+    for v in vertices(mapf_occupied.graph)
+
+        #Get node information
+        nn = get_prop(mapf_occupied.graph, v, :n_delay)
+        occupancy = get_prop(mapf_occupied.graph,v,:occupancy)
+
+        # There is interaction at this node
+        if length(occupancy) >= 2
+            list_of_occupants = keys(occupancy)
+            pairs_of_occupants = collect(combinations(list_of_occupants),2)
+            for (r1,r2) in pairs_of_occupants
+                (n1,t1) = occupancy[r1]
+                (n2,t2) = occupancy[r2]
+                cp = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+
+                # Conflict is likely and higher than all previously found
+                if cp > maximum(epsilon,node_conflict_p)
+                    node_conflict_p = cp
+                    node_conflict = NodeConflict(r1,r2,v,t1,t2)
+                end
+            end
+        end
+    end
+
+    # ----- Edge conflicts ----- #
+    for e in edges(mapf_occupied.graph)
+
+        #Get edge information. We consider confrontations as robots arriving in
+        #opposite directions only
+        t_edge = get_prop(mapf.graph,e,:weight)
+        occupancy = get_prop(mapf_occupied.graph,e,:occupancy)
+        reverse_edge = Edge(e[2],e[1])
+        reverse_occupancy = get_prop(mapf_occupied.graph,reverse_edge,:occupancy)
+
+        # There is interaction at this edge
+        if length(occupancy)*length(reverse_occupancy) >= 1
+            occupants_1 = keys(occupancy)
+            occupants_2 = keys(reverse_occupancy)
+            for robot1_id in occupants_1
+                for robot2_id in occupants_2
+                    (n1,t1) = occupancy[robot1_id]
+                    (n2,t2) = reverse_occupancy[robot2_id]
+                    cp = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+
+                    if cp > maximum(epsilon,edge_conflict_p)
+                        edge_conflict_p = cp
+                        #time at which robot 1/2 leaves from node 2/1 (the last)
+                        edge_conflict = EdgeConflict(r1,r2,e[1],e[2],t1+t_edge,t2+t_edge)
+                    end
+                end
+            end
+        end
+    end
+
+    mapf = clear_graph_occupancy(mapf)
+    if node_conflict_p >= edge_conflict_p:
+        return node_conflict, invalid_edge_conflict()
+    else
+        return invalid_node_conflict(), edge_conflict
+    end
+end
+
+function get_next_conflicts(mapf::MAPF,paths::LowLevelSolution,
+        i_::Int=1,
+        j_::Int=2,
+        )
+    """Returns a NodeConflict and an EdgeConflict next conflicts.
+    The function returns after finding the most likely conflict (NodeConflict or
+        EdgeConflict), which means that at least one of the returned conflicts
+        will always be invalid. The rational for returning both anyway is to
+        preserve stability of the function's return type.
+    If node_conflict and edge_conflict are both invalid, the search has reached
+        the end of the paths."""
+    node_conflict = invalid_node_conflict()
+    edge_conflict = invalid_edge_conflict()
+    # begin search from paths[i_], paths[j_]
+    i = i_; j_ = max(j_,i+1)
+
+    path1 = get(paths,i,GraphPath()) # in case i is beyond the length of paths
+
+    e1 = get_edge(path1,t)
+    for j in j_:length(paths)
+        path2 = paths[j]
+        e2 = get_edge(path2,t)
+        if detect_node_conflict(e1,e2)
+            node_conflict = NodeConflict(i,j,e1.dst,t)
+            return node_conflict, edge_conflict
+        elseif detect_edge_conflict(e1,e2)
+            edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
+            return node_conflict, edge_conflict
+        end
+    end
+    # Continue search from next time step
+    for t in t_+1:tmax
+        for (i,path1) in enumerate(paths)
+            e1 = get_edge(path1,t)
+            for j in i+1:length(paths)
+                path2 = paths[j]
+                e2 = get_edge(path2,t)
+                if detect_node_conflict(e1,e2)
+                    node_conflict = NodeConflict(i,j,e1.dst,t)
+                    return node_conflict, edge_conflict
+                elseif detect_edge_conflict(e1,e2)
+                    edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
+                    return node_conflict, edge_conflict
+                end
+            end
+        end
+    end
+    return node_conflict, edge_conflict
+end
 # --------------------------------------------------------------------------- #
 
+# ----------------- Create constraints from conflicts ----------------------- #
+
+"""generates a set of constraints from a NodeConflict"""
+function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::NodeConflict,t_delay::Float)
+    # If there was already a constraint and this was not enough to prevent collision,
+    # we want to add t_delay to the already present delay
+    t_yield1 = maximum(conflict.t2,conflict.t1)
+    t_yield2 = maximum(conflict.t2,conflict.t1)
+
+    robot1_id = conflict.agent1_id
+    pre_existing_constraint = get(node.constraints,robot1_id,false)
+    if pre_existing_constraint
+        t_yield1 = pre_existing_constraint.t
+    end
+
+    robot2_id = conflict.agent2_id
+    pre_existing_constraint = get(node.constraints,robot2_id,false)
+    if pre_existing_constraint
+        t_yield2 = pre_existing_constraint.t
+    end
+
+    return [
+        # Agent 1 may not occupy node until agent 2 leaves the node, with t_delay
+        NodeConstraint(
+            conflict.agent1_id,
+            conflict.node_id,
+            t_yield1
+        ),
+        # Agent 2 may not occupy node until agent 1 leaves the node, with t_delay
+        NodeConstraint(
+            conflict.agent2_id,
+            conflict.node_id,
+            t_yield2
+        )
+        ]
+end
 
 
+"""
+    generates a set of constraints from an EdgeConflict
+"""
+function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::EdgeConflict)
+    t_yield1 = maximum(conflict.t2,conflict.t1)
+    t_yield2 = maximum(conflict.t2,conflict.t1)
 
+    robot1_id = conflict.agent1_id
+    pre_existing_constraint = get(node.constraints,robot1_id,false)
+    if pre_existing_constraint
+        t_yield1 = pre_existing_constraint.t
+    end
+
+    robot2_id = conflict.agent2_id
+    pre_existing_constraint = get(node.constraints,robot2_id,false)
+    if pre_existing_constraint
+        t_yield2 = pre_existing_constraint.t
+    end
+
+    return [
+        # Agent 1 may not enter node 1 of Edge(node1,node2) until robot 2 is
+        # finished traversing node 1.
+        EdgeConstraint(
+            conflict.agent1_id,
+            conflict.node1_id,
+            conflict.node2_id,
+            conflict.t # + 1
+        ),
+        # Agent 2 may not enter node 2 of Edge(node1,node2) until robot 1 is
+        # finished traversing node 2.
+        EdgeConstraint(
+            conflict.agent2_id,
+            conflict.node2_id,
+            conflict.node1_id,
+            conflict.t# + 1
+        )
+        ]
+end
+
+
+"""Encodes a constraint that agent `a` may not occupy vertex `v` until time `t`"""
+struct NodeConstraint <: CBSConstraint
+    a::Int # agent ID
+    v::Int # vertex ID
+    t::Float# time ID
+end
+
+"""Encodes a constraint that agent `a` may not occupy edge [node1_id,node2_id]
+    until time `t`.
+    This does restrict occupancy of node1_id (nodeconflicts take
+    care of collision probability, but presence of robot at node1 would enable
+    robots to swap positions), so t designates the nominal arrival time."""
+struct EdgeConstraint <: CBSConstraint
+    a::Int # agent ID
+    node1_id::Int
+    node2_id::Int
+    t::Float # time ID
+end
 
 
 
