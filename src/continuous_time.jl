@@ -134,8 +134,20 @@ end
 
 function verifies_NodeConstraint(Constraint_to_test::NodeConstraint,
     Constraint_to_verify_against::NodeConstraint)
-    """Checks if constraint 1 verifies constraint 2"""
+    """Checks if constraint 1 verifies constraint 2 supposing that the concerned
+    node is the same in both cases"""
     t_max = Constraint_to_verify_against.t
+    return Constraint_to_test.t >= t_max #This means that the constraint is not violated
+end
+
+function verifies_EdgeConstraint(Constraint_to_test::EdgeConstraint,
+    Constraint_to_verify_against::EdgeConstraint,mapf::MAPF)
+    """Checks if constraint 1 verifies constraint 2 supposing that the concerned
+    edge is the same in both cases"""
+    n1 = Constraint_to_test.node1_id
+    n2 = Constraint_to_test.node2_id
+    t_edge = get_prop(mapf.graph,n1,n2,:weight)
+    t_max = Constraint_to_verify_against.t + t_edge
     return Constraint_to_test.t >= t_max #This means that the constraint is not violated
 end
 
@@ -145,8 +157,8 @@ flip(c::EdgeConstraint) = EdgeConstraint(c.a,c.node2_id,c.node1_id,c.t)
 
 """constraint dictionary for fast constraint lookup within a_star"""
 @with_kw struct ConstraintDict
-    node_constraints::Dict{NodeConstraint,Bool} = Dict{NodeConstraint,Bool}()
-    edge_constraints::Dict{EdgeConstraint,Bool} = Dict{EdgeConstraint,Bool}()
+    node_constraints::Dict{Tuple,Float64} = Dict{Tuple,Float64}()
+    edge_constraints::Dict{Tuple,Float64} = Dict{Tuple,Float64}()
     a::Int = -1 # agent_id
 end
 
@@ -249,10 +261,14 @@ end
 """ ------------------------------------------------------------------------
     ------------------------------------------------------------------------ """
 
-""" Check if a set of constraints would be violated by adding an Edge from
-    the final vertex of `path` to `v`"""
+
 function violates_constraints(constraints::ConstraintDict,v,path,mapf::MAPF)
+    """ Check if a set of constraints would be violated by adding an Edge from
+        the final vertex of `path` to `v`"""
     t = traversal_time(path,mapf)
+
+
+
 
     if get(constraints.node_constraints,NodeConstraint(constraints.a,v,t),false)
         return true
