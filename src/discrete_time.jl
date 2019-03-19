@@ -38,7 +38,7 @@ export
     # get_conflicts,
     # generate_constraints_from_conflict,
     # low_level_search!,
-    CBS
+    cbs
 
 
 """
@@ -507,7 +507,7 @@ end
 
     https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
 """
-function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
+function cbs(mapf::MAPF,path_finder=LightGraphs.a_star)
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 

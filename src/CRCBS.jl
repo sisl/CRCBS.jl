@@ -12,17 +12,34 @@ using Combinatorics
 
 include("utils.jl")
 include("CT_graph.jl") #Contains functions to generate and use CT graphs
-include("low_level_search/a_star.jl") #Modified version of astar
+
 
 export
     MAPF,
     GraphPath,
-    CRCBS
+    get_collision_probability_edge,
+    clear_graph_occupancy,
+    invalid_node_conflict,
+    get_most_likely_conflicts,
+    fill_graph_with_path,
+    generate_constraints_from_conflict,
+    CTCBS
 
 
-""" ------------------------------------------------------------------------
-                       Common between CT and CBS
-    ------------------------------------------------------------------------ """
+struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
+    """A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
+        a graph `G`, as well as a set of start and goal
+        vertices on that graph. Note that this is the _labeled_ case, where each
+        agent has a specific assigned destination."""
+    graph::G
+    starts::Vector{Int}
+    goals::Vector{Int}
+    lambda::Float64
+    epsilon::Float64
+    t_delay::Float64
+end
+
+num_agents(mapf::MAPF) = length(mapf.starts)
 
 """
     type alias for a path through the graph
@@ -48,33 +65,16 @@ function is_valid(solution::LowLevelSolution,mapf::MAPF)
     return true
 end
 
-
-struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
-    """A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
-        a graph `G`, as well as a set of start and goal
-        vertices on that graph. Note that this is the _labeled_ case, where each
-        agent has a specific assigned destination."""
-    graph::G
-    starts::Vector{Int}
-    goals::Vector{Int}
-    lambda::Float64
-    epsilon::Float64
-    t_delay::Float64
-end
-
-""" ------------------------------------------------------------------------
-    ------------------------------------------------------------------------ """
-
 # --------------------- Node Conflicts -------------------------------------- #
 """
-    Encodes a conflict between two agents at a particular node. (No time)
+    Encodes a conflict between two agents at a particular node.
 """
 struct NodeConflict
     agent1_id::Int
     agent2_id::Int
     node_id::Int
-    t1::Float
-    t2::Float
+    t1::Float64 # Nominal time of arrival of agent 1
+    t2::Float64 # Nominal time of arrival of agent 2
 end
 
 function invalid_node_conflict()
@@ -102,8 +102,8 @@ struct EdgeConflict
     agent2_id::Int
     node1_id::Int
     node2_id::Int
-    t1::Float #Nominal time robot 1 leaves node 2
-    t2::Float #Nominal time robot 2 leaves node 1
+    t1::Float64 #Nominal time robot 1 leaves node 2
+    t2::Float64 #Nominal time robot 2 leaves node 1
 end
 
 """
@@ -130,7 +130,7 @@ get_agent_id(c::CBSConstraint) = c.a
 struct NodeConstraint <: CBSConstraint
     a::Int # agent ID
     v::Int # vertex ID
-    t::Float# time ID
+    t::Float64# time ID
 end
 
 """Encodes a constraint that agent `a` may not occupy edge [node1_id,node2_id]
@@ -142,7 +142,7 @@ struct EdgeConstraint <: CBSConstraint
     a::Int # agent ID
     node1_id::Int
     node2_id::Int
-    t::Float # time ID
+    t::Float64 # time ID
 end
 
 function verifies_NodeConstraint(Constraint_to_test::NodeConstraint,
@@ -283,7 +283,11 @@ function violates_constraints(constraints::ConstraintDict,v,path,mapf::MAPF)
         returning true means the constraints are violated"""
 
     # Time it takes to go through path
-    t1 = traversal_time(path,mapf)
+    if length(path) >= 1
+        t1 = traversal_time(path,mapf)
+    else
+        t1 = 0
+    end
 
     # We add the time it takes to go to v from the end of path
     v1 = get_final_node(path)
@@ -437,6 +441,7 @@ function fill_graph_with_path(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
 
         # Update sum of ns traversed
         sum_ns_traversed += n_next_node
+    end
 
     return mapf
 end
@@ -590,7 +595,7 @@ end
 # ----------------- Create constraints from conflicts ----------------------- #
 
 """generates a set of constraints from a NodeConflict"""
-function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::NodeConflict,t_delay::Float)
+function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::NodeConflict,t_delay::Float64)
     # If there was already a constraint and this was not enough to prevent collision,
     # we want to add t_delay to the already present delay
     t_yield1 = maximum(conflict.t2,conflict.t1)
@@ -671,8 +676,7 @@ function low_level_search!(mapf::MAPF,
     # compute an initial solution
     # solution = LowLevelSolution()
     for i in idxs
-        # TODO allow passing custom heuristic
-        path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i))
+        path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),mapf)
         node.solution[i] = path
         # push!(solution,path)
     end
@@ -686,10 +690,12 @@ function low_level_search!(mapf::MAPF,
 end
 
 
+include("low_level_search/a_star.jl") #Modified version of astar
+
 """
     Continuous Time CBS algorithm
 """
-function CRCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
+function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 
@@ -729,4 +735,3 @@ end
 
 
 end # module
-end
