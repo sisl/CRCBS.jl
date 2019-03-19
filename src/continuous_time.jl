@@ -93,8 +93,8 @@ struct EdgeConflict
     agent2_id::Int
     node1_id::Int
     node2_id::Int
-    t1::Float #Nominal time of arrival of robot 1 at node 1
-    t2::Float #Nominal time of arrival of robot 2 at node 2
+    t1::Float #Nominal time robot 1 leaves node 2
+    t2::Float #Nominal time robot 2 leaves node 1
 end
 
 """
@@ -584,15 +584,15 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::N
     t_yield2 = maximum(conflict.t2,conflict.t1)
 
     robot1_id = conflict.agent1_id
-    pre_existing_constraint = get(node.constraints,robot1_id,false)
-    if pre_existing_constraint
-        t_yield1 = pre_existing_constraint.t
+    pre_existing_constraintDict = get(node.constraints,robot1_id,false)
+    if pre_existing_constraintDict != false
+        t_yield1 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield1)
     end
 
     robot2_id = conflict.agent2_id
-    pre_existing_constraint = get(node.constraints,robot2_id,false)
-    if pre_existing_constraint
-        t_yield2 = pre_existing_constraint.t
+    pre_existing_constraintDict = get(node.constraints,robot2_id,false)
+    if pre_existing_constraintDict != false
+        t_yield2 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield2)
     end
 
     return [
@@ -600,13 +600,13 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::N
         NodeConstraint(
             conflict.agent1_id,
             conflict.node_id,
-            t_yield1
+            t_yield1 + t_delay
         ),
         # Agent 2 may not occupy node until agent 1 leaves the node, with t_delay
         NodeConstraint(
             conflict.agent2_id,
             conflict.node_id,
-            t_yield2
+            t_yield2 + t_delay
         )
         ]
 end
@@ -620,16 +620,17 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::E
     t_yield2 = maximum(conflict.t2,conflict.t1)
 
     robot1_id = conflict.agent1_id
-    pre_existing_constraint = get(node.constraints,robot1_id,false)
-    if pre_existing_constraint
-        t_yield1 = pre_existing_constraint.t
+    pre_existing_constraintDict = get(node.constraints,robot1_id,false)
+    if pre_existing_constraintDict != false
+        t_yield1 = get(pre_existing_constraintDict.edge_constraints,(conflict.node1_id,conflict.node2_id),t_yield1)
     end
 
     robot2_id = conflict.agent2_id
-    pre_existing_constraint = get(node.constraints,robot2_id,false)
-    if pre_existing_constraint
-        t_yield2 = pre_existing_constraint.t
+    pre_existing_constraintDict = get(node.constraints,robot2_id,false)
+    if pre_existing_constraintDict != false
+        t_yield2 = get(pre_existing_constraintDict.edge_constraints,(conflict.node1_id,conflict.node2_id),t_yield2)
     end
+
 
     return [
         # Agent 1 may not enter node 1 of Edge(node1,node2) until robot 2 is
@@ -638,7 +639,7 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::E
             conflict.agent1_id,
             conflict.node1_id,
             conflict.node2_id,
-            conflict.t # + 1
+            t_yield1 + t_delay # + 1
         ),
         # Agent 2 may not enter node 2 of Edge(node1,node2) until robot 1 is
         # finished traversing node 2.
@@ -646,34 +647,33 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::E
             conflict.agent2_id,
             conflict.node2_id,
             conflict.node1_id,
-            conflict.t# + 1
+            t_yield2 + t_delay# + 1
         )
         ]
 end
 
 
-"""Encodes a constraint that agent `a` may not occupy vertex `v` until time `t`"""
-struct NodeConstraint <: CBSConstraint
-    a::Int # agent ID
-    v::Int # vertex ID
-    t::Float# time ID
+"""Returns a low level solution for a MAPF with constraints"""
+function low_level_search!(mapf::MAPF,
+    node::ConstraintTreeNode,
+    idxs=collect(1:num_agents(mapf)),
+    path_finder=LightGraphs.a_star)
+    # compute an initial solution
+    # solution = LowLevelSolution()
+    for i in idxs
+        # TODO allow passing custom heuristic
+        path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i))
+        node.solution[i] = path
+        # push!(solution,path)
+    end
+    # sum of individual costs (SIC)
+    # cost = get_cost(node.solution)
+    # node.solution = solution
+    node.cost = get_cost(node.solution)
+    # TODO check if solution is valid
+    return node.solution, node.cost
+    # return true
 end
-
-"""Encodes a constraint that agent `a` may not occupy edge [node1_id,node2_id]
-    until time `t`.
-    This does restrict occupancy of node1_id (nodeconflicts take
-    care of collision probability, but presence of robot at node1 would enable
-    robots to swap positions), so t designates the nominal arrival time."""
-struct EdgeConstraint <: CBSConstraint
-    a::Int # agent ID
-    node1_id::Int
-    node2_id::Int
-    t::Float # time ID
-end
-
-
-
-
 
 
 
