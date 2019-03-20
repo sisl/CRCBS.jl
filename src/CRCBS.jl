@@ -264,7 +264,7 @@ end
 
 """adds an `EdgeConstraint` t o a ConstraintTreeNode"""
 function add_constraint!(node::ConstraintTreeNode,constraint::EdgeConstraint,mapf::MAPF)
-    if (constraint.v1 != mapf.goals[constraint.a]) && (constraint.v1 != mapf.goals[constraint.a])
+    if (constraint.node1_id != mapf.goals[constraint.a]) && (constraint.node1_id != mapf.goals[constraint.a])
         node.constraints[constraint.a].edge_constraints[(constraint.node1_id,constraint.node2_id)] = constraint.t
         # For the moment we only want edge constraints to be unidirectional
         #node.constraints[constraint.a].edge_constraints[(constraint.node2_id,constraint.node1_id)] = constraint.t
@@ -422,6 +422,7 @@ function fill_graph_with_path(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
     # Initialize at 1 instead of 0 to avoid bugs
     sum_ns_traversed = get_prop(mapf.graph,robotpath[1].src, :n_delay)
     time_traversed = 0
+    #print(robotpath[1].src,"\n")
     occupancy = get_prop(mapf.graph,robotpath[1].src,:occupancy)
     setindex!(occupancy,(sum_ns_traversed, 0),robot_id) #robot_id is the key
     set_prop!(mapf.graph,robotpath[1].src,:occupancy,occupancy)
@@ -459,10 +460,10 @@ function clear_graph_occupancy(mapf::MAPF)
     """Removes all occupancies from the graph. We should only care about removing
     occupancy information concerning one robot at a time and not use this function."""
     for v in vertices(mapf.graph)
-        rem_prop!(mapf.graph, v, :occupancy)
+        set_prop!(mapf.graph, v, :occupancy, Dict{Int64, Tuple{Int64,Float64}}())
     end
     for e in edges(mapf.graph)
-        rem_prop!(mapf.graph, e, :occupancy)
+        set_prop!(mapf.graph, e, :occupancy, Dict{Int64, Tuple{Int64,Float64}}())
     end
     return mapf.graph
 end
@@ -528,14 +529,16 @@ function get_most_likely_conflicts(mapf::MAPF,paths::LowLevelSolution)
             occupants_2 = keys(reverse_occupancy)
             for robot1_id in occupants_1
                 for robot2_id in occupants_2
-                    (n1,t1) = occupancy[robot1_id]
-                    (n2,t2) = reverse_occupancy[robot2_id]
-                    (cp,err) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+                    if robot1_id != robot2_id
+                        (n1,t1) = occupancy[robot1_id]
+                        (n2,t2) = reverse_occupancy[robot2_id]
+                        (cp,err) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
 
-                    if cp > maximum([epsilon,edge_conflict_p])
-                        edge_conflict_p = cp
-                        #time at which robot 1/2 leaves from node 2/1 (the last)
-                        edge_conflict = EdgeConflict(robot1_id,robot2_id,e.src,e.dst,t1+t_edge,t2+t_edge)
+                        if cp > maximum([epsilon,edge_conflict_p])
+                            edge_conflict_p = cp
+                            #time at which robot 1/2 leaves from node 2/1 (the last)
+                            edge_conflict = EdgeConflict(robot1_id,robot2_id,e.src,e.dst,t1+t_edge,t2+t_edge)
+                        end
                     end
                 end
             end
@@ -719,8 +722,14 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         # check for conflicts
         node_conflict, edge_conflict = get_most_likely_conflicts(mapf,node.solution)
         if is_valid(node_conflict)
+            print("Found node conflict")
             constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay)
         elseif is_valid(edge_conflict)
+            print("Found edge conflict: \n")
+            print(edge_conflict.agent1_id,"\n")
+            print(edge_conflict.agent2_id,"\n")
+            print(edge_conflict.node1_id,"\n")
+            print(edge_conflict.node2_id,"\n")
             constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay)
         else
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
@@ -733,6 +742,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
             if add_constraint!(new_node,constraint,mapf)
                 low_level_search!(mapf,new_node,[get_agent_id(constraint)])
                 if is_valid(new_node.solution, mapf)
+                    print("Adding new node to priority queue","\n")
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end
             end
