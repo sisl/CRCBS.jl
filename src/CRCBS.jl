@@ -422,7 +422,9 @@ function fill_graph_with_path(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
     # Initialize at 1 instead of 0 to avoid bugs
     sum_ns_traversed = get_prop(mapf.graph,robotpath[1].src, :n_delay)
     time_traversed = 0
-    set_prop!(mapf.graph,robotpath[1].src,:occupancy,(robot_id, sum_ns_traversed, 0))
+    occupancy = get_prop(mapf.graph,robotpath[1].src,:occupancy)
+    setindex!(occupancy,(sum_ns_traversed, 0),robot_id) #robot_id is the key
+    set_prop!(mapf.graph,robotpath[1].src,:occupancy,occupancy)
 
     # Loop through all edges
     for e in robotpath
@@ -433,8 +435,8 @@ function fill_graph_with_path(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
 
         # Add occupancy for the edge
         occupancy = get_prop(mapf.graph,e,:occupancy)
-        #setindex!(occupancy,(sum_ns_traversed, time_traversed),robot_id) #robot_id is the key
-        occupancy[robot_id] = (sum_ns_traversed, time_traversed)
+        setindex!(occupancy,(sum_ns_traversed, time_traversed),robot_id) #robot_id is the key
+        #occupancy[robot_id] = (sum_ns_traversed, time_traversed)
         set_prop!(mapf.graph,e,:occupancy,occupancy)
 
         # Update nominal time
@@ -442,8 +444,8 @@ function fill_graph_with_path(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
 
         # Add occupancy for second vertex of the edge
         occupancy = get_prop(mapf.graph,e.dst,:occupancy)
-        occupancy[robot_id] = (sum_ns_traversed, time_traversed)
-        #setindex!(occupancy,(sum_ns_traversed, time_traversed),robot_id) #robot_id is the key
+        #occupancy[robot_id] = (sum_ns_traversed, time_traversed)
+        setindex!(occupancy,(sum_ns_traversed, time_traversed),robot_id) #robot_id is the key
         set_prop!(mapf.graph,e,:occupancy,occupancy)
 
         # Update sum of ns traversed
@@ -482,8 +484,8 @@ function get_most_likely_conflicts(mapf::MAPF,paths::LowLevelSolution)
     edge_conflict = invalid_edge_conflict()
 
     # Initialize max conflict probabilities at 0
-    node_conflict_p = 0
-    edge_conflict_p = 0
+    node_conflict_p = 0.0
+    edge_conflict_p = 0.0
 
     # ----- Node conflicts ----- #
     for v in vertices(mapf_occupied.graph)
@@ -494,15 +496,15 @@ function get_most_likely_conflicts(mapf::MAPF,paths::LowLevelSolution)
 
         # There is interaction at this node
         if length(occupancy) >= 2
-            list_of_occupants = keys(occupancy)
-            pairs_of_occupants = collect(combinations(list_of_occupants),2)
+            list_of_occupants = collect(keys(occupancy))
+            pairs_of_occupants = collect(combinations(list_of_occupants,2))
             for (r1,r2) in pairs_of_occupants
                 (n1,t1) = occupancy[r1]
                 (n2,t2) = occupancy[r2]
-                cp = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+                (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
 
                 # Conflict is likely and higher than all previously found
-                if cp > maximum(epsilon,node_conflict_p)
+                if cp > maximum([epsilon,node_conflict_p])
                     node_conflict_p = cp
                     node_conflict = NodeConflict(r1,r2,v,t1,t2)
                 end
@@ -528,12 +530,12 @@ function get_most_likely_conflicts(mapf::MAPF,paths::LowLevelSolution)
                 for robot2_id in occupants_2
                     (n1,t1) = occupancy[robot1_id]
                     (n2,t2) = reverse_occupancy[robot2_id]
-                    cp = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+                    (cp,err) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
 
-                    if cp > maximum(epsilon,edge_conflict_p)
+                    if cp > maximum([epsilon,edge_conflict_p])
                         edge_conflict_p = cp
                         #time at which robot 1/2 leaves from node 2/1 (the last)
-                        edge_conflict = EdgeConflict(r1,r2,e.src,e.dst,t1+t_edge,t2+t_edge)
+                        edge_conflict = EdgeConflict(robot1_id,robot2_id,e.src,e.dst,t1+t_edge,t2+t_edge)
                     end
                 end
             end
@@ -605,8 +607,8 @@ end
 function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::NodeConflict,t_delay::Float64)
     # If there was already a constraint and this was not enough to prevent collision,
     # we want to add t_delay to the already present delay
-    t_yield1 = maximum(conflict.t2,conflict.t1)
-    t_yield2 = maximum(conflict.t2,conflict.t1)
+    t_yield1 = maximum([conflict.t2,conflict.t1])
+    t_yield2 = maximum([conflict.t2,conflict.t1])
 
     robot1_id = conflict.agent1_id
     pre_existing_constraintDict = get(node.constraints,robot1_id,false)
@@ -638,9 +640,9 @@ end
 
 
 """generates a set of constraints from an EdgeConflict"""
-function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::EdgeConflict)
-    t_yield1 = maximum(conflict.t2,conflict.t1)
-    t_yield2 = maximum(conflict.t2,conflict.t1)
+function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::EdgeConflict,t_delay::Float64)
+    t_yield1 = maximum([conflict.t2,conflict.t1])
+    t_yield2 = maximum([conflict.t2,conflict.t1])
 
     robot1_id = conflict.agent1_id
     pre_existing_constraintDict = get(node.constraints,robot1_id,false)
