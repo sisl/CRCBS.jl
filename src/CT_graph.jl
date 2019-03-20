@@ -16,7 +16,7 @@ function initialize_full_grid_graph()
     dy = 1.0
     x_pts=collect(0.0:dx:10.0)
     y_pts=collect(0.0:dy:10.0)
-    G = MetaGraph() # navigation graph
+    G = MetaDiGraph() # navigation graph
     pts = []
     for x in x_pts
         for y in y_pts
@@ -32,9 +32,13 @@ function initialize_full_grid_graph()
                 if abs(pts[i][1]-pts[j][1]) <= dx && pts[i][2] == pts[j][2]
                     add_edge!(G,i,j)
                     set_prop!(G, Edge(i,j), :weight, 1.0)
+                    add_edge!(G,j,i)
+                    set_prop!(G, Edge(j,i), :weight, 1.0)
                 elseif abs(pts[i][2]-pts[j][2]) <= dy && pts[i][1] == pts[j][1]
                     add_edge!(G,i,j)
                     set_prop!(G, Edge(i,j), :weight, 1.0)
+                    add_edge!(G,j,i)
+                    set_prop!(G, Edge(j,i), :weight, 1.0)
                 end
             end
         end
