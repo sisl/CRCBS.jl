@@ -4,7 +4,6 @@ function LightGraphs.a_star_impl!(g::AbstractGraph,# the graph
     t, # the end vertex
     frontier,               # an initialized heap containing the active vertices
     constraints::C where C,
-    mapf::MAPF,
     colormap::Vector{UInt8},  # an (initialized) color-map to indicate status of vertices
     distmx::AbstractMatrix,
     heuristic::Function)
@@ -19,7 +18,7 @@ function LightGraphs.a_star_impl!(g::AbstractGraph,# the graph
 
         for v in LightGraphs.outneighbors(g, u)
             # Skip node if it violates any of the constraints
-            if violates_constraints(constraints,v,path,mapf)
+            if violates_constraints(constraints,v,path)
                 continue
             end
             if get(colormap, v, 0) < 2
@@ -61,7 +60,6 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     s::Integer,                       # the start vertex
     t::Integer,                       # the end vertex
     constraints::C,         # constraints on which nodes can be traversed at which time
-    mapf::MAPF,
     distmx::AbstractMatrix{T}=weights(g),
     heuristic::Function=n -> zero(T)) where {C, T, U}
 
@@ -74,5 +72,5 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     frontier[(zero(T), Vector{E}(), U(s))] = zero(T)
     colormap = empty_colormap(nv(g))
     colormap[s] = 1
-    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, mapf, colormap, distmx, heuristic)
+    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, colormap, distmx, heuristic)
 end
