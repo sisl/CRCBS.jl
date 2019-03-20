@@ -283,8 +283,6 @@ function violates_constraints(constraints::ConstraintDict,v,path,mapf::MAPF)
         t1 = traversal_time(path,mapf)
         v1 = get_final_node(path)
     else
-        print("-------------empty path sent --------------------")
-        print("Concerned node: ", v, "\n")
         v1 = mapf.starts[constraints.a] #Get the start point of the concerned agent
         t1 = 0
     end
@@ -549,11 +547,7 @@ function get_most_likely_conflicts(mapf::MAPF,paths::LowLevelSolution)
         end
     end
 
-    print("occupancy test 1 \n")
-    print(get_prop(mapf.graph, Edge(2,3), :occupancy), "\n")
     clear_graph_occupancy!(mapf)
-    print("occupancy test 2\n")
-    print(get_prop(mapf.graph, 2, :occupancy), "\n \n")
     if node_conflict_p >= edge_conflict_p
         return node_conflict, invalid_edge_conflict()
     else
