@@ -12,12 +12,9 @@ struct Experiment
     mapf::MAPF
 
     # Result storage
-    execution_times::Vector
+    execution_time::Float64 #Time it took to find a solution
     conflicts::Vector
 
-    # Some stats
-    execution_time_avg::Float64
-    execution_time_std::Float64
 end
 
 mutable struct Experiment_Set
@@ -106,4 +103,46 @@ function run_particles(mapf::MAPF, solution::LowLevelSolution,num_particles::Int
 
     end
     return solution_times
+end
+
+
+function count_conflicts(mapf::MAPF,paths::LowLevelSolution,solution_times::Vector{Array{Float64,3}},num_particles::Int64)
+
+    conflicts = zeros(Int64,num_particles)
+
+    clear_graph_occupancy!(mapf::MAPF)
+
+    # The first step is to fill the graph with occupancy information
+    for (robot_id,robotpath) in enumerate(paths)
+        fill_graph_with_path!(robot_id,robotpath,mapf)
+    end
+
+    # STOPPED HERE CONTINUE TOMORROW
+
+
+    # ----- Node conflicts ----- #
+    for v in vertices(mapf.graph)
+
+        #Get node information
+        nn = get_prop(mapf.graph, v, :n_delay)
+        occupancy = get_prop(mapf.graph,v,:occupancy)
+
+        # There is interaction at this node
+        if length(occupancy) >= 2
+            list_of_occupants = collect(keys(occupancy))
+            pairs_of_occupants = collect(combinations(list_of_occupants,2))
+            for (r1,r2) in pairs_of_occupants
+                (n1,t1) = occupancy[r1]
+                (n2,t2) = occupancy[r2]
+                (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+
+                # Conflict is likely and higher than all previously found
+                if cp > maximum([epsilon,node_conflict_p])
+                    node_conflict_p = cp
+                    node_conflict = NodeConflict(r1,r2,v,t1,t2,cp)
+                end
+            end
+        end
+
+
 end
