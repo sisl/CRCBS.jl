@@ -681,12 +681,11 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::E
         ]
 end
 
-
-"""Returns a low level solution for a MAPF with constraints"""
 function low_level_search!(mapf::MAPF,
     node::ConstraintTreeNode,
     idxs=collect(1:num_agents(mapf)),
     path_finder=LightGraphs.a_star)
+    """Returns a low level solution for a MAPF with constraints"""
     # compute an initial solution
     # solution = LowLevelSolution()
     for i in idxs

@@ -45,13 +45,12 @@ function initialize_full_grid_graph()
     end
     return G
 end
-"""
-    Initializing a grid graph in CT.
-    Considers that the nominal time to move from one edge to another is 1.
-    Each node has a delay parameter n_d of 1.
-    The output is a MetaGraph
-"""
+
 function initialize_full_grid_graph_CT()
+    """Initializing a grid graph in CT.
+        Considers that the nominal time to move from one edge to another is 1.
+        Each node has a delay parameter n_d of 1.
+        The output is a MetaGraph"""
     G = initialize_full_grid_graph()
     for e in edges(G)
         set_prop!(G,e,:weight,1.0)
@@ -64,13 +63,6 @@ function initialize_full_grid_graph_CT()
     return G
 end
 
-"""
-    Returns a grid graph that represents a 2D environment with regularly spaced
-    rectangular obstacles in CT.
-    Considers that the nominal time to move from one edge to another is 1.
-    Each node has a delay parameter n_d of 1.
-    The output is a MetaGraph
-"""
 function initialize_regular_grid_graph_CT(;
     n_obstacles_x=2,
     n_obstacles_y=2,
@@ -80,6 +72,11 @@ function initialize_regular_grid_graph_CT(;
     env_offset = [1.0,1.0],
     env_scale = 2.0 # this is essentially the robot diameter
     )
+    """Returns a grid graph that represents a 2D environment with regularly spaced
+        rectangular obstacles in CT.
+        Considers that the nominal time to move from one edge to another is 1.
+        Each node has a delay parameter n_d of 1.
+        The output is a MetaGraph"""
     # generate occupancy grid representing the environment
     o = ones(Int,obs_width[1],obs_width[2]) # obstacle region
     op = pad_matrix(o,(obs_offset[1],obs_offset[2]),0) # padded obstacles region
