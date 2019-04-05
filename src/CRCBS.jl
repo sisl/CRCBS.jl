@@ -10,6 +10,9 @@ using Distributions
 using HCubature
 using Combinatorics
 
+using JLD
+using Random
+
 include("utils.jl")
 include("CT_graph.jl") #Contains functions to generate and use CT graphs
 
@@ -744,7 +747,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
             print("Authorized time: ",constraints[2].t, "\n \n")
         else
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
-            return node.solution, node.cost
+            return (node.solution, node.cost)
         end
 
         # generate new nodes from constraints
@@ -762,9 +765,11 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         end
     end
     print("No Solution Found. Returning default solution")
-    return LowLevelSolution(), typemax(Int)
+    return (LowLevelSolution(), typemax(Int))
 end
 
+
+include("simulations.jl")
 
 
 

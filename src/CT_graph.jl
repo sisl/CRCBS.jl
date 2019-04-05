@@ -11,17 +11,23 @@ using CRCBS
 
 include("utils.jl")
 
-function initialize_full_grid_graph()
+function initialize_full_grid_graph(x_max=10.0,y_max=10.0,filling_density=1.0)
     dx = 1.0
     dy = 1.0
-    x_pts=collect(0.0:dx:10.0)
-    y_pts=collect(0.0:dy:10.0)
+    x_pts=collect(0.0:dx:x_max)
+    y_pts=collect(0.0:dy:y_max)
     G = MetaDiGraph() # navigation graph
     pts = []
+
     for x in x_pts
         for y in y_pts
-            push!(pts,[x;y])
-            add_vertex!(G,Dict(:x=>x,:y=>y, :n_delay=>1.0))
+
+            # Use the desired filling density to create the vertex or not
+            p = rand() #Uniform distribution between 0 and 1
+            if p <= filling_density
+                push!(pts,[x;y])
+                add_vertex!(G,Dict(:x=>x,:y=>y, :n_delay=>1.0))
+            end
         end
     end
     kdtree = KDTree(hcat(pts...))
@@ -46,12 +52,12 @@ function initialize_full_grid_graph()
     return G
 end
 
-function initialize_full_grid_graph_CT()
+function initialize_full_grid_graph_CT(x_max=10.0,y_max=10.0,filling_density=1.0)
     """Initializing a grid graph in CT.
         Considers that the nominal time to move from one edge to another is 1.
         Each node has a delay parameter n_d of 1.
         The output is a MetaGraph"""
-    G = initialize_full_grid_graph()
+    G = initialize_full_grid_graph(x_max,y_max,filling_density)
     for e in edges(G)
         set_prop!(G,e,:weight,1.0)
         set_prop!(G,e,:occupancy, Dict{Int64, Tuple{Int64,Float64}}())
