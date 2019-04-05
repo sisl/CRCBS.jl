@@ -78,17 +78,17 @@ function run_particles(mapf::MAPF, solution::LowLevelSolution,num_particles::Int
             # ----------------------- Node 1 ---------------------------- #
 
             #Get the info for the delay of the distribution at this node
-            node1_delay = get_prop(mapf.graph, edge[1],:n_delay)
-            distrib = Gamma(n_delay,lambda)
+            node1_delay = get_prop(mapf.graph, edge.src,:n_delay)
+            distrib = Gamma(node1_delay,lambda)
 
             # Generate a random delay from this Distribution
-            node_time = rand(d,num_particles)
+            node_time = rand(distrib,num_particles)
 
             # Advance time for the particles
             time = time + node_time
 
             # Update time array with the time at which particles quit node 1
-            time_array[2*edge_idx-1,2,:] = time
+            time_array[edge_idx,2,:] = time
 
             # ------------------- Along the edge ------------------------ #
 
@@ -100,27 +100,26 @@ function run_particles(mapf::MAPF, solution::LowLevelSolution,num_particles::Int
 
             # Add the deterministic time delay to indicate when num_particles
             # enter the second node of the edge
-            time_array[2*edge_idx,1,:] = time
+            time_array[edge_idx+1,1,:] = time
 
             # ----------------------- Node 2 ---------------------------- #
+            # ------------- Special case of target node ----------------- #
+            if edge_idx == length(agent_solution)
+                # Get the info for the delay of the distribution at this node
+                node1_delay = get_prop(mapf.graph, edge.dst,:n_delay)
+                distrib = Gamma(node1_delay,lambda)
 
-            #Get the info for the delay of the distribution at this node
-            node1_delay = get_prop(mapf.graph, edge[2],:n_delay)
-            distrib = Gamma(n_delay,lambda)
+                # Generate a random delay from this Distribution
+                node_time = rand(distrib,num_particles)
 
-            # Generate a random delay from this Distribution
-            node_time = rand(d,num_particles)
+                # Advance time for the particles
+                time = time + node_time
 
-            # Advance time for the particles
-            time = time + node_time
-
-            # Update time array with the time at which particles quit node 2
-            time_array[2*edge_idx,2,:] = time
+                # Update time array with the time at which particles quit node 2
+                time_array[edge_idx+1,2,:] = time
+            end
 
         end
-
-        # Now that the time array is complete we push it into the vector
-        push!(solution_times,time_array)
 
     end
     return solution_times
@@ -165,6 +164,12 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
 
                 # Count conflicts
                 #Index of node v traversal for robots 1 and 2
+                print("\n")
+                print(collect(paths[r1]))
+                print("\n")
+                print(typeof(Iterators.flatten(Array(paths[r1]))))
+                print("\n")
+                print(collect(Iterators.flatten(Array(paths[r1]))))
                 r1_flat_path = collect(Iterators.flatten(paths[r1]))
                 r2_flat_path = collect(Iterators.flatten(paths[r2]))
                 v_idx_r1 = div(findfirst(r1_flat_path.==v),2)+1
@@ -284,6 +289,8 @@ function run_experiment_set_CRCBS(name::String,
     num_trials::Int64
     )
 
+    print("Started \n")
+
     #Create the parameters of all experiments
     #num_agents
     num_agent_list = shuffle(collect(num_agents))[1:min(num_experiments,length(num_agents))]
@@ -305,12 +312,18 @@ function run_experiment_set_CRCBS(name::String,
     # Save experiment parameters for when we will try doing it with CBS
     Expp = Experiment_parameters(name,num_agents,grid_x,grid_y,filling_density,lambda,epsilon,t_delay,num_experiments)
 
+    print("Check1 \n")
+
     jldopen(string("../experiments/experiment_parameters/001",name,".jld"),"w") do file
         #addrequire(file,CRCBS)
         write(file,"parms",Expp)
     end
+
+
+
     #Now we can create the experiment set
     data = Vector{}()
+    print("Check2 \n")
     for i in 1:num_experiments
         mapf = create_grid_mapf(num_agent_list[i],
         (grid_x_list[i],grid_y_list[i]),
@@ -318,15 +331,15 @@ function run_experiment_set_CRCBS(name::String,
         lambda,epsilon,t_delay)
 
         # Run CRCBS
-        b = @timed(CRCBS(mapf))
+        b = @timed(CTCBS(mapf))
 
         #Get time, solution and cost
         execution_time = b[2]
         solution = b[1][1]
         cost = b[1][2]
-        success = True
+        success = true
         if cost >=  typemax(Int)
-            success = False
+            success = false
         end
 
         #Run particles for simulation
@@ -337,12 +350,16 @@ function run_experiment_set_CRCBS(name::String,
         probability_error = (mean_prob_err,std_prob_err)
 
         #Create experiment instance
+        print("type of i")
+        print(typeof(i))
         new_experiment = Experiment(i,false,success,num_trials,num_agents,-1,mapf,execution_time,cost,global_cp,conflict_counts_locally,probability_error)
 
         # Add it to the list of experiments from the set
         push!(data, new_experiment)
 
     end
+
+    print("Check3 \n")
 
     # save the set of experiments
     save_experiment_set(data)
