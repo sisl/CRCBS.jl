@@ -12,6 +12,9 @@ using Combinatorics
 
 using JLD
 using Random
+using Plots
+using CSV
+using DataFrames
 
 include("utils.jl")
 include("CT_graph.jl") #Contains functions to generate and use CT graphs
@@ -21,6 +24,7 @@ export
     MAPF,
     GraphPath,
     get_collision_probability_edge,
+    get_collision_probability_node,
     clear_graph_occupancy,
     invalid_node_conflict,
     get_most_likely_conflicts,
@@ -366,19 +370,23 @@ function get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
         return density
     end
 
-    a = [-1000.0;0.0]
-    b = [0.0,1000.0]
+    a = [-100.0;0.0]
+    b = [0.0,100.0]
     m = [0.0;0.0]
-    n = [1000.0,1000.0]
-    C1,err1 = hcubature(f,a,b)
-    C2,err2 = hcubature(g,m,n)
+    n = [100.0,100.0]
+    res1 = @timed(hcubature(f,a,b))
+    res2 = @timed(hcubature(g,m,n))
+    C1,err1 = res1[1]
+    C2,err2 = res2[1]
     C = C1 + C2
     err = err1 + err2
+    dt = res1[2] + res2[2] #time spent performing integration
 
-    return C, err
+    return C, err, dt
 end
 
 function get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+
 
     function f(x)
         z = x[1]
@@ -405,15 +413,18 @@ function get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
     z4 = maximum([t1-t2+t_edge,0])
 
     a = [z1;0.0]
-    b = [z2,1000.0]
+    b = [z2,100.0]
     m = [z3;0.0]
-    n = [z4,1000.0]
-    C1,err1 = hcubature(f,a,b)
-    C2,err2 = hcubature(g,m,n)
+    n = [z4,100.0]
+    res1 = @timed(hcubature(f,a,b))
+    res2 = @timed(hcubature(g,m,n))
+    C1,err1 = res1[1]
+    C2,err2 = res2[1]
     C = C1 + C2
     err = err1 + err2
+    dt = res1[2] + res2[2] #time spent performing integration
 
-    return C, err
+    return C, err, dt
 end
 
 function fill_graph_with_path!(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
@@ -469,12 +480,17 @@ function clear_graph_occupancy!(mapf::MAPF)
     return
 end
 
-function get_most_likely_conflicts(mapf::MAPF,paths::LowLevelSolution)
+function get_most_likely_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_interactions)
     """Returns the most likely conflict that occurs in a given solution:
     - paths:        a list of graph edges to be traversed by the agents"""
+    # If num_interactions[2] == 0, it means we are the first time we want to
+    # count interactions, so we change both num_interactions[1] and [2]
 
-    print("Trying to get the most likely conflict from solution: \n")
-    print(paths, "\n")
+    # print("Trying to get the most likely conflict from solution: \n")
+    # print(paths, "\n")
+    interaction_count = 0
+
+    integraltime = 0
 
     epsilon = mapf.epsilon
     lambda = mapf.lambda
@@ -504,10 +520,14 @@ function get_most_likely_conflicts(mapf::MAPF,paths::LowLevelSolution)
         if length(occupancy) >= 2
             list_of_occupants = collect(keys(occupancy))
             pairs_of_occupants = collect(combinations(list_of_occupants,2))
+            if num_interactions[2] == 0
+                interaction_count += length(pairs_of_occupants)
+            end
             for (r1,r2) in pairs_of_occupants
                 (n1,t1) = occupancy[r1]
                 (n2,t2) = occupancy[r2]
-                (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+                (cp,err,dt) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+                integraltime += dt
 
                 # Conflict is likely and higher than all previously found
                 if cp > maximum([epsilon,node_conflict_p])
@@ -521,28 +541,35 @@ function get_most_likely_conflicts(mapf::MAPF,paths::LowLevelSolution)
     # ----- Edge conflicts ----- #
     for e in edges(mapf.graph)
 
-        #Get edge information. We consider confrontations as robots arriving in
-        #opposite directions only
-        t_edge = get_prop(mapf.graph,e,:weight)
-        occupancy = get_prop(mapf.graph,e,:occupancy)
-        reverse_edge = Edge(e.dst,e.src)
-        reverse_occupancy = get_prop(mapf.graph,reverse_edge,:occupancy)
+        if e.src < e.dst
 
-        # There is interaction at this edge
-        if length(occupancy)*length(reverse_occupancy) >= 1
-            occupants_1 = keys(occupancy)
-            occupants_2 = keys(reverse_occupancy)
-            for robot1_id in occupants_1
-                for robot2_id in occupants_2
-                    if robot1_id != robot2_id
-                        (n1,t1) = occupancy[robot1_id]
-                        (n2,t2) = reverse_occupancy[robot2_id]
-                        (cp,err) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+            #Get edge information. We consider confrontations as robots arriving in
+            #opposite directions only
+            t_edge = get_prop(mapf.graph,e,:weight)
+            occupancy = get_prop(mapf.graph,e,:occupancy)
+            reverse_edge = Edge(e.dst,e.src)
+            reverse_occupancy = get_prop(mapf.graph,reverse_edge,:occupancy)
 
-                        if cp > maximum([epsilon,edge_conflict_p])
-                            edge_conflict_p = cp
-                            #time at which robot 1/2 leaves from node 2/1 (the last)
-                            edge_conflict = EdgeConflict(robot1_id,robot2_id,e.src,e.dst,t1+t_edge,t2+t_edge,cp)
+            # There is interaction at this edge
+            if length(occupancy)*length(reverse_occupancy) >= 1 && e.src < e.dst
+                occupants_1 = keys(occupancy)
+                occupants_2 = keys(reverse_occupancy)
+                for robot1_id in occupants_1
+                    for robot2_id in occupants_2
+                        if robot1_id != robot2_id
+                            if num_interactions[2] == 0
+                                interaction_count += 1
+                            end
+                            (n1,t1) = occupancy[robot1_id]
+                            (n2,t2) = reverse_occupancy[robot2_id]
+                            (cp,err,dt) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+                            integraltime += dt
+
+                            if cp > maximum([epsilon,edge_conflict_p])
+                                edge_conflict_p = cp
+                                #time at which robot 1/2 leaves from node 2/1 (the last)
+                                edge_conflict = EdgeConflict(robot1_id,robot2_id,e.src,e.dst,t1+t_edge,t2+t_edge,cp)
+                            end
                         end
                     end
                 end
@@ -550,11 +577,17 @@ function get_most_likely_conflicts(mapf::MAPF,paths::LowLevelSolution)
         end
     end
 
+    # Set the number of interactions
+    if num_interactions[2] == 0
+        num_interactions[2] = 1
+        num_interactions[1] = interaction_count
+    end
+
     clear_graph_occupancy!(mapf)
     if node_conflict_p >= edge_conflict_p
-        return node_conflict, invalid_edge_conflict()
+        return node_conflict, invalid_edge_conflict(), integraltime
     else
-        return invalid_node_conflict(), edge_conflict
+        return invalid_node_conflict(), edge_conflict, integraltime
     end
 end
 
@@ -688,11 +721,14 @@ function low_level_search!(mapf::MAPF,
     node::ConstraintTreeNode,
     idxs=collect(1:num_agents(mapf)),
     path_finder=LightGraphs.a_star)
+    time = 0
     """Returns a low level solution for a MAPF with constraints"""
     # compute an initial solution
     # solution = LowLevelSolution()
     for i in idxs
-        path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),mapf)
+        pathwtime = @timed(path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),mapf))
+        time += pathwtime[2]
+        path = pathwtime[1]
         node.solution[i] = path
         # push!(solution,path)
     end
@@ -701,7 +737,7 @@ function low_level_search!(mapf::MAPF,
     # node.solution = solution
     node.cost = get_cost(node.solution,mapf)
     # TODO check if solution is valid
-    return node.solution, node.cost
+    return node.solution, node.cost,time
     # return true
 end
 
@@ -713,63 +749,61 @@ include("low_level_search/a_star.jl") #Modified version of astar
 """
 function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     # priority queue that stores nodes in order of their cost
+    max_iterations = 1000
+    integraltime = 0.0
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
+    time_spent_on_astar = 0.0
+    num_interactions = [0,0]
 
     root_node = initialize_root_node(mapf)
-    low_level_search!(mapf,root_node)
+    _,_,astartime = low_level_search!(mapf,root_node)
+    time_spent_on_astar += astartime
     if is_valid(root_node.solution,mapf)
         enqueue!(priority_queue, root_node => root_node.cost)
     end
+    iteration_count = 0
 
-    while length(priority_queue) > 0
-        print("\n \n")
+    while length(priority_queue) > 0 && iteration_count < max_iterations
+        #print("\n \n")
         node = dequeue!(priority_queue)
         # check for conflicts
-        node_conflict, edge_conflict = get_most_likely_conflicts(mapf,node.solution)
+        node_conflict, edge_conflict, integral_deltat = get_most_likely_conflicts!(mapf,node.solution,num_interactions)
+        integraltime += integral_deltat
         if is_valid(node_conflict)
-            print("Found node conflict")
-            print("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id, "/n")
+            # print("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id, "/n")
             constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay)
         elseif is_valid(edge_conflict)
-            print("Found edge conflict: \n")
-            print("Agents: ",edge_conflict.agent1_id," and ",edge_conflict.agent2_id, "\n")
-            print("Edge: ",edge_conflict.node1_id," => ", edge_conflict.node2_id, "\n")
-            print("Collision Probability: ",edge_conflict.collision_probability,"\n \n" )
             constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay)
-            print("Generated the following constraint(s): \n")
-            print("Agent: ",constraints[1].a, "\n")
-            print("Node 1: ",constraints[1].node1_id, "\n")
-            print("Node 2: ",constraints[1].node2_id, "\n")
-            print("Authorized time: ",constraints[1].t, "\n \n")
-            print("Agent: ",constraints[2].a, "\n")
-            print("Node 1: ",constraints[2].node1_id, "\n")
-            print("Node 2: ",constraints[2].node2_id, "\n")
-            print("Authorized time: ",constraints[2].t, "\n \n")
         else
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
-            return (node.solution, node.cost)
+            print("Time spent on integration: ", integraltime, " \n")
+            print("Time spent on path finding: ", time_spent_on_astar, " \n")
+            return (node.solution, node.cost,integraltime,time_spent_on_astar,num_interactions)
         end
 
         # generate new nodes from constraints
         for constraint in constraints
             new_node = initialize_child_node(node)
             if add_constraint!(new_node,constraint,mapf)
-                low_level_search!(mapf,new_node,[get_agent_id(constraint)])
+                _,_,astartime = low_level_search!(mapf,new_node,[get_agent_id(constraint)])
+                time_spent_on_astar += astartime
                 if is_valid(new_node.solution, mapf)
-                    print("Consequently we found the solutions: \n")
-                    print(new_node.solution, "\n")
-                    print("Adding new node to priority queue","\n")
+                    # print("Consequently we found the solutions: \n")
+                    # print(new_node.solution, "\n")
+                    # print("Adding new node to priority queue","\n")
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end
             end
         end
+        iteration_count += 1
     end
     print("No Solution Found. Returning default solution")
-    return (LowLevelSolution(), typemax(Int))
+    return (LowLevelSolution(), typemax(Int),integraltime,time_spent_on_astar,num_interactions[1])
 end
 
 
 include("simulations.jl")
+include("plotting.jl")
 
 
 

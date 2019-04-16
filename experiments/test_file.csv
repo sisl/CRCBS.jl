@@ -1,0 +1,4 @@
+name,Id,CBS,success,lambda,epsilon,t_delay,num_trials,num_agents,cbs_time_steps,solving_time,solution_cost,global_cp,conflict_counts_locally,probability_error
+First_test_1,1,false,true,0.2,0.2,0.5,30,3,-1,1.255808631,31.0,0.0,Float64[],"(NaN, NaN)"
+First_test_2,2,false,true,0.2,0.2,0.5,30,4,-1,2.179765121,34.0,0.033333333333333326,[1.0],"(0.08107332397143358, NaN)"
+First_test_3,3,false,true,0.2,0.2,0.5,30,7,-1,388.675508842,65.0,0.0,"[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]","(4.976870033926966e-5, 6.85217369377006e-5)"

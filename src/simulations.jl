@@ -1,52 +1,53 @@
 export
     run_experiment_set_CRCBS,
-    Experiment_Set,
-    Experiment
+    run_convergence_tests_CRCBS,
+    Experiment_parameters
 
 struct Experiment_parameters
     name::String
-    num_agents::Tuple
-    grid_x::Tuple
-    grid_y::Tuple
-    filling_density::Tuple
     lambda::Float64
     epsilon::Float64
     t_delay::Float64
-    num_experiments::Int64
+    num_particles::Int64
+    vs::Vector{Int}
+    es::Vector{Tuple{Int,Int}}
+    starts::Vector{Int}
+    goals::Vector{Int}
 end
 
-struct Experiment
-    """Trials identically conducted"""
-    Id::Int64
-    CBS::Bool
-    success::Bool
+# struct Experiment
+#     """Trials identically conducted"""
+#     name::String
+#     Id::Int64
+#     CBS::Bool
+#     success::Bool
+#
+#     #MAPF contents
+#     lambda::Float64
+#     epsilon::Float64
+#     t_delay::Float64
+#
+#     # Experiment properties
+#     num_trials::Int64
+#     num_agents::Int64
+#     cbs_time_steps::Int64
+#     #mapf::MAPF
+#
+#     # Result storage
+#     solving_time::Float64 #Time it took to find a solution
+#     solution_cost::Float64 #Cost of computer solution in ideal case
+#     global_cp::Float64
+#     conflict_counts_locally::Vector{Float64}
+#     probability_error::Tuple{Float64,Float64} #Mean, std
+#
+# end
 
-    # Experiment properties
-    num_trials::Int64
-    num_agents::Int64
-    cbs_time_steps::Int64
-    mapf::MAPF
+#mutable struct Experiment_Set
+#    name::String
+#    data::Vector{Experiment}
+#end
 
-    # Result storage
-    solving_time::Float64 #Time it took to find a solution
-    solution_cost::Float64 #Cost of computer solution in ideal case
-    global_cp::Float64
-    conflict_counts_locally::Vector{Float64}
-    probability_error::Tuple{Float64,Float64} #Mean, std
 
-end
-
-mutable struct Experiment_Set
-    name::String
-    data::Vector{Experiment}
-end
-
-function save_experiment_set(Exp::Experiment_Set)
-    jldopen(string("../experiments/results/001",Exp.name,".jld"),"w") do file
-        addrequire(file,CRCBS)
-        write(file,"data",Exp)
-    end
-end
 
 # returns solution_times
 function run_particles(mapf::MAPF, solution::LowLevelSolution,num_particles::Int64)
@@ -120,6 +121,7 @@ function run_particles(mapf::MAPF, solution::LowLevelSolution,num_particles::Int
             end
 
         end
+        push!(solution_times,time_array)
 
     end
     return solution_times
@@ -157,23 +159,40 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
             pairs_of_occupants = collect(combinations(list_of_occupants,2))
             for (r1,r2) in pairs_of_occupants
 
+                println("Interaction!")
+
                 #Get Collision Probability
                 (n1,t1) = occupancy[r1]
                 (n2,t2) = occupancy[r2]
                 (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+                if cp==0
+                    println("found probability of zero with parameters")
+                    println("n1: ", n1)
+                    println("t1: ", t1)
+                    println("n2: ", n2)
+                    println("t2: ", t2)
+                    println("nn: ", nn)
+                    println("lambda: ", lambda)
+                end
+
 
                 # Count conflicts
                 #Index of node v traversal for robots 1 and 2
-                print("\n")
-                print(collect(paths[r1]))
-                print("\n")
-                print(typeof(Iterators.flatten(Array(paths[r1]))))
-                print("\n")
-                print(collect(Iterators.flatten(Array(paths[r1]))))
-                r1_flat_path = collect(Iterators.flatten(paths[r1]))
-                r2_flat_path = collect(Iterators.flatten(paths[r2]))
-                v_idx_r1 = div(findfirst(r1_flat_path.==v),2)+1
-                v_idx_r2 = div(findfirst(r2_flat_path.==v),2)+1
+
+                path_r1 = []
+                for e in paths[r1]
+                    append!(path_r1, e.src)
+                    append!(path_r1, e.dst)
+                end
+
+                path_r2 = []
+                for e in paths[r2]
+                    append!(path_r2, e.src)
+                    append!(path_r2, e.dst)
+                end
+
+                v_idx_r1 = div(findfirst(path_r1.==v),2)+1
+                v_idx_r2 = div(findfirst(path_r2.==v),2)+1
 
                 r1_arrivals = solution_times[r1][v_idx_r1,1,:]
                 r1_departures = solution_times[r1][v_idx_r1,2,:]
@@ -181,13 +200,20 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
                 r2_departures = solution_times[r2][v_idx_r2,2,:]
 
                 num_conflicts = length(findall( ((r2_departures-r1_arrivals).>0) .& ((r1_departures-r2_arrivals).>0)   ))
-                push!(conflict_counts_locally, num_conflicts)
 
-                # Compare conflict occurence to probability
-                experimental_local_conflict_probability = num_conflicts/num_particles
-                probability_error = abs(experimental_local_conflict_probability-cp)
+                if num_conflicts > 1
+                    println("\n I found", num_conflicts, " conflicts at a node!")
+                    println("This is out of ", num_particles, " trials, and the collision probability is ", cp)
+                    #push!(conflict_counts_locally, num_conflicts)
 
-                push!(conflict_probability_error,probability_error)
+                    push!(conflict_counts_locally, num_conflicts)
+
+                    # Compare conflict occurence to probability
+                    experimental_local_conflict_probability = num_conflicts/num_particles
+                    probability_error = abs(experimental_local_conflict_probability-cp)
+
+                    push!(conflict_probability_error,probability_error)
+                end
 
             end
         end
@@ -204,41 +230,68 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
         reverse_occupancy = get_prop(mapf.graph,reverse_edge,:occupancy)
 
         # There is interaction at this edge
-        if length(occupancy)*length(reverse_occupancy) >= 1
+        if length(occupancy)*length(reverse_occupancy) >= 1 && e.src < e.dst
+
             occupants_1 = keys(occupancy)
             occupants_2 = keys(reverse_occupancy)
+
+            # println("Edge ", e, " found occupants:")
+            # println(occupants_1)
+            # println("and reverse occupants:")
+            # println(occupants_2)
+
             for robot1_id in occupants_1
                 for robot2_id in occupants_2
                     if robot1_id != robot2_id
+                        println("Interaction at edge!")
+
+
+
                         # Get Collision Probability
                         (n1,t1) = occupancy[robot1_id]
                         (n2,t2) = reverse_occupancy[robot2_id]
                         (cp,err) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
 
+
+                        path_r1 = []
+                        for ed in paths[robot1_id]
+                            append!(path_r1, ed.src)
+                            append!(path_r1, ed.dst)
+                        end
+
+                        path_r2 = []
+                        for ed in paths[robot2_id]
+                            append!(path_r2, ed.src)
+                            append!(path_r2, ed.dst)
+                        end
+
                         # Get indexes for v1 and v2 for robot1 and robot2
-                        r1_flat_path = collect(Iterators.flatten(paths[robot1_id]))
-                        r2_flat_path = collect(Iterators.flatten(paths[robot2_id]))
-                        v1_idx_r1 = div(findfirst(r1_flat_path.==e.src),2)+1
-                        v1_idx_r2 = div(findfirst(r2_flat_path.==e.src),2)+1
-                        v2_idx_r1 = div(findfirst(r1_flat_path.==e.dst),2)+1
-                        v2_idx_r2 = div(findfirst(r2_flat_path.==e.dst),2)+1
+                        v1_idx_r1 = div(findfirst(path_r1.==e.src),2)+1
+                        v1_idx_r2 = div(findfirst(path_r2.==e.src),2)+1
+                        v2_idx_r1 = div(findfirst(path_r1.==e.dst),2)+1
+                        v2_idx_r2 = div(findfirst(path_r2.==e.dst),2)+1
 
                         #Count conflicts that arrive on the edge but not at the nodes
                         # robot 1 arrives at node 2 after robot 2 leaves node 2
                         # and robot 2 arrives at node 1 after robot 1 leaves node 2
-                        r1_arrivals = solution_times[r1][v1_idx_r1,2,:]
-                        r1_departures = solution_times[r1][v2_idx_r1,1,:]
-                        r2_arrivals = solution_times[r2][v2_idx_r2,2,:]
-                        r2_departures = solution_times[r2][v1_idx_r2,1,:]
+                        r1_arrivals = solution_times[robot1_id][v1_idx_r1,2,:]
+                        r1_departures = solution_times[robot1_id][v2_idx_r1,1,:]
+                        r2_arrivals = solution_times[robot2_id][v2_idx_r2,2,:]
+                        r2_departures = solution_times[robot2_id][v1_idx_r2,1,:]
 
                         num_conflicts = length(findall( ((r2_departures-r1_arrivals).>0) .& ((r1_departures-r2_arrivals).>0)   ))
-                        push!(conflict_counts_locally, num_conflicts)
 
-                        # Compare conflict occurence to probability
-                        experimental_local_conflict_probability = num_conflicts/num_particles
-                        probability_error = abs(experimental_local_conflict_probability-cp)
+                        if num_conflicts > 1
+                            println("\n I found", num_conflicts, " conflicts!")
+                            println("This is out of ", num_particles, " trials, and the collision probability is ", cp)
+                            push!(conflict_counts_locally, num_conflicts)
 
-                        push!(conflict_probability_error,probability_error)
+                            # Compare conflict occurence to probability
+                            experimental_local_conflict_probability = num_conflicts/num_particles
+                            probability_error = abs(experimental_local_conflict_probability-cp)
+
+                            push!(conflict_probability_error,probability_error)
+                        end
 
                     end
                 end
@@ -251,11 +304,161 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
     std_prob_err = std(conflict_probability_error,corrected=true)
 
     # Get the global conflict probability
-    global_cp = 1 - prod(1 .- conflict_counts_locally)
+    global_cp = 1 - prod(1 .- conflict_counts_locally/num_particles)
 
     clear_graph_occupancy!(mapf)
     return (global_cp, conflict_counts_locally, mean_prob_err,std_prob_err)
 end
+
+# returns (global_cp, conflict_counts_locally, mean_prob_err,std_prob_err)
+function push_conflict_stats!(mapf::MAPF,paths::LowLevelSolution,solution_times::Vector{Array{Float64,3}},num_particles_list,data)
+    """Pushes probability convergence information into data"""
+
+    conflict_counts_locally = Vector{Int64}()
+    conflict_probability_error = Vector{Float64}()
+
+    epsilon = mapf.epsilon
+    lambda = mapf.lambda
+
+    clear_graph_occupancy!(mapf::MAPF)
+
+    # The first step is to fill the graph with occupancy information
+    for (robot_id,robotpath) in enumerate(paths)
+        fill_graph_with_path!(robot_id,robotpath,mapf)
+    end
+
+    # ----- Node conflicts ----- #
+    for v in vertices(mapf.graph)
+
+        #Get node information
+        nn = get_prop(mapf.graph, v, :n_delay)
+        occupancy = get_prop(mapf.graph,v,:occupancy)
+
+        # There is interaction at this node
+        if length(occupancy) >= 2
+            list_of_occupants = collect(keys(occupancy))
+            pairs_of_occupants = collect(combinations(list_of_occupants,2))
+            for (r1,r2) in pairs_of_occupants
+
+                #Get Collision Probability
+                (n1,t1) = occupancy[r1]
+                (n2,t2) = occupancy[r2]
+                (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+                if cp==0
+                    println("found probability of zero with parameters")
+                    println("n1: ", n1)
+                    println("t1: ", t1)
+                    println("n2: ", n2)
+                    println("t2: ", t2)
+                    println("nn: ", nn)
+                    println("lambda: ", lambda)
+                end
+
+
+                # Count conflicts
+                #Index of node v traversal for robots 1 and 2
+                path_r1 = []
+                for e in paths[r1]
+                    append!(path_r1, e.src)
+                    append!(path_r1, e.dst)
+                end
+
+                path_r2 = []
+                for e in paths[r2]
+                    append!(path_r2, e.src)
+                    append!(path_r2, e.dst)
+                end
+
+                v_idx_r1 = div(findfirst(path_r1.==v),2)+1
+                v_idx_r2 = div(findfirst(path_r2.==v),2)+1
+
+                r1_arrivals = solution_times[r1][v_idx_r1,1,:]
+                r1_departures = solution_times[r1][v_idx_r1,2,:]
+                r2_arrivals = solution_times[r2][v_idx_r2,1,:]
+                r2_departures = solution_times[r2][v_idx_r2,2,:]
+
+                # Looks at conflict occurences with gradually more information
+                for num_trials in num_particles_list
+                    num_conflicts = length(findall( ((r2_departures[1:num_trials]-r1_arrivals[1:num_trials]).>0) .& ((r1_departures[1:num_trials]-r2_arrivals[1:num_trials]).>0)   ))
+                    experimental_probability = num_conflicts/num_trials
+                    push!(data,[cp,experimental_probability,num_trials])
+                end
+            end
+        end
+    end
+
+    # ----- Edge conflicts ----- #
+    for e in edges(mapf.graph)
+
+        #Get edge information. We consider confrontations as robots arriving in
+        #opposite directions only
+        t_edge = get_prop(mapf.graph,e,:weight)
+        occupancy = get_prop(mapf.graph,e,:occupancy)
+        reverse_edge = Edge(e.dst,e.src)
+        reverse_occupancy = get_prop(mapf.graph,reverse_edge,:occupancy)
+
+        # There is interaction at this edge
+        if length(occupancy)*length(reverse_occupancy) >= 1 && e.src < e.dst
+
+            occupants_1 = keys(occupancy)
+            occupants_2 = keys(reverse_occupancy)
+
+            # println("Edge ", e, " found occupants:")
+            # println(occupants_1)
+            # println("and reverse occupants:")
+            # println(occupants_2)
+
+            for robot1_id in occupants_1
+                for robot2_id in occupants_2
+                    if robot1_id != robot2_id
+
+                        # Get Collision Probability
+                        (n1,t1) = occupancy[robot1_id]
+                        (n2,t2) = reverse_occupancy[robot2_id]
+                        (cp,err) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+
+
+                        path_r1 = []
+                        for ed in paths[robot1_id]
+                            append!(path_r1, ed.src)
+                            append!(path_r1, ed.dst)
+                        end
+
+                        path_r2 = []
+                        for ed in paths[robot2_id]
+                            append!(path_r2, ed.src)
+                            append!(path_r2, ed.dst)
+                        end
+
+                        # Get indexes for v1 and v2 for robot1 and robot2
+                        v1_idx_r1 = div(findfirst(path_r1.==e.src),2)+1
+                        v1_idx_r2 = div(findfirst(path_r2.==e.src),2)+1
+                        v2_idx_r1 = div(findfirst(path_r1.==e.dst),2)+1
+                        v2_idx_r2 = div(findfirst(path_r2.==e.dst),2)+1
+
+                        #Count conflicts that arrive on the edge but not at the nodes
+                        # robot 1 arrives at node 2 after robot 2 leaves node 2
+                        # and robot 2 arrives at node 1 after robot 1 leaves node 2
+                        r1_arrivals = solution_times[robot1_id][v1_idx_r1,2,:]
+                        r1_departures = solution_times[robot1_id][v2_idx_r1,1,:]
+                        r2_arrivals = solution_times[robot2_id][v2_idx_r2,2,:]
+                        r2_departures = solution_times[robot2_id][v1_idx_r2,1,:]
+
+                        # Looks at conflict occurences with gradually more information
+                        for num_trials in num_particles_list
+                            num_conflicts = length(findall( ((r2_departures[1:num_trials]-r1_arrivals[1:num_trials]).>0) .& ((r1_departures[1:num_trials]-r2_arrivals[1:num_trials]).>0)   ))
+                            experimental_probability = num_conflicts/num_trials
+                            push!(data,[cp,experimental_probability,num_trials])
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return
+end
+
 
 # returns mapf
 function create_grid_mapf(num_robots::Int64,
@@ -275,6 +478,12 @@ function create_grid_mapf(num_robots::Int64,
 
     mapf = MAPF(G,starts,goals,lambda,epsilon,t_delay)
     return mapf
+end
+
+function mapf_to_exp_parameters(name,num_particles,mapf)
+    vs = [v for v in vertices(mapf.graph)]
+    es = [(e.src,e.dst) for e in edges(mapf.graph)]
+    return Experiment_parameters(name,mapf.lambda,mapf.epsilon,mapf.t_delay,num_particles,vs,es,mapf.starts,mapf.goals)
 end
 
 function run_experiment_set_CRCBS(name::String,
@@ -309,29 +518,61 @@ function run_experiment_set_CRCBS(name::String,
     d = num_experiments-length(filling_density)
     append!(filling_density_list,sample(collect(filling_density),d*(sign(d)==1)))
 
-    # Save experiment parameters for when we will try doing it with CBS
-    Expp = Experiment_parameters(name,num_agents,grid_x,grid_y,filling_density,lambda,epsilon,t_delay,num_experiments)
-
     print("Check1 \n")
 
-    jldopen(string("../experiments/experiment_parameters/001",name,".jld"),"w") do file
-        #addrequire(file,CRCBS)
-        write(file,"parms",Expp)
-    end
-
-
-
     #Now we can create the experiment set
-    data = Vector{}()
+    data = DataFrame(name=String[],
+    Id=Int64[],
+    CBS=Bool[],
+    success=Bool[],
+
+    #MAPF contents
+    lambda=Float64[],
+    epsilon=Float64[],
+    t_delay=Float64[],
+
+    # Experiment properties
+    num_trials=Int64[],
+    num_agents=Int64[],
+    cbs_time_steps=Int64[],
+    num_nodes=Int64[],
+    num_edges=Int64[],
+    #mapf::MAPF
+
+    # Result storage
+    solving_time=Float64[], #Time it took to find a solution
+    integraltime=Float64[],
+    time_spent_on_astar=Float64[],
+    num_interactions=Int64[],
+
+    solution_cost=Float64[], #Cost of computer solution in ideal case
+    global_cp=Float64[],
+    conflict_counts_locally=Vector{Float64}[],
+    probability_error=Tuple{Float64,Float64}[]) #Mean, std
+
+
     print("Check2 \n")
+
     for i in 1:num_experiments
+
+        # Create MAPF
         mapf = create_grid_mapf(num_agent_list[i],
         (grid_x_list[i],grid_y_list[i]),
         filling_density_list[i],
         lambda,epsilon,t_delay)
+        n_nodes = length(vertices(mapf.graph))
+        n_edges = div(length(edges(mapf.graph)),2) #Edge 1 - 2 and 2 - 1 are the same
+
+        # Save mapf for CBS experiment
+        exp_parms = mapf_to_exp_parameters(string(name,"_",string(i)),num_trials,mapf)
+
+        jldopen(string("../experiments/experiment_parameters/001",string(name,"_",i),".jld"),"w") do file
+            write(file,"parms",exp_parms)
+        end
 
         # Run CRCBS
         b = @timed(CTCBS(mapf))
+        println("Time spent performing optimization: ", b[2])
 
         #Get time, solution and cost
         execution_time = b[2]
@@ -342,6 +583,10 @@ function run_experiment_set_CRCBS(name::String,
             success = false
         end
 
+        integraltime = b[1][3]
+        time_spent_on_astar = b[1][4]
+        num_interactions = b[1][5][1]
+
         #Run particles for simulation
         solution_times = run_particles(mapf, solution,num_trials)
 
@@ -349,21 +594,113 @@ function run_experiment_set_CRCBS(name::String,
         (global_cp, conflict_counts_locally, mean_prob_err,std_prob_err) = get_conflict_stats(mapf,solution,solution_times,num_trials)
         probability_error = (mean_prob_err,std_prob_err)
 
-        #Create experiment instance
-        print("type of i")
-        print(typeof(i))
-        new_experiment = Experiment(i,false,success,num_trials,num_agents,-1,mapf,execution_time,cost,global_cp,conflict_counts_locally,probability_error)
-
         # Add it to the list of experiments from the set
-        push!(data, new_experiment)
+        push!(data, [string(name,"_",string(i)),i,false,success,mapf.lambda,mapf.epsilon,mapf.t_delay,num_trials,num_agent_list[i],-1,n_nodes, n_edges,execution_time,integraltime,time_spent_on_astar,num_interactions,cost,global_cp,conflict_counts_locally,probability_error])
 
     end
 
     print("Check3 \n")
 
-    # save the set of experiments
-    save_experiment_set(data)
+    return data
+end
+
+function run_convergence_tests_CRCBS(name::String,
+    num_agents::Tuple,
+    grid_x::Tuple,
+    grid_y::Tuple,
+    filling_density::Tuple,
+    lambda::Float64,
+    epsilon::Float64,
+    t_delay::Float64,
+    num_experiments::Int64,
+    num_trials::Int64
+    )
+
+    print("Started \n")
+
+    #Create the parameters of all experiments
+    #num_agents
+    num_agent_list = shuffle(collect(num_agents))[1:min(num_experiments,length(num_agents))]
+    d = num_experiments-length(num_agents)
+    append!(num_agent_list,sample(collect(num_agents),d*(sign(d)==1)))
+    #grid size x
+    grid_x_list = shuffle(collect(grid_x))[1:min(num_experiments,length(grid_x))]
+    d = num_experiments-length(grid_x)
+    append!(grid_x_list,sample(collect(grid_x),d*(sign(d)==1)))
+    #grid size y
+    grid_y_list = shuffle(collect(grid_y))[1:min(num_experiments,length(grid_y))]
+    d = num_experiments-length(grid_y)
+    append!(grid_y_list,sample(collect(grid_y),d*(sign(d)==1)))
+    #filling density
+    filling_density_list = shuffle(collect(filling_density))[1:min(num_experiments,length(filling_density))]
+    d = num_experiments-length(filling_density)
+    append!(filling_density_list,sample(collect(filling_density),d*(sign(d)==1)))
+
+    print("Check1 \n")
+
+    #Now we can create the experiment set
+    data = DataFrame(theoretical_probability = Float64[],
+    experimental_probability = Float64[],
+    num_samples = Int64[]) #Mean, std
+
+
+    print("Check2 \n")
+
+    num_trial_list = [1,5,10,20,50,100,200,500,1000,2000,5000,10000,20000,50000,100000]
+    num_trials = 100000
+
+    for i in 1:num_experiments
+
+        # Create MAPF
+        mapf = create_grid_mapf(num_agent_list[i],
+        (grid_x_list[i],grid_y_list[i]),
+        filling_density_list[i],
+        lambda,epsilon,t_delay)
+        n_nodes = length(vertices(mapf.graph))
+        n_edges = div(length(edges(mapf.graph)),2) #Edge 1 - 2 and 2 - 1 are the same
+
+        # Save mapf for CBS experiment
+        exp_parms = mapf_to_exp_parameters(string(name,"_",string(i)),num_trials,mapf)
+
+        # Run CRCBS
+        b = @timed(CTCBS(mapf))
+        println("Time spent performing optimization: ", b[2])
+
+        #Get time, solution and cost
+        execution_time = b[2]
+        solution = b[1][1]
+        cost = b[1][2]
+        success = true
+        if cost >=  typemax(Int)
+            success = false
+        end
 
 
 
+        #Run particles for simulation
+        solution_times = run_particles(mapf, solution, num_trials)
+
+        #Get stats
+        push_conflict_stats!(mapf,solution,solution_times,num_trial_list,data)
+
+    end
+
+    print("Check3 \n")
+
+    return data
+end
+
+
+function load_experiment_parameters(name,files)
+    """Creates an experiment set with all the experiment sets"""
+    experiment_vector = Vector{}()
+
+    for file in files
+        exp_set = load(file)
+        for exp in exp_set["data"]
+            append!(experiment_vector, exp)
+        end
+    end
+    SET = Experiment_Set(string(name,"_Loaded_set"),experiment_vector)
+    return SET
 end
