@@ -155,25 +155,27 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
 
         # There is interaction at this node
         if length(occupancy) >= 2
+            println("Possible interactions")
+            sleep(0.02)
             list_of_occupants = collect(keys(occupancy))
             pairs_of_occupants = collect(combinations(list_of_occupants,2))
             for (r1,r2) in pairs_of_occupants
 
-                println("Interaction!")
+                #println("Interaction!")
 
                 #Get Collision Probability
                 (n1,t1) = occupancy[r1]
                 (n2,t2) = occupancy[r2]
                 (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
-                if cp==0
-                    println("found probability of zero with parameters")
-                    println("n1: ", n1)
-                    println("t1: ", t1)
-                    println("n2: ", n2)
-                    println("t2: ", t2)
-                    println("nn: ", nn)
-                    println("lambda: ", lambda)
-                end
+                # if cp==0
+                #     println("found probability of zero with parameters")
+                #     println("n1: ", n1)
+                #     println("t1: ", t1)
+                #     println("n2: ", n2)
+                #     println("t2: ", t2)
+                #     println("nn: ", nn)
+                #     println("lambda: ", lambda)
+                # end
 
 
                 # Count conflicts
@@ -344,15 +346,15 @@ function push_conflict_stats!(mapf::MAPF,paths::LowLevelSolution,solution_times:
                 (n1,t1) = occupancy[r1]
                 (n2,t2) = occupancy[r2]
                 (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
-                if cp==0
-                    println("found probability of zero with parameters")
-                    println("n1: ", n1)
-                    println("t1: ", t1)
-                    println("n2: ", n2)
-                    println("t2: ", t2)
-                    println("nn: ", nn)
-                    println("lambda: ", lambda)
-                end
+                # if cp==0
+                #     println("found probability of zero with parameters")
+                #     println("n1: ", n1)
+                #     println("t1: ", t1)
+                #     println("n2: ", n2)
+                #     println("t2: ", t2)
+                #     println("nn: ", nn)
+                #     println("lambda: ", lambda)
+                # end
 
 
                 # Count conflicts
@@ -541,7 +543,7 @@ function run_experiment_set_CRCBS(name::String,
 
     # Result storage
     solving_time=Float64[], #Time it took to find a solution
-    integraltime=Float64[],
+    counting_time=Float64[],
     time_spent_on_astar=Float64[],
     num_interactions=Int64[],
 
@@ -552,6 +554,7 @@ function run_experiment_set_CRCBS(name::String,
 
 
     print("Check2 \n")
+    sleep(0.05)
 
     for i in 1:num_experiments
 
@@ -573,6 +576,7 @@ function run_experiment_set_CRCBS(name::String,
         # Run CRCBS
         b = @timed(CTCBS(mapf))
         println("Time spent performing optimization: ", b[2])
+        sleep(0.05)
 
         #Get time, solution and cost
         execution_time = b[2]
@@ -583,7 +587,7 @@ function run_experiment_set_CRCBS(name::String,
             success = false
         end
 
-        integraltime = b[1][3]
+        countingtime = b[1][3]
         time_spent_on_astar = b[1][4]
         num_interactions = b[1][5][1]
 
@@ -595,7 +599,7 @@ function run_experiment_set_CRCBS(name::String,
         probability_error = (mean_prob_err,std_prob_err)
 
         # Add it to the list of experiments from the set
-        push!(data, [string(name,"_",string(i)),i,false,success,mapf.lambda,mapf.epsilon,mapf.t_delay,num_trials,num_agent_list[i],-1,n_nodes, n_edges,execution_time,integraltime,time_spent_on_astar,num_interactions,cost,global_cp,conflict_counts_locally,probability_error])
+        push!(data, [string(name,"_",string(i)),i,false,success,mapf.lambda,mapf.epsilon,mapf.t_delay,num_trials,num_agent_list[i],-1,n_nodes, n_edges,execution_time,countingtime,time_spent_on_astar,num_interactions,cost,global_cp,conflict_counts_locally,probability_error])
 
     end
 

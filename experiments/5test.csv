@@ -1,0 +1,6 @@
+name,Id,CBS,success,lambda,epsilon,t_delay,num_trials,num_agents,cbs_time_steps,num_nodes,num_edges,solving_time,counting_time,time_spent_on_astar,num_interactions,solution_cost,global_cp,conflict_counts_locally,probability_error
+First_test_1,1,false,true,0.2,0.2,0.5,1000,7,-1,276,418,369.651973464,1.56981136,364.68727108800005,108,128.0,0.014924155888000112,"[7.0, 2.0, 4.0, 2.0]","(0.016265749622401394, 0.030108580273874024)"
+First_test_2,2,false,true,0.2,0.2,0.5,1000,3,-1,679,1029,1.354418362,0.0,1.23367659,0,50.0,0.0,Float64[],"(NaN, NaN)"
+First_test_3,3,false,true,0.2,0.2,0.5,1000,2,-1,514,781,2.319631895,0.002964025,2.1987647239999997,1,37.0,0.0,Float64[],"(NaN, NaN)"
+First_test_4,4,false,true,0.2,0.2,0.5,1000,7,-1,521,797,1756.280237645,0.01605689,1756.136948256,14,129.0,0.0,Float64[],"(NaN, NaN)"
+First_test_5,5,false,true,0.2,0.2,0.5,1000,2,-1,272,408,2.54960032,0.0,2.433075569,0,40.0,0.0,Float64[],"(NaN, NaN)"
