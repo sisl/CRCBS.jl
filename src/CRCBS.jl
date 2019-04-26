@@ -856,6 +856,7 @@ end
 
 function low_level_search!(mapf::MAPF,
     node::ConstraintTreeNode,
+    distmx,
     idxs=collect(1:num_agents(mapf)),
     path_finder=LightGraphs.a_star)
     time = 0
@@ -865,7 +866,7 @@ function low_level_search!(mapf::MAPF,
     println("ASTAR: ", length(idxs))
     sleep(0.1)
     for i in idxs
-        pathwtime = @timed(path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),mapf))
+        pathwtime = @timed(path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),mapf,distmx))
         time += pathwtime[2]
         path = pathwtime[1]
         node.solution[i] = path
@@ -887,6 +888,18 @@ include("low_level_search/a_star.jl") #Modified version of astar
     Continuous Time CBS algorithm
 """
 function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
+
+    # For astar, add delay information to the graph that you didn't have while constructing it
+    distmx = 1000000 .* ones(length(vertices(mapf.graph)),length(vertices(mapf.graph)))
+    for e in edges(mapf.graph)
+        n_delay = get_prop(mapf.graph,e.dst, :n_delay)
+        lambda = mapf.lambda
+        t_edge = get_prop(mapf.graph,e, :weight)
+        distmx[e.src,e.dst] = t_edge + n_delay*lambda
+        set_prop!(mapf.graph,e,:expTravelTime,t_edge + n_delay*lambda)
+    end
+
+
     # priority queue that stores nodes in order of their cost
     max_iterations = 100
     countingtime = 0.0
@@ -895,7 +908,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     num_interactions = [0,0]
 
     root_node = initialize_root_node(mapf)
-    _,_,astartime = low_level_search!(mapf,root_node)
+    _,_,astartime = low_level_search!(mapf,root_node,distmx)
     sleep(0.01)
     time_spent_on_astar += astartime
     if is_valid(root_node.solution,mapf)
@@ -926,7 +939,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         for constraint in constraints
             new_node = initialize_child_node(node)
             if add_constraint!(new_node,constraint,mapf)
-                _,_,astartime = low_level_search!(mapf,new_node,[get_agent_id(constraint)])
+                _,_,astartime = low_level_search!(mapf,new_node,distmx,[get_agent_id(constraint)])
                 sleep(0.01)
                 time_spent_on_astar += astartime
                 if is_valid(new_node.solution, mapf)

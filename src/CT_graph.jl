@@ -33,6 +33,11 @@ function initialize_full_grid_graph(x_max=10.0,y_max=10.0,filling_density=1.0)
     kdtree = KDTree(hcat(pts...))
     # create edges of 4-connected grid
     for i in vertices(G)
+
+        # Create waiting edges, going from i to i
+        add_edge!(G,i,i)
+        set_prop!(G, Edge(i,i), :weight, 1.0)
+
         for j in inrange(kdtree,pts[i],norm([dx;dy]))
             if i != j && !(has_edge(G,i,j))
                 if abs(pts[i][1]-pts[j][1]) <= dx && pts[i][2] == pts[j][2]
