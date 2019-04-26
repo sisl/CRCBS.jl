@@ -5,6 +5,7 @@ using DataStructures
 using LightGraphs, MetaGraphs
 using LinearAlgebra
 using NearestNeighbors
+using JLD
 
 include("utils.jl")
 include("low_level_search/a_star.jl")
@@ -510,30 +511,41 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 
+    # Counting time spent on astar and finding the next conflict
+    astartime = 0
+    fnctime = 0
+
     root_node = initialize_root_node(mapf)
-    low_level_search!(mapf,root_node)
+    res = @timed(low_level_search!(mapf,root_node))
+    astartime += res[2]
     if is_valid(root_node.solution,mapf)
         enqueue!(priority_queue, root_node => root_node.cost)
     end
 
     while length(priority_queue) > 0
         node = dequeue!(priority_queue)
+
         # check for conflicts
-        node_conflict, edge_conflict = get_next_conflicts(node.solution)
+        gnc = @timed(get_next_conflicts(node.solution))
+        node_conflict = gnc[1][1]
+        edge_conflict = gnc[1][2]
+        fnctime += gnc[2]
+
         if is_valid(node_conflict)
             constraints = generate_constraints_from_conflict(node_conflict)
         elseif is_valid(edge_conflict)
             constraints = generate_constraints_from_conflict(edge_conflict)
         else
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
-            return node.solution, node.cost
+            return node.solution, node.cost,astartime,fnctime
         end
 
         # generate new nodes from constraints
         for constraint in constraints
             new_node = initialize_child_node(node)
             if add_constraint!(new_node,constraint,mapf)
-                low_level_search!(mapf,new_node,[get_agent_id(constraint)])
+                res = @timed(low_level_search!(mapf,new_node,[get_agent_id(constraint)]))
+                astartime += res[2]
                 if is_valid(new_node.solution, mapf)
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end
@@ -541,7 +553,7 @@ function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         end
     end
     print("No Solution Found. Returning default solution")
-    return LowLevelSolution(), typemax(Int)
+    return LowLevelSolution(), typemax(Int),astartime,fnctime
 end
 
 """
@@ -552,5 +564,6 @@ end
 
 
 include("low_level_search/heuristics.jl")
+include("simulations.jl")
 
 end # module
