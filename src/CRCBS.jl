@@ -286,6 +286,10 @@ function violates_constraints(constraints::ConstraintDict,v,path,mapf::MAPF)
         the final vertex of `path` to `v`
         returning true means the constraints are violated"""
 
+    if constraints.a==1 && v==3
+        println("Handling special case")
+    end
+
     # Time it takes to go through path
     if length(path) >= 1
         t1 = traversal_time(path,mapf)
@@ -309,11 +313,12 @@ function violates_constraints(constraints::ConstraintDict,v,path,mapf::MAPF)
     # If such constraint exists, agent is only authorized to visit v after t_min
     t_min = get(constraints.node_constraints,v,false)
 
+
     # -- Node Check -- #
     # If there is a time constraint for this agent and vertex
     # and if agent wants to visit v before authorized time t_min
     if t_min != false
-        if t_min < t
+        if t_min > t
             return true
         end
 
@@ -329,6 +334,7 @@ function violates_constraints(constraints::ConstraintDict,v,path,mapf::MAPF)
             end
         end
     end
+
     return false
 end
 # --------------------------------------------------------------------------- #
@@ -796,8 +802,14 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::N
 
     robot2_id = conflict.agent2_id
     pre_existing_constraintDict = get(node.constraints,robot2_id,false)
+    if robot2_id == 1
+        println("Pre existing constraint dict: ", pre_existing_constraintDict)
+    end
     if pre_existing_constraintDict != false
         t_yield2 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield2)
+        if robot2_id == 1
+            println("t_yield2: ", t_yield2)
+        end
     end
 
     return [
@@ -898,6 +910,9 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         distmx[e.src,e.dst] = t_edge + n_delay*lambda
         set_prop!(mapf.graph,e,:expTravelTime,t_edge + n_delay*lambda)
     end
+    for v in vertices(mapf.graph)
+        distmx[v,v] = 1
+    end
 
 
     # priority queue that stores nodes in order of their cost
@@ -917,14 +932,14 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     iteration_count = 0
 
     while length(priority_queue) > 0 && iteration_count < max_iterations
-        #print("\n \n")
+        print("\n \n")
         node = dequeue!(priority_queue)
         # check for conflicts
         # node_conflict, edge_conflict, integral_deltat = get_most_likely_conflicts!(mapf,node.solution,num_interactions)
         node_conflict, edge_conflict, counting_deltat = count_most_likely_conflicts!(mapf,node.solution,num_interactions)
         countingtime += counting_deltat
         if is_valid(node_conflict)
-            # print("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id, "/n")
+            println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
             constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay)
         elseif is_valid(edge_conflict)
             constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay)
@@ -943,9 +958,9 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
                 sleep(0.01)
                 time_spent_on_astar += astartime
                 if is_valid(new_node.solution, mapf)
-                    # print("Consequently we found the solutions: \n")
-                    # print(new_node.solution, "\n")
-                    # print("Adding new node to priority queue","\n")
+                    print("Consequently we found the solutions: \n")
+                    print(new_node.solution, "\n")
+                    print("Adding new node to priority queue","\n")
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end
             end

@@ -535,7 +535,10 @@ function run_experiment_set_CRCBS(name::String,
         end
 
         # Save metagraph
-        savegraph(string("../experiments/graphs/", string(name,"_",string(i)), ".mg"), mapf.graph)
+        # This did not work
+        # savegraph(string("../experiments/graphs/", string(name,"_",string(i)), ".mg"), mapf.graph)
+        # Instead we will save a txt mapping the vertex number to its x and y
+        graph_to_txt(mapf.graph,string(name,"_",string(i)))
 
         # Run CRCBS
         b = @timed(CTCBS(mapf))
@@ -674,12 +677,36 @@ function solution_to_txt(solution, id)
     io = open(string("../experiments/solutions/CRCBS_",string(id),".txt"), "w")
     for path in solution
         for e in path
-            print(io, string(string(e.src), " ", string(e.dst), "; "))
+            print(io, string(string(e.src), " ", string(e.dst), ";"))
         end
         println(io, "")
     end
     close(io)
     return
+end
+
+function graph_to_txt(G,filename)
+    io = open(string("../experiments/graphs/",string(filename),".txt"), "w")
+    for v in vertices(G)
+        x = get_prop(G,v,:x)
+        y = get_prop(G,v,:y)
+        println(io,string(v," ",x," ",y))
+    end
+    close(io)
+    return
+end
+
+function load_graph_dict(filename)
+    f = open(string("../experiments/graphs/",string(filename),".txt"))
+    Gdict = Dict()
+    for line in eachline(f)
+        values = split(line)
+        v = parse(Int64,values[1])
+        x = parse(Float64,values[2])
+        y = parse(Float64,values[3])
+        Gdict[v] = (x,y)
+    end
+    return Gdict
 end
 
 function load_experiment_parameters(name,files)

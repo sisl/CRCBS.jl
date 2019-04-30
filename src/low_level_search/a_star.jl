@@ -67,6 +67,13 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
 
     E = Edge{eltype(g)}
 
+    #Edit: we need to check whether the constraint is violated because we start at an impossible place
+    # This means the constraint shouldn't have been there so we return an invalid solution
+
+    if violates_constraints(constraints,s,[],mapf)
+        return Vector{E}()
+    end
+
     # if we do checkbounds here, we can use @inbounds in a_star_impl!
     checkbounds(distmx, Base.OneTo(nv(g)), Base.OneTo(nv(g)))
     # heuristic (under)estimating distance to target
