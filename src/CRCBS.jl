@@ -379,7 +379,7 @@ function get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
     return C, err, dt
 end
 
-function count_node_conflicts(n1,t1,n2,t2,nn,lambda;num_particles=5000)
+function count_node_conflicts(n1,t1,n2,t2,nn,lambda;num_particles=100000)
     """Monte Carlo simulation"""
     EA1 = rand(Gamma(n1,lambda),num_particles)
     EA2 = rand(Gamma(n2,lambda),num_particles)
@@ -438,7 +438,7 @@ function get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
     return C, err, dt
 end
 
-function count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda;num_particles=5000)
+function count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda;num_particles=100000)
     """Monte Carlo simulation"""
     EA1 = rand(Gamma(n1,lambda),num_particles)
     EA2 = rand(Gamma(n2,lambda),num_particles)
@@ -892,7 +892,7 @@ function low_level_search!(mapf::MAPF,
     # node.solution = solution
     node.cost = try
         get_cost(node.solution,mapf)
-    catch 
+    catch
         typemax(Int32)
     end
     return node.solution, node.cost,time
@@ -922,7 +922,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
 
 
     # priority queue that stores nodes in order of their cost
-    max_iterations = 100
+    max_iterations = 1000
     countingtime = 0.0
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
     time_spent_on_astar = 0.0

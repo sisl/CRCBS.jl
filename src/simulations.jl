@@ -710,28 +710,31 @@ function load_graph_dict(filename)
     return Gdict
 end
 
-function load_experiment_parameters(name,files)
+function load_experiment_parameters(file)
     """Creates an experiment set with all the experiment sets"""
     experiment_vector = Vector{}()
 
-    for file in files
-        exp_set = load(file)
-        for exp in exp_set["data"]
-            append!(experiment_vector, exp)
-        end
-    end
-    SET = Experiment_Set(string(name,"_Loaded_set"),experiment_vector)
-    return SET
+
+    exp_set = load(string("../experiments/experiment_parameters/",file,".jld"))
+    #println(exp_set)
+    parameters = exp_set["parms"]
+
+    #parameters = Experiment_parameters(experiment_vector)
+    return parameters
 end
 
 function run_problem(name)
-    lambda = 0.2
-    epsilon = 0.1
+    lambda = 1.0
+    epsilon = 0.0001
     t_delay = 1.0
     exp_parms = load_experiment_parameters(name)
     G = MetaGraph()
     for v in exp_parms.vs
         add_vertex!(G)
+
+    end
+    for v in vertices(G)
+        set_prop!(G, v,:n_delay, 1.0)
     end
     for e in exp_parms.es
         add_edge!(G,e[1],e[2])
