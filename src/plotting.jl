@@ -14,19 +14,22 @@ function plot_SVtime_vs_nrobots(files)
     plot(n_robots,svtimes)
 end
 
-function plot_optimal_nominal_paths(file)
+function plot_optimal_nominal_paths(file;type="CRCBS")
     Gdict = load_graph_dict(file)
-    directory = string("../experiments/solutions/CRCBS_",file,".txt")
+    directory = string("../experiments/solutions/",type,"_",file,".txt")
     f = open(directory)
-    plot(title = string("Solution to ", file),leg=false)
+    plot(title = string(type, " Solution to ", file),leg=false)
     for (k,ln) in enumerate(eachline(f))
+        if k < 4
+            continue
+        end
         edgelist = split(ln,";")[1:end-1]
 
         # Plot start point
         first_vertex = parse(Int64,split(edgelist[1]," ")[1])
         x = Gdict[first_vertex][1]
         y = Gdict[first_vertex][2]
-        scatter!([x],[y],marker=:star5,markersize=12,markercolor=k)
+        scatter!([x],[y],marker=:star5,markersize=12,markercolor=k-3)
 
         #println("List of edges: ", edgelist)
 
@@ -40,18 +43,18 @@ function plot_optimal_nominal_paths(file)
             y1 = Gdict[v1][2]
             x2 = Gdict[v2][1]
             y2 = Gdict[v2][2]
-            plot!([x1,x2],[y1,y2],color=k)
+            plot!([x1,x2],[y1,y2],color=k-3)
         end
 
         # Plot goal point
         last_vertex = parse(Int64,split(edgelist[end]," ")[2])
         x = Gdict[last_vertex][1]
         y = Gdict[last_vertex][2]
-        scatter!([x],[y],marker=:circle,markersize=15,markercolor=k)
+        scatter!([x],[y],marker=:circle,markersize=15,markercolor=k-3)
     end
 
     # Save and close
-    savefig(string("../experiments/plots/",file))
+    savefig(string("../experiments/plots/",type,"_",file))
     close(f)
     return
 end
