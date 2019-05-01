@@ -64,6 +64,9 @@ const LowLevelSolution = Vector{GraphPath}
 function is_valid(solution::LowLevelSolution,mapf::MAPF)
     """checks if a solution is valid"""
     for (i,path) in enumerate(solution)
+        if length(path) == 0
+            return false
+        end
         if get_start_node(path) != mapf.starts[i]
             return false
         end
@@ -887,8 +890,11 @@ function low_level_search!(mapf::MAPF,
     # sum of individual costs (SIC)
     # cost = get_cost(node.solution)
     # node.solution = solution
-    node.cost = get_cost(node.solution,mapf)
-    # TODO check if solution is valid
+    node.cost = try
+        get_cost(node.solution,mapf)
+    catch 
+        typemax(Int32)
+    end
     return node.solution, node.cost,time
     # return true
 end
