@@ -1,7 +1,8 @@
 export
     run_experiment_set_CRCBS,
     run_convergence_tests_CRCBS,
-    Experiment_parameters
+    Experiment_parameters,
+    run_problem
 
 struct Experiment_parameters
     name::String
@@ -721,5 +722,29 @@ function load_experiment_parameters(name,files)
     end
     SET = Experiment_Set(string(name,"_Loaded_set"),experiment_vector)
     return SET
+end
+
+function run_problem(name)
+    lambda = 0.2
+    epsilon = 0.1
+    t_delay = 1.0
+    exp_parms = load_experiment_parameters(name)
+    G = MetaGraph()
+    for v in exp_parms.vs
+        add_vertex!(G)
+    end
+    for e in exp_parms.es
+        add_edge!(G,e[1],e[2])
+        set_prop!(G, Edge(e[1],e[2]), :weight, 1.0)
+    end
+    mapf = MAPF(G,exp_parms.starts,exp_parms.goals,lambda,epsilon,t_delay)
+    a = @timed(CTCBS(mapf))
+    llsolution = a[1][1]
+    cost = a[1][2]
+    astartime = a[1][3]
+    fnctime = a[1][4]
+    computation_time = a[2]
+    solution_to_txt(llsolution, name)
+    return (llsolution,cost,computation_time)
 end
 # ---------------------------------------------------------------------------- #
