@@ -1190,4 +1190,61 @@ include("plotting.jl")
 #     return node_conflicts, edge_conflicts
 # end
 
+# """
+#     The Conflict-Based Search algorithm for multi-agent path finding - Sharon et
+#     al 2012
+#
+#     https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
+# """
+# function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
+#     # priority queue that stores nodes in order of their cost
+#     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
+#
+#     # Counting time spent on astar and finding the next conflict
+#     astartime = 0
+#     fnctime = 0
+#
+#     root_node = initialize_root_node(mapf)
+#     res = @timed(low_level_search!(mapf,root_node))
+#     astartime += res[2]
+#     if is_valid(root_node.solution,mapf)
+#         enqueue!(priority_queue, root_node => root_node.cost)
+#     end
+#
+#     while length(priority_queue) > 0
+#         node = dequeue!(priority_queue)
+#
+#         # check for conflicts
+#         gnc = @timed(get_next_conflicts(node.solution))
+#         node_conflict = gnc[1][1]
+#         edge_conflict = gnc[1][2]
+#         fnctime += gnc[2]
+#
+#         if is_valid(node_conflict)
+#             constraints = generate_constraints_from_conflict(node_conflict)
+#         elseif is_valid(edge_conflict)
+#             constraints = generate_constraints_from_conflict(edge_conflict)
+#         else
+#             print("Optimal Solution Found! Cost = ",node.cost,"\n")
+#             return node.solution, node.cost,astartime,fnctime
+#         end
+#
+#         # generate new nodes from constraints
+#         for constraint in constraints
+#             new_node = initialize_child_node(node)
+#             if add_constraint!(new_node,constraint,mapf)
+#                 res = @timed(low_level_search!(mapf,new_node,[get_agent_id(constraint)]))
+#                 astartime += res[2]
+#                 if is_valid(new_node.solution, mapf)
+#                     enqueue!(priority_queue, new_node => new_node.cost)
+#                 end
+#             end
+#         end
+#     end
+#     print("No Solution Found. Returning default solution")
+#     return LowLevelSolution(), typemax(Int),astartime,fnctime
+# end
+
+
+
 end # module
