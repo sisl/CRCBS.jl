@@ -723,7 +723,7 @@ function load_experiment_parameters(file)
     return parameters
 end
 
-function run_problem(name)
+function run_problem(name; save_simulation=false)
     lambda = 1.0
     epsilon = 0.0001
     t_delay = 1.0
@@ -748,6 +748,26 @@ function run_problem(name)
     fnctime = a[1][4]
     computation_time = a[2]
     solution_to_txt(llsolution, name)
+
+    if save_simulation
+        solution_times = run_particles(mapf, llsolution,20) #20 particles
+        jldopen(string("../experiments/simulations/",string(name,"_",i),".jld"),"w") do file
+            write(file,"times",solution_times)
+        end
+    end
+
+
     return (llsolution,cost,computation_time)
+end
+
+function load_solution_times(file)
+    """Creates an experiment set with all the experiment sets"""
+
+    times_f = load(string("../experiments/simulations/",file,".jld"))
+    #println(exp_set)
+    solution_times = times_f["times"]
+
+    #parameters = Experiment_parameters(experiment_vector)
+    return solution_times
 end
 # ---------------------------------------------------------------------------- #

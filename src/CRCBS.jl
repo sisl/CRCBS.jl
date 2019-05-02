@@ -289,10 +289,6 @@ function violates_constraints(constraints::ConstraintDict,v,path,mapf::MAPF)
         the final vertex of `path` to `v`
         returning true means the constraints are violated"""
 
-    if constraints.a==1 && v==3
-        println("Handling special case")
-    end
-
     # Time it takes to go through path
     if length(path) >= 1
         t1 = traversal_time(path,mapf)
