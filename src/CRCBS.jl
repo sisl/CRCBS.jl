@@ -32,7 +32,8 @@ export
     violates_constraints,
     fill_graph_with_path,
     generate_constraints_from_conflict,
-    CTCBS
+    CTCBS,
+    STTCBS
 
 
 struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
@@ -949,7 +950,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
             print("Time spent on probability count: ", countingtime, " \n")
             print("Time spent on path finding: ", time_spent_on_astar, " \n")
-            return (node.solution, node.cost,countingtime,time_spent_on_astar,num_interactions)
+            return (node.solution, node.cost,countingtime,time_spent_on_astar,num_interactions,iteration_count)
         end
 
         # generate new nodes from constraints
@@ -970,7 +971,83 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         iteration_count += 1
     end
     print("No Solution Found. Returning default solution")
-    return (LowLevelSolution(), typemax(Int),countingtime,time_spent_on_astar,num_interactions[1])
+    return (LowLevelSolution(), typemax(Int),countingtime,time_spent_on_astar,num_interactions[1],iteration_count)
+end
+
+
+"""
+    Continuous Time CBS algorithm - optimal version
+"""
+function STTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
+
+    # For astar, add delay information to the graph that you didn't have while constructing it
+    distmx = 1000000 .* ones(length(vertices(mapf.graph)),length(vertices(mapf.graph)))
+    for e in edges(mapf.graph)
+        n_delay = get_prop(mapf.graph,e.dst, :n_delay)
+        lambda = mapf.lambda
+        t_edge = get_prop(mapf.graph,e, :weight)
+        distmx[e.src,e.dst] = t_edge + n_delay*lambda
+        set_prop!(mapf.graph,e,:expTravelTime,t_edge + n_delay*lambda)
+    end
+    for v in vertices(mapf.graph)
+        distmx[v,v] = 1
+    end
+
+
+    # priority queue that stores nodes in order of their cost
+    max_iterations = 1000
+    countingtime = 0.0
+    priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
+    time_spent_on_astar = 0.0
+    num_interactions = [0,0]
+
+    root_node = initialize_root_node(mapf)
+    _,_,astartime = low_level_search!(mapf,root_node,distmx)
+    sleep(0.01)
+    time_spent_on_astar += astartime
+    if is_valid(root_node.solution,mapf)
+        enqueue!(priority_queue, root_node => root_node.cost)
+    end
+    iteration_count = 0
+
+    while length(priority_queue) > 0 && iteration_count < max_iterations
+        print("\n \n")
+        node = dequeue!(priority_queue)
+        # check for conflicts
+        # node_conflict, edge_conflict, integral_deltat = get_most_likely_conflicts!(mapf,node.solution,num_interactions)
+        node_conflict, edge_conflict, counting_deltat = count_most_likely_conflicts!(mapf,node.solution,num_interactions,iteration_count)
+        countingtime += counting_deltat
+        if is_valid(node_conflict)
+            println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
+            constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay)
+        elseif is_valid(edge_conflict)
+            constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay)
+        else
+            print("Optimal Solution Found! Cost = ",node.cost,"\n")
+            print("Time spent on probability count: ", countingtime, " \n")
+            print("Time spent on path finding: ", time_spent_on_astar, " \n")
+            return (node.solution, node.cost,countingtime,time_spent_on_astar,num_interactions,iteration_count)
+        end
+
+        # generate new nodes from constraints
+        for constraint in constraints
+            new_node = initialize_child_node(node)
+            if add_constraint!(new_node,constraint,mapf)
+                _,_,astartime = low_level_search!(mapf,new_node,distmx,[get_agent_id(constraint)])
+                sleep(0.01)
+                time_spent_on_astar += astartime
+                if is_valid(new_node.solution, mapf)
+                    print("Consequently we found the solutions: \n")
+                    print(new_node.solution, "\n")
+                    print("Adding new node to priority queue","\n")
+                    enqueue!(priority_queue, new_node => new_node.cost)
+                end
+            end
+        end
+        iteration_count += 1
+    end
+    print("No Solution Found. Returning default solution")
+    return (LowLevelSolution(), typemax(Int),countingtime,time_spent_on_astar,num_interactions[1],iteration_count)
 end
 
 

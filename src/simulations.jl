@@ -2,7 +2,8 @@ export
     run_experiment_set_CRCBS,
     run_convergence_tests_CRCBS,
     Experiment_parameters,
-    run_problem
+    run_problem,
+    run_cbs_particles
 
 struct Experiment_parameters
     name::String
@@ -723,10 +724,10 @@ function load_experiment_parameters(file)
     return parameters
 end
 
-function run_problem(name; save_simulation=false)
-    lambda = 1.0
-    epsilon = 0.0001
-    t_delay = 1.0
+function run_problem(name; sub_name="", save_simulation=false,lambda=1.0,epsilon=0.01,t_delay=1.0)
+    if sub_name == ""
+        sub_name = name
+    end
     exp_parms = load_experiment_parameters(name)
     G = MetaGraph()
     for v in exp_parms.vs
@@ -746,12 +747,13 @@ function run_problem(name; save_simulation=false)
     cost = a[1][2]
     astartime = a[1][3]
     fnctime = a[1][4]
+    num_iterations=a[1][5]
     computation_time = a[2]
-    solution_to_txt(llsolution, name)
+    solution_to_txt(llsolution, sub_name)
 
     if save_simulation
         solution_times = run_particles(mapf, llsolution,20) #20 particles
-        jldopen(string("../experiments/simulations/",string(name,"_",i),".jld"),"w") do file
+        jldopen(string("../experiments/simulations/",string(sub_name),".jld"),"w") do file
             write(file,"times",solution_times)
         end
     end
@@ -771,3 +773,58 @@ function load_solution_times(file)
     return solution_times
 end
 # ---------------------------------------------------------------------------- #
+
+function run_cbs_particles(name; type="CBS", sub_name="", save_simulation=true)
+    lambda=1.0
+    epsilon=0.01
+    t_delay=1.0
+    num_particles = 20
+    if sub_name == ""
+        sub_name = name
+    end
+    exp_parms = load_experiment_parameters(name)
+    G = MetaGraph()
+    for v in exp_parms.vs
+        add_vertex!(G)
+
+    end
+    for v in vertices(G)
+        set_prop!(G, v,:n_delay, 1.0)
+    end
+    for e in exp_parms.es
+        add_edge!(G,e[1],e[2])
+        set_prop!(G, Edge(e[1],e[2]), :weight, 1.0)
+    end
+    mapf = MAPF(G,exp_parms.starts,exp_parms.goals,lambda,epsilon,t_delay)
+
+    directory = string("../experiments/solutions/",type,"_",sub_name,".txt")
+
+    f = open(directory)
+    llsolution = LowLevelSolution()
+    # turn txt into list of solutions
+    for (k,ln) in enumerate(eachline(f))
+        if type == "CBS" && k < 4
+            continue
+        end
+        edgelist = split(ln,";")[1:end-1]
+        es = GraphPath()
+
+        for edge in edgelist
+            vertices = split(edge, " ")
+            e = Edge(parse(Int64, vertices[1]), parse(Int64,vertices[2]))
+            push!(es,e)
+        end
+        push!(llsolution, es)
+    end
+    close(f)
+    #println("llsolution")
+    #println(length(llsolution))
+    #println(llsolution)
+    solution_times = run_particles(mapf,llsolution,num_particles)
+
+    jldopen(string("../experiments/simulations/",string(sub_name),".jld"),"w") do file
+        write(file,"times",solution_times)
+    end
+
+    return solution_times
+end

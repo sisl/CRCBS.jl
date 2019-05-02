@@ -91,7 +91,7 @@ function plot_optimal_nominal_paths(file;type="CRCBS",graphfilename="",save=true
 end
 
 
-function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_particles = 20,lambda = 1.0, epsilon = 0.0001)
+function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_particles = 20)
     if graphfilename == ""
         graphfilename = file
     end
@@ -108,6 +108,9 @@ function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_
     llsolutionx = Vector{}()
     llsolutiony = Vector{}()
     for (k,ln) in enumerate(eachline(f))
+        if type == "CBS" && k < 4
+            continue
+        end
         edgelist = split(ln,";")[1:end-1]
         array_k_x = []
         array_k_y = []
@@ -134,11 +137,11 @@ function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_
     close(f)
 
     # Find saved simulation data
-    solution_times = load_solution_times(graphfilename)
+    solution_times = load_solution_times(file)
 
 
     # Iterate through time
-    list_of_times = range(0,10,step=0.5)
+    list_of_times = range(0,timehorizon,step=0.5)
     for (k,t) in enumerate(list_of_times)
 
         # Plot the overall result
@@ -149,45 +152,77 @@ function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_
         for (robot_idx,solution_per_robot) in enumerate(solution_times)
             xs = []
             ys = []
-            for particle_idx = 1:shape(solution_times)[3]
+            x = 0 #We need to define those outside the loop for them to be global variables
+            y = 0
+            #println("llsolutionx")
+            #println(llsolutionx)
+            found=false
+            for particle_idx = 1:min(size(solution_per_robot)[3],num_particles)
                 for (v_idx,time) in enumerate(collect(solution_per_robot[:,1,particle_idx]))
-                    if t > time #we are after entering vertex v_idx
-                        xleft = llsolutionx[robot_idx][v_idx]
-                        yleft = llsolutiony[robot_idx][v_idx]
-                        # Did we leave that vertex?
-                        #If not, we are there
-                        if t < solution_per_robot[v_idx,2,particle_idx]
-                            tleft = solution_per_robot[v_idx,2,particle_idx]
-                            x = xleft
-                            y = yleft
-                            continue
-                        else #If yes, we are travelling to the next vertex
-                            tright = try
-                                solution_per_robot[v_idx+1,1,particle_idx]
-                            catch
-                                tleft
-                            end
-
-                            if t_left-t_right >= 0.001
-                                xright = llsolutionx[robot_idx][v_idx+1]
-                                yright = llsolutiony[robot_idx][v_idx+1]
-                                alpha = (t-tleft)/(tright-tleft)
-                                x = xleft + alpha*(xright-xleft)
-                                y = yleft + alpha*(yright-yleft)
-                            else
+                    #println("t time")
+                    #println(t)
+                    #println(time)
+                    if t <= time #we are before entering vertex v_idx
+                        if v_idx == 1
+                            #println("Found beginning")
+                            x = llsolutionx[robot_idx][v_idx]
+                            y = llsolutiony[robot_idx][v_idx]
+                            found=true
+                            break
+                        else
+                            #println("Found progression")
+                            xleft = llsolutionx[robot_idx][v_idx-1]
+                            yleft = llsolutiony[robot_idx][v_idx-1]
+                            tleft = solution_per_robot[v_idx-1,2,particle_idx]
+                            # Did we leave the previous vertex?
+                            #If not, we are there
+                            if t < solution_per_robot[v_idx-1,2,particle_idx]
                                 x = xleft
                                 y = yleft
+                                found=true
+                                break
+                            else #If yes, we are travelling to the next vertex
+                                #println("TRAVELLING TO NEXT VERTEX")
+                                tright = solution_per_robot[v_idx,1,particle_idx]
+                                #println("tright tleft t")
+                                #println(tright)
+                                #println(tleft)
+                                #println(t)
+
+                                if tright-tleft >= 0.001
+                                    xright = llsolutionx[robot_idx][v_idx]
+                                    yright = llsolutiony[robot_idx][v_idx]
+                                    alpha = (t-tleft)/(tright-tleft)
+                                    x = xleft + alpha*(xright-xleft)
+                                    y = yleft + alpha*(yright-yleft)
+                                    found=true
+                                else
+                                    x = xleft
+                                    y = yleft
+                                    found=true
+                                end
+                                break
                             end
-                            continue
                         end
                     end
+
                 end
-                append!(xs,x)
-                append!(ys,y)
+                if found == true # If we were bigger than all other values, we are at the last vertex (arrived)
+                    #println("We found that we were at: ", x, " ", y)
+                    append!(xs,x)
+                    append!(ys,y)
+                else
+                    #println("We found that we were all at the last vertex")
+                    x = llsolutionx[robot_idx][end]
+                    y = llsolutiony[robot_idx][end]
+                    append!(xs,x)
+                    append!(ys,y)
+                end
+
             end
 
             # Let's plot that color now that we have all particles for a robot at one time
-            scatter!(xs,ys,marker=:circle,markersize=2,markercolor=robot_idx)
+            scatter!(xs,ys,marker=:circle,markersize=4,markercolor=robot_idx)
         end
 
         # We scattered all the points for all the robots, so now we save the plot
