@@ -543,7 +543,7 @@ function run_experiment_set_CRCBS(name::String,
         graph_to_txt(mapf.graph,string(name,"_",string(i)))
 
         # Run CRCBS
-        b = @timed(CTCBS(mapf))
+        b = @timed(STTCBS(mapf))
         println("Time spent performing optimization: ", b[2])
         sleep(0.05)
 
@@ -724,7 +724,7 @@ function load_experiment_parameters(file)
     return parameters
 end
 
-function run_problem(name; sub_name="", save_simulation=false,lambda=1.0,epsilon=0.01,t_delay=1.0)
+function run_problem(name; optimal=false, sub_name="", save_simulation=false,lambda=1.0,epsilon=0.01,t_delay=1.0)
     if sub_name == ""
         sub_name = name
     end
@@ -742,7 +742,11 @@ function run_problem(name; sub_name="", save_simulation=false,lambda=1.0,epsilon
         set_prop!(G, Edge(e[1],e[2]), :weight, 1.0)
     end
     mapf = MAPF(G,exp_parms.starts,exp_parms.goals,lambda,epsilon,t_delay)
-    a = @timed(CTCBS(mapf))
+    if optimal == false
+        a = @timed(CTCBS(mapf))
+    else
+        a = @timed(STTCBS(mapf))
+    end
     llsolution = a[1][1]
     cost = a[1][2]
     astartime = a[1][3]

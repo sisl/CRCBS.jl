@@ -861,14 +861,8 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::N
 
     robot2_id = conflict.agent2_id
     pre_existing_constraintDict = get(node.constraints,robot2_id,false)
-    if robot2_id == 1
-        println("Pre existing constraint dict: ", pre_existing_constraintDict)
-    end
     if pre_existing_constraintDict != false
         t_yield2 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield2)
-        if robot2_id == 1
-            println("t_yield2: ", t_yield2)
-        end
     end
 
     return [
@@ -1074,35 +1068,61 @@ function STTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         node = dequeue!(priority_queue)
         # check for conflicts
         # node_conflict, edge_conflict, integral_deltat = get_most_likely_conflicts!(mapf,node.solution,num_interactions)
-        node_conflict, edge_conflict, counting_deltat = count_most_likely_conflicts!(mapf,node.solution,num_interactions,iteration_count)
+        node_conflicts, edge_conflicts, counting_deltat = count_next_conflicts!(mapf,node.solution,num_interactions)
         countingtime += counting_deltat
-        if is_valid(node_conflict)
-            println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
-            constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay)
-        elseif is_valid(edge_conflict)
-            constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay)
-        else
+
+        # If there are no conflicts we return the solution that is optimal
+        #print(node_conflicts)
+        if length(node_conflicts) == 0 && length(edge_conflicts) == 0
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
             print("Time spent on probability count: ", countingtime, " \n")
             print("Time spent on path finding: ", time_spent_on_astar, " \n")
             return (node.solution, node.cost,countingtime,time_spent_on_astar,num_interactions,iteration_count)
         end
 
-        # generate new nodes from constraints
-        for constraint in constraints
-            new_node = initialize_child_node(node)
-            if add_constraint!(new_node,constraint,mapf)
-                _,_,astartime = low_level_search!(mapf,new_node,distmx,[get_agent_id(constraint)])
-                sleep(0.01)
-                time_spent_on_astar += astartime
-                if is_valid(new_node.solution, mapf)
-                    print("Consequently we found the solutions: \n")
-                    print(new_node.solution, "\n")
-                    print("Adding new node to priority queue","\n")
-                    enqueue!(priority_queue, new_node => new_node.cost)
+
+        for node_conflict in node_conflicts
+
+            if is_valid(node_conflict)
+                println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
+                constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay)
+                for constraint in constraints
+                    new_node = initialize_child_node(node)
+                    if add_constraint!(new_node,constraint,mapf)
+                        _,_,astartime = low_level_search!(mapf,new_node,distmx,[get_agent_id(constraint)])
+                        sleep(0.01)
+                        time_spent_on_astar += astartime
+                        if is_valid(new_node.solution, mapf)
+                            #print("Consequently we found the solutions: \n")
+                            #print(new_node.solution, "\n")
+                            #print("Adding new node to priority queue","\n")
+                            enqueue!(priority_queue, new_node => new_node.cost)
+                        end
+                    end
                 end
             end
         end
+        for edge_conflict in edge_conflicts
+            if is_valid(edge_conflict)
+                constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay)
+                # generate new nodes from constraints
+                for constraint in constraints
+                    new_node = initialize_child_node(node)
+                    if add_constraint!(new_node,constraint,mapf)
+                        _,_,astartime = low_level_search!(mapf,new_node,distmx,[get_agent_id(constraint)])
+                        sleep(0.01)
+                        time_spent_on_astar += astartime
+                        if is_valid(new_node.solution, mapf)
+                            #print("Consequently we found the solutions: \n")
+                            #print(new_node.solution, "\n")
+                            #print("Adding new node to priority queue","\n")
+                            enqueue!(priority_queue, new_node => new_node.cost)
+                        end
+                    end
+                end
+            end
+        end
+
         iteration_count += 1
     end
     print("No Solution Found. Returning default solution")
@@ -1112,139 +1132,5 @@ end
 
 include("simulations.jl")
 include("plotting.jl")
-
-# function get_next_conflicts(paths::LowLevelSolution,
-#         i_::Int=1,
-#         j_::Int=2,
-#         t_::Int=1,
-#         tmax::Int=maximum([traversal_time(p) for p in paths])
-#         )
-#     node_conflict = invalid_node_conflict()
-#     edge_conflict = invalid_edge_conflict()
-#     # begin search from time t, paths[i_], paths[j_]
-#     t = t_; i = i_; j_ = max(j_,i+1)
-#
-#     path1 = get(paths,i,GraphPath()) # in case i is beyond the length of paths
-#     e1 = get_edge(path1,t)
-#     for j in j_:length(paths)
-#         path2 = paths[j]
-#         e2 = get_edge(path2,t)
-#         if detect_node_conflict(e1,e2)
-#             node_conflict = NodeConflict(i,j,e1.dst,t)
-#             return node_conflict, edge_conflict
-#         elseif detect_edge_conflict(e1,e2)
-#             edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
-#             return node_conflict, edge_conflict
-#         end
-#     end
-#     # Continue search from next time step
-#     for t in t_+1:tmax
-#         for (i,path1) in enumerate(paths)
-#             e1 = get_edge(path1,t)
-#             for j in i+1:length(paths)
-#                 path2 = paths[j]
-#                 e2 = get_edge(path2,t)
-#                 if detect_node_conflict(e1,e2)
-#                     node_conflict = NodeConflict(i,j,e1.dst,t)
-#                     return node_conflict, edge_conflict
-#                 elseif detect_edge_conflict(e1,e2)
-#                     edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
-#                     return node_conflict, edge_conflict
-#                 end
-#             end
-#         end
-#     end
-#     return node_conflict, edge_conflict
-# end
-#
-# """
-#     Returns a list of all conflicts that occur in a given solution
-#
-#     args:
-#     - paths:        a list of graph edges to be traversed by the agents
-# """
-# function get_conflicts(paths::LowLevelSolution)
-#     # TODO Make this way faster
-#     node_conflicts = Vector{NodeConflict}()
-#     edge_conflicts = Vector{EdgeConflict}()
-#     t_max = maximum([length(path) for path in paths])
-#     nc, ec = get_next_conflicts(paths)
-#     while true
-#         if is_valid(nc)
-#             push!(node_conflicts, nc)
-#             conflict = nc
-#         elseif is_valid(ec)
-#             push!(edge_conflicts, ec)
-#             conflict = ec
-#         else
-#             break
-#         end
-#         nc, ec = get_next_conflicts(
-#             paths,
-#             conflict.agent1_id,
-#             conflict.agent2_id+1,
-#             conflict.t,
-#             t_max
-#             )
-#     end
-#     return node_conflicts, edge_conflicts
-# end
-
-# """
-#     The Conflict-Based Search algorithm for multi-agent path finding - Sharon et
-#     al 2012
-#
-#     https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
-# """
-# function CBS(mapf::MAPF,path_finder=LightGraphs.a_star)
-#     # priority queue that stores nodes in order of their cost
-#     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
-#
-#     # Counting time spent on astar and finding the next conflict
-#     astartime = 0
-#     fnctime = 0
-#
-#     root_node = initialize_root_node(mapf)
-#     res = @timed(low_level_search!(mapf,root_node))
-#     astartime += res[2]
-#     if is_valid(root_node.solution,mapf)
-#         enqueue!(priority_queue, root_node => root_node.cost)
-#     end
-#
-#     while length(priority_queue) > 0
-#         node = dequeue!(priority_queue)
-#
-#         # check for conflicts
-#         gnc = @timed(get_next_conflicts(node.solution))
-#         node_conflict = gnc[1][1]
-#         edge_conflict = gnc[1][2]
-#         fnctime += gnc[2]
-#
-#         if is_valid(node_conflict)
-#             constraints = generate_constraints_from_conflict(node_conflict)
-#         elseif is_valid(edge_conflict)
-#             constraints = generate_constraints_from_conflict(edge_conflict)
-#         else
-#             print("Optimal Solution Found! Cost = ",node.cost,"\n")
-#             return node.solution, node.cost,astartime,fnctime
-#         end
-#
-#         # generate new nodes from constraints
-#         for constraint in constraints
-#             new_node = initialize_child_node(node)
-#             if add_constraint!(new_node,constraint,mapf)
-#                 res = @timed(low_level_search!(mapf,new_node,[get_agent_id(constraint)]))
-#                 astartime += res[2]
-#                 if is_valid(new_node.solution, mapf)
-#                     enqueue!(priority_queue, new_node => new_node.cost)
-#                 end
-#             end
-#         end
-#     end
-#     print("No Solution Found. Returning default solution")
-#     return LowLevelSolution(), typemax(Int),astartime,fnctime
-# end
-
-
 
 end # module

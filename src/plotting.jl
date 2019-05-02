@@ -15,7 +15,7 @@ function plot_SVtime_vs_nrobots(files)
     plot(n_robots,svtimes)
 end
 
-function plot_optimal_nominal_paths(file;type="CRCBS",graphfilename="",save=true)
+function plot_optimal_nominal_paths(file;type="CRCBS",graphfilename="",save=true,savedir="")
 
     if graphfilename == ""
         graphfilename = file
@@ -84,14 +84,14 @@ function plot_optimal_nominal_paths(file;type="CRCBS",graphfilename="",save=true
 
     # Save and close
     if save == true
-        savefig(string("../experiments/plots/",type,"_",file))
+        savefig(string("../experiments/plots/",savedir,type,"_",file))
     end
     close(f)
     return myplot
 end
 
 
-function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_particles = 20)
+function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_particles = 20,savedir="")
     if graphfilename == ""
         graphfilename = file
     end
@@ -226,7 +226,7 @@ function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_
         end
 
         # We scattered all the points for all the robots, so now we save the plot
-        savefig(string("../experiments/plots/",type,"_",file,"_time_",t))
+        savefig(string("../experiments/plots/", savedir,type,"_",file,"_time_",t))
     end
     return
 end
