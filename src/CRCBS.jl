@@ -734,10 +734,7 @@ function count_most_likely_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_int
 end
 
 
-function get_next_conflicts(mapf::MAPF,paths::LowLevelSolution,
-        i_::Int=1,
-        j_::Int=2,
-        )
+function count_next_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_interactions)
     """Returns a NodeConflict and an EdgeConflict next conflicts.
     The function returns after finding the most likely conflict (NodeConflict or
         EdgeConflict), which means that at least one of the returned conflicts
@@ -745,43 +742,105 @@ function get_next_conflicts(mapf::MAPF,paths::LowLevelSolution,
         preserve stability of the function's return type.
     If node_conflict and edge_conflict are both invalid, the search has reached
         the end of the paths."""
-    node_conflict = invalid_node_conflict()
-    edge_conflict = invalid_edge_conflict()
-    # begin search from paths[i_], paths[j_]
-    i = i_; j_ = max(j_,i+1)
+    node_conflicts = Vector{}()
+    edge_conflicts = Vector{}()
 
-    path1 = get(paths,i,GraphPath()) # in case i is beyond the length of paths
+    interaction_count = 0
 
-    e1 = get_edge(path1,t)
-    for j in j_:length(paths)
-        path2 = paths[j]
-        e2 = get_edge(path2,t)
-        if detect_node_conflict(e1,e2)
-            node_conflict = NodeConflict(i,j,e1.dst,t,0.5)
-            return node_conflict, edge_conflict
-        elseif detect_edge_conflict(e1,e2)
-            edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
-            return node_conflict, edge_conflict
-        end
+    countingtime = 0
+
+    epsilon = mapf.epsilon
+    lambda = mapf.lambda
+
+    clear_graph_occupancy!(mapf::MAPF)
+
+    # The first step is to fill the graph with occupancy information
+    for (robot_id,robotpath) in enumerate(paths)
+        fill_graph_with_path!(robot_id,robotpath,mapf)
     end
-    # Continue search from next time step
-    for t in t_+1:tmax
-        for (i,path1) in enumerate(paths)
-            e1 = get_edge(path1,t)
-            for j in i+1:length(paths)
-                path2 = paths[j]
-                e2 = get_edge(path2,t)
-                if detect_node_conflict(e1,e2)
-                    node_conflict = NodeConflict(i,j,e1.dst,t)
-                    return node_conflict, edge_conflict
-                elseif detect_edge_conflict(e1,e2)
-                    edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
-                    return node_conflict, edge_conflict
+
+    # ----- Node conflicts ----- #
+    for v in vertices(mapf.graph)
+
+        #Get node information
+        nn = get_prop(mapf.graph, v, :n_delay)
+        occupancy = get_prop(mapf.graph,v,:occupancy)
+
+        # There is interaction at this node
+        if length(occupancy) >= 2
+            list_of_occupants = collect(keys(occupancy))
+            pairs_of_occupants = collect(combinations(list_of_occupants,2))
+            if num_interactions[2] == 0
+                interaction_count += length(pairs_of_occupants)
+            end
+            for (r1,r2) in pairs_of_occupants
+                (n1,t1) = occupancy[r1]
+                (n2,t2) = occupancy[r2]
+                #(cp,err,dt) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+                res = @timed(count_node_conflicts(n1,t1,n2,t2,nn,lambda))
+                cp = res[1]
+                dt = res[2]
+
+                countingtime += dt
+
+                if cp > epsilon # This is a real conflict
+                    push!(node_conflicts, NodeConflict(r1,r2,v,t1,t2,cp))
                 end
             end
         end
     end
-    return node_conflict, edge_conflict
+
+    # ----- Edge conflicts ----- #
+    for e in edges(mapf.graph)
+
+        if e.src < e.dst
+
+            #Get edge information. We consider confrontations as robots arriving in
+            #opposite directions only
+            t_edge = get_prop(mapf.graph,e,:weight)
+            occupancy = get_prop(mapf.graph,e,:occupancy)
+            reverse_edge = Edge(e.dst,e.src)
+            reverse_occupancy = get_prop(mapf.graph,reverse_edge,:occupancy)
+
+            # There is interaction at this edge
+            if length(occupancy)*length(reverse_occupancy) >= 1 && e.src < e.dst
+                occupants_1 = keys(occupancy)
+                occupants_2 = keys(reverse_occupancy)
+                for robot1_id in occupants_1
+                    for robot2_id in occupants_2
+                        if robot1_id != robot2_id
+                            if num_interactions[2] == 0
+                                interaction_count += 1
+                            end
+                            (n1,t1) = occupancy[robot1_id]
+                            (n2,t2) = reverse_occupancy[robot2_id]
+                            #(cp,err,dt) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+
+                            res = @timed(count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda))
+                            cp = res[1]
+                            dt = res[2]
+                            countingtime += dt
+
+                            if cp > epsilon # This is a real conflict
+                                #time at which robot 1/2 leaves from node 2/1 (the last)
+                                push!(edge_conflicts, EdgeConflict(robot1_id,robot2_id,e.src,e.dst,t1+t_edge,t2+t_edge,cp))
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    # Set the number of interactions
+    if num_interactions[2] == 0
+        num_interactions[2] = 1
+        num_interactions[1] = interaction_count
+    end
+
+    clear_graph_occupancy!(mapf)
+
+    return node_conflicts, edge_conflicts, countingtime
 end
 # --------------------------------------------------------------------------- #
 
@@ -1054,6 +1113,81 @@ end
 include("simulations.jl")
 include("plotting.jl")
 
-
+# function get_next_conflicts(paths::LowLevelSolution,
+#         i_::Int=1,
+#         j_::Int=2,
+#         t_::Int=1,
+#         tmax::Int=maximum([traversal_time(p) for p in paths])
+#         )
+#     node_conflict = invalid_node_conflict()
+#     edge_conflict = invalid_edge_conflict()
+#     # begin search from time t, paths[i_], paths[j_]
+#     t = t_; i = i_; j_ = max(j_,i+1)
+#
+#     path1 = get(paths,i,GraphPath()) # in case i is beyond the length of paths
+#     e1 = get_edge(path1,t)
+#     for j in j_:length(paths)
+#         path2 = paths[j]
+#         e2 = get_edge(path2,t)
+#         if detect_node_conflict(e1,e2)
+#             node_conflict = NodeConflict(i,j,e1.dst,t)
+#             return node_conflict, edge_conflict
+#         elseif detect_edge_conflict(e1,e2)
+#             edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
+#             return node_conflict, edge_conflict
+#         end
+#     end
+#     # Continue search from next time step
+#     for t in t_+1:tmax
+#         for (i,path1) in enumerate(paths)
+#             e1 = get_edge(path1,t)
+#             for j in i+1:length(paths)
+#                 path2 = paths[j]
+#                 e2 = get_edge(path2,t)
+#                 if detect_node_conflict(e1,e2)
+#                     node_conflict = NodeConflict(i,j,e1.dst,t)
+#                     return node_conflict, edge_conflict
+#                 elseif detect_edge_conflict(e1,e2)
+#                     edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
+#                     return node_conflict, edge_conflict
+#                 end
+#             end
+#         end
+#     end
+#     return node_conflict, edge_conflict
+# end
+#
+# """
+#     Returns a list of all conflicts that occur in a given solution
+#
+#     args:
+#     - paths:        a list of graph edges to be traversed by the agents
+# """
+# function get_conflicts(paths::LowLevelSolution)
+#     # TODO Make this way faster
+#     node_conflicts = Vector{NodeConflict}()
+#     edge_conflicts = Vector{EdgeConflict}()
+#     t_max = maximum([length(path) for path in paths])
+#     nc, ec = get_next_conflicts(paths)
+#     while true
+#         if is_valid(nc)
+#             push!(node_conflicts, nc)
+#             conflict = nc
+#         elseif is_valid(ec)
+#             push!(edge_conflicts, ec)
+#             conflict = ec
+#         else
+#             break
+#         end
+#         nc, ec = get_next_conflicts(
+#             paths,
+#             conflict.agent1_id,
+#             conflict.agent2_id+1,
+#             conflict.t,
+#             t_max
+#             )
+#     end
+#     return node_conflicts, edge_conflicts
+# end
 
 end # module
