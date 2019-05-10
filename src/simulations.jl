@@ -509,6 +509,7 @@ function run_experiment_set_CRCBS(name::String,
     counting_time=Float64[],
     time_spent_on_astar=Float64[],
     num_interactions=Int64[],
+    num_iterations = Int64[],
 
     solution_cost=Float64[], #Cost of computer solution in ideal case
     global_cp=Float64[],
@@ -543,7 +544,7 @@ function run_experiment_set_CRCBS(name::String,
         graph_to_txt(mapf.graph,string(name,"_",string(i)))
 
         # Run CRCBS
-        b = @timed(STTCBS(mapf))
+        b = @timed(CTCBS(mapf))
         println("Time spent performing optimization: ", b[2])
         sleep(0.05)
 
@@ -561,6 +562,7 @@ function run_experiment_set_CRCBS(name::String,
         countingtime = b[1][3]
         time_spent_on_astar = b[1][4]
         num_interactions = b[1][5][1]
+        num_iterations = b[1][6]
 
         #Run particles for simulation
         solution_times = run_particles(mapf, solution,num_trials)
@@ -570,7 +572,7 @@ function run_experiment_set_CRCBS(name::String,
         probability_error = (mean_prob_err,std_prob_err)
 
         # Add it to the list of experiments from the set
-        push!(data, [string(name,"_",string(i)),i,false,success,mapf.lambda,mapf.epsilon,mapf.t_delay,num_trials,num_agent_list[i],-1,n_nodes, n_edges,execution_time,countingtime,time_spent_on_astar,num_interactions,cost,global_cp,conflict_counts_locally,probability_error])
+        push!(data, [string(name,"_",string(i)),i,false,success,mapf.lambda,mapf.epsilon,mapf.t_delay,num_trials,num_agent_list[i],-1,n_nodes, n_edges,execution_time,countingtime,time_spent_on_astar,num_interactions,num_iterations,cost,global_cp,conflict_counts_locally,probability_error])
 
     end
 
@@ -658,6 +660,134 @@ function run_convergence_tests_CRCBS(name::String,
         #Get stats
         push_conflict_stats!(mapf,solution,solution_times,num_trial_list,data)
 
+    end
+
+    print("Check3 \n")
+
+    return data
+end
+
+function run_time_comparisons_CRCBS(name::String,
+    num_agents::Tuple,
+    grid_x::Tuple,
+    grid_y::Tuple,
+    filling_density::Tuple,
+    lambda::Float64,
+    epsilon::Float64,
+    t_delay::Float64,
+    num_experiments::Int64,
+    num_trials::Int64
+    )
+
+    savedir= "../experiments/Timing_tests/"
+
+
+    print("Started \n")
+
+    #Create the parameters of all experiments
+    #num_agents
+    num_agent_list = shuffle(collect(num_agents))[1:min(num_experiments,length(num_agents))]
+    d = num_experiments-length(num_agents)
+    append!(num_agent_list,sample(collect(num_agents),d*(sign(d)==1)))
+    #grid size x
+    grid_x_list = shuffle(collect(grid_x))[1:min(num_experiments,length(grid_x))]
+    d = num_experiments-length(grid_x)
+    append!(grid_x_list,sample(collect(grid_x),d*(sign(d)==1)))
+    #grid size y
+    grid_y_list = shuffle(collect(grid_y))[1:min(num_experiments,length(grid_y))]
+    d = num_experiments-length(grid_y)
+    append!(grid_y_list,sample(collect(grid_y),d*(sign(d)==1)))
+    #filling density
+    filling_density_list = shuffle(collect(filling_density))[1:min(num_experiments,length(filling_density))]
+    d = num_experiments-length(filling_density)
+    append!(filling_density_list,sample(collect(filling_density),d*(sign(d)==1)))
+
+    print("Check1 \n")
+
+    #Now we can create the experiment set
+    data = DataFrame(name=String[],
+    Id=Int64[],
+    CBS=Bool[],
+    success=Bool[],
+
+    #MAPF contents
+    lambda=Float64[],
+    epsilon=Float64[],
+    t_delay=Float64[],
+
+    # Experiment properties
+    num_trials=Int64[],
+    num_agents=Int64[],
+    cbs_time_steps=Int64[],
+    num_nodes=Int64[],
+    num_edges=Int64[],
+    #mapf::MAPF
+
+    # Result storage
+    solving_time=Float64[], #Time it took to find a solution
+    counting_time=Float64[],
+    time_spent_on_astar=Float64[],
+    num_interactions=Int64[],
+    num_iterations = Int64[],
+
+    solution_cost=Float64[]) #Cost of computer solution in ideal case
+
+
+
+    print("Check2 \n")
+    sleep(0.05)
+
+    for i in 1:num_experiments
+
+        # Create MAPF
+        mapf = create_grid_mapf(num_agent_list[i],
+        (grid_x_list[i],grid_y_list[i]),
+        filling_density_list[i],
+        lambda,epsilon,t_delay)
+        n_nodes = length(vertices(mapf.graph))
+        n_edges = div(length(edges(mapf.graph)),2) #Edge 1 - 2 and 2 - 1 are the same
+
+        # Save mapf for CBS experiment
+        exp_parms = mapf_to_exp_parameters(string(name,"_",string(i)),num_trials,mapf)
+
+        jldopen(string("../experiments/experiment_parameters/",string(name,"_",i),".jld"),"w") do file
+            write(file,"parms",exp_parms)
+        end
+
+        # Save metagraph
+        # This did not work
+        # savegraph(string("../experiments/graphs/", string(name,"_",string(i)), ".mg"), mapf.graph)
+        # Instead we will save a txt mapping the vertex number to its x and y
+        graph_to_txt(mapf.graph,string(name,"_",string(i)))
+
+        # Run CRCBS
+        b = @timed(CTCBS(mapf))
+        println("Time spent performing optimization: ", b[2])
+        sleep(0.05)
+
+        #Get time, solution and cost
+        execution_time = b[2]
+        solution = b[1][1]
+        cost = b[1][2]
+        success = true
+        if cost >=  typemax(Int)
+            success = false
+        end
+
+        solution_to_txt(solution, string(name,"_",string(i)))
+
+        countingtime = b[1][3]
+        time_spent_on_astar = b[1][4]
+        num_interactions = b[1][5][1]
+        num_iterations = b[1][6]
+
+        # Add it to the list of experiments from the set
+        push!(data, [string(name,"_",string(i)),i,false,success,mapf.lambda,mapf.epsilon,mapf.t_delay,num_trials,num_agent_list[i],-1,n_nodes, n_edges,execution_time,countingtime,time_spent_on_astar,num_interactions,num_iterations,cost])
+
+        # Save results on the way
+        CSV.write(string(savedir, name, ".csv"),data)
+        println("Saved")
+        sleep(0.05)
     end
 
     print("Check3 \n")

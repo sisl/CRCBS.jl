@@ -66,6 +66,15 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     heuristic::Function=n -> zero(T)) where {C, T, U}
 
     E = Edge{eltype(g)}
+    x_t = get_prop(g,t,:x)
+    y_t = get_prop(g,t,:y)
+    function heuristic_n(n)
+        x = get_prop(g,n,:x)
+        y = get_prop(g,n,:y)
+        dist = (x-x_t)^2 + (y-y_t)^2
+        return dist
+    end
+
 
     #Edit: we need to check whether the constraint is violated because we start at an impossible place
     # This means the constraint shouldn't have been there so we return an invalid solution
@@ -81,5 +90,5 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     frontier[(zero(T), Vector{E}(), U(s))] = zero(T)
     colormap = empty_colormap(nv(g))
     colormap[s] = 1
-    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, mapf, colormap, distmx, heuristic)
+    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, mapf, colormap, distmx, heuristic_n)
 end

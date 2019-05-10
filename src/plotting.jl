@@ -24,8 +24,6 @@ function plot_optimal_nominal_paths(file;type="CRCBS",graphfilename="",save=true
     # Load experiment parameters to find and draw edges
     exp_parms = load_experiment_parameters(graphfilename)
 
-
-
     Gdict = load_graph_dict(graphfilename)
     directory = string("../experiments/solutions/",type,"_",file,".txt")
     f = open(directory)

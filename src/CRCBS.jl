@@ -1014,9 +1014,9 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
                 sleep(0.01)
                 time_spent_on_astar += astartime
                 if is_valid(new_node.solution, mapf)
-                    print("Consequently we found the solutions: \n")
-                    print(new_node.solution, "\n")
-                    print("Adding new node to priority queue","\n")
+                    #print("Consequently we found the solutions: \n")
+                    #print(new_node.solution, "\n")
+                    #print("Adding new node to priority queue","\n")
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end
             end
@@ -1074,9 +1074,9 @@ function STTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         # If there are no conflicts we return the solution that is optimal
         #print(node_conflicts)
         if length(node_conflicts) == 0 && length(edge_conflicts) == 0
-            print("Optimal Solution Found! Cost = ",node.cost,"\n")
-            print("Time spent on probability count: ", countingtime, " \n")
-            print("Time spent on path finding: ", time_spent_on_astar, " \n")
+            #print("Optimal Solution Found! Cost = ",node.cost,"\n")
+            #print("Time spent on probability count: ", countingtime, " \n")
+            #print("Time spent on path finding: ", time_spent_on_astar, " \n")
             return (node.solution, node.cost,countingtime,time_spent_on_astar,num_interactions,iteration_count)
         end
 
