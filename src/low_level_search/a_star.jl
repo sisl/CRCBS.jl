@@ -65,6 +65,16 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
 
     E = Edge{eltype(g)}
 
+    E = Edge{eltype(g)}
+    x_t = get_prop(g,t,:x)
+    y_t = get_prop(g,t,:y)
+    function heuristic_n(n)
+        x = get_prop(g,n,:x)
+        y = get_prop(g,n,:y)
+        dist = (x-x_t)^2 + (y-y_t)^2
+        return dist
+    end
+
     # if we do checkbounds here, we can use @inbounds in a_star_impl!
     checkbounds(distmx, Base.OneTo(nv(g)), Base.OneTo(nv(g)))
     # heuristic (under)estimating distance to target
@@ -72,5 +82,5 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     frontier[(zero(T), Vector{E}(), U(s))] = zero(T)
     colormap = empty_colormap(nv(g))
     colormap[s] = 1
-    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, colormap, distmx, heuristic)
+    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, colormap, distmx, heuristic_n)
 end
