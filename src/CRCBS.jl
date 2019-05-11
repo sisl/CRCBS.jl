@@ -376,7 +376,7 @@ function get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
     return C, err, dt
 end
 
-function count_node_conflicts(n1,t1,n2,t2,nn,lambda;num_particles=100000)
+function count_node_conflicts(n1,t1,n2,t2,nn,lambda;num_particles=5000)
     """Monte Carlo simulation"""
     EA1 = rand(Gamma(n1,lambda),num_particles)
     EA2 = rand(Gamma(n2,lambda),num_particles)
@@ -435,7 +435,7 @@ function get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
     return C, err, dt
 end
 
-function count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda;num_particles=100000)
+function count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda;num_particles=5000)
     """Monte Carlo simulation"""
     EA1 = rand(Gamma(n1,lambda),num_particles)
     EA2 = rand(Gamma(n2,lambda),num_particles)

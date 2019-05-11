@@ -15,6 +15,8 @@ struct Experiment_parameters
     es::Vector{Tuple{Int,Int}}
     starts::Vector{Int}
     goals::Vector{Int}
+    xs::Vector{Int}
+    ys::Vector{Int}
 end
 
 
@@ -802,7 +804,9 @@ end
 function mapf_to_exp_parameters(name,num_particles,mapf)
     vs = [v for v in vertices(mapf.graph)]
     es = [(e.src,e.dst) for e in edges(mapf.graph)]
-    return Experiment_parameters(name,mapf.lambda,mapf.epsilon,mapf.t_delay,num_particles,vs,es,mapf.starts,mapf.goals)
+    xs = [get_prop(mapf.graph,v,:x) for v in vertices(mapf.graph)]
+    ys = [get_prop(mapf.graph,v,:y) for v in vertices(mapf.graph)]
+    return Experiment_parameters(name,mapf.lambda,mapf.epsilon,mapf.t_delay,num_particles,vs,es,mapf.starts,mapf.goals,xs,ys)
 end
 
 function solution_to_txt(solution, id)
@@ -854,15 +858,14 @@ function load_experiment_parameters(file)
     return parameters
 end
 
-function run_problem(name; optimal=false, sub_name="", save_simulation=false,lambda=1.0,epsilon=0.01,t_delay=1.0)
+function run_problem(name; sub_name="", lambda=1.0,epsilon=0.01,t_delay=1.0,dataframe=false,num_trials=1000)
     if sub_name == ""
         sub_name = name
     end
-    exp_parms = load_experiment_parameters(name)
+    exp_parms = load_experiment_parameters(sub_name)
     G = MetaGraph()
-    for v in exp_parms.vs
-        add_vertex!(G)
-
+    for (k,v) in enumerate(exp_parms.vs)
+        vnew = add_vertex!(G,Dict(:x=>exp_parms.xs[k],:y=>exp_parms.ys[k]))
     end
     for v in vertices(G)
         set_prop!(G, v,:n_delay, 1.0)
@@ -872,28 +875,85 @@ function run_problem(name; optimal=false, sub_name="", save_simulation=false,lam
         set_prop!(G, Edge(e[1],e[2]), :weight, 1.0)
     end
     mapf = MAPF(G,exp_parms.starts,exp_parms.goals,lambda,epsilon,t_delay)
-    if optimal == false
-        a = @timed(CTCBS(mapf))
-    else
-        a = @timed(STTCBS(mapf))
-    end
+
+
+    a = @timed(CTCBS(mapf))
+
     llsolution = a[1][1]
     cost = a[1][2]
-    astartime = a[1][3]
-    fnctime = a[1][4]
-    num_iterations=a[1][5]
-    computation_time = a[2]
+    success = true
+    if cost >=  typemax(Int)
+        success = false
+    end
+    execution_time = a[2]
+
+    countingtime = a[1][3]
+    time_spent_on_astar = a[1][4]
+    num_interactions = a[1][5][1]
+    num_iterations = a[1][6]
+
+    num_agents = length(exp_parms.starts)
+    n_nodes = length(exp_parms.vs)
+    n_edges = div(length(exp_parms.es),2)
+
+    # Save solution
     solution_to_txt(llsolution, sub_name)
 
-    if save_simulation
-        solution_times = run_particles(mapf, llsolution,20) #20 particles
-        jldopen(string("../experiments/simulations/",string(sub_name),".jld"),"w") do file
-            write(file,"times",solution_times)
-        end
+    # Save particle data ready for plotting
+
+    solution_times = run_particles(mapf, llsolution,20) #20 particles
+    jldopen(string("../experiments/simulations/",string(sub_name),".jld"),"w") do file
+        write(file,"times",solution_times)
     end
 
 
-    return (llsolution,cost,computation_time)
+    # ---------------------- Now make and fill dataframe --------------------- #
+    if dataframe == false
+        data = DataFrame(name=String[],
+        Id=Int64[],
+        CBS=Bool[],
+        success=Bool[],
+
+        #MAPF contents
+        lambda=Float64[],
+        epsilon=Float64[],
+        t_delay=Float64[],
+
+        # Experiment properties
+        num_trials=Int64[],
+        num_agents=Int64[],
+        cbs_time_steps=Int64[],
+        num_nodes=Int64[],
+        num_edges=Int64[],
+        #mapf::MAPF
+
+        # Result storage
+        solving_time=Float64[], #Time it took to find a solution
+        counting_time=Float64[],
+        time_spent_on_astar=Float64[],
+        num_interactions=Int64[],
+        num_iterations = Int64[],
+
+        solution_cost=Float64[], #Cost of computer solution in ideal case
+        global_cp=Float64[],
+        conflict_counts_locally=Vector{Float64}[],
+        probability_error=Tuple{Float64,Float64}[]) #Mean, std
+    else
+        data = dataframe
+    end
+
+    #Run particles for simulation
+    solution_times = run_particles(mapf, llsolution,num_trials)
+
+    # Get conflict stats
+    (global_cp, conflict_counts_locally, mean_prob_err,std_prob_err) = get_conflict_stats(mapf,llsolution,solution_times,num_trials)
+    probability_error = (mean_prob_err,std_prob_err)
+
+    # Add it to the list of experiments from the set
+    push!(data, [sub_name,0,false,success,mapf.lambda,mapf.epsilon,mapf.t_delay,num_trials,num_agents,-1,n_nodes, n_edges,execution_time,countingtime,time_spent_on_astar,num_interactions,num_iterations,cost,global_cp,conflict_counts_locally,probability_error])
+
+
+    return data
 end
 
 function load_solution_times(file)
