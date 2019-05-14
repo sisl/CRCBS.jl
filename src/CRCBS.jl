@@ -32,6 +32,8 @@ export
     violates_constraints,
     fill_graph_with_path,
     generate_constraints_from_conflict,
+    count_node_conflicts,
+    count_edge_conflicts,
     CTCBS,
     STTCBS
 
@@ -376,7 +378,7 @@ function get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
     return C, err, dt
 end
 
-function count_node_conflicts(n1,t1,n2,t2,nn,lambda;num_particles=5000)
+function count_node_conflicts(n1,t1,n2,t2,nn,lambda;num_particles=10000)
     """Monte Carlo simulation"""
     EA1 = rand(Gamma(n1,lambda),num_particles)
     EA2 = rand(Gamma(n2,lambda),num_particles)
@@ -435,7 +437,7 @@ function get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
     return C, err, dt
 end
 
-function count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda;num_particles=5000)
+function count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda;num_particles=10000)
     """Monte Carlo simulation"""
     EA1 = rand(Gamma(n1,lambda),num_particles)
     EA2 = rand(Gamma(n2,lambda),num_particles)
@@ -922,6 +924,7 @@ end
 function low_level_search!(mapf::MAPF,
     node::ConstraintTreeNode,
     distmx,
+    distmx_DP,
     idxs=collect(1:num_agents(mapf)),
     path_finder=LightGraphs.a_star)
     time = 0
@@ -931,7 +934,7 @@ function low_level_search!(mapf::MAPF,
     println("ASTAR: ", length(idxs))
     sleep(0.1)
     for i in idxs
-        pathwtime = @timed(path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),mapf,distmx))
+        pathwtime = @timed(path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),mapf,distmx_DP,distmx))
         time += pathwtime[2]
         path = pathwtime[1]
         node.solution[i] = path
@@ -970,16 +973,18 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         distmx[v,v] = 1
     end
 
+    #Now that the weight matrix is computed, let's find the distmx for the heuristic
+    distmx_DP = compute_distance_matrix(mapf.graph,distmx)
 
     # priority queue that stores nodes in order of their cost
-    max_iterations = 1000
+    max_iterations = 10000
     countingtime = 0.0
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
     time_spent_on_astar = 0.0
     num_interactions = [0,0]
 
     root_node = initialize_root_node(mapf)
-    _,_,astartime = low_level_search!(mapf,root_node,distmx)
+    _,_,astartime = low_level_search!(mapf,root_node,distmx,distmx_DP)
     sleep(0.01)
     time_spent_on_astar += astartime
     if is_valid(root_node.solution,mapf)
@@ -1010,7 +1015,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         for constraint in constraints
             new_node = initialize_child_node(node)
             if add_constraint!(new_node,constraint,mapf)
-                _,_,astartime = low_level_search!(mapf,new_node,distmx,[get_agent_id(constraint)])
+                _,_,astartime = low_level_search!(mapf,new_node,distmx,distmx_DP,[get_agent_id(constraint)])
                 sleep(0.01)
                 time_spent_on_astar += astartime
                 if is_valid(new_node.solution, mapf)

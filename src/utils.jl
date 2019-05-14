@@ -1,7 +1,8 @@
 export
     get_dist_matrix,
     pad_matrix,
-    sample_wo_repl
+    sample_wo_repl,
+    compute_distance_matrix
 
 """
     Get the distance matrix corresponding to the edge weights of a graph
@@ -26,6 +27,17 @@ function pad_matrix(mat::Matrix{T}, pad_size::Tuple{Int,Int},pad_val::T) where T
     ] .= mat
     A
 end
+
+function compute_distance_matrix(graph::G where G,weight_mtx::M where M)
+   D = zeros(Float64,nv(graph),nv(graph))
+   for v1 in vertices(graph)
+       ds = dijkstra_shortest_paths(graph,v1,weight_mtx)
+       D[v1,:] = ds.dists
+   end
+   D
+end
+
+
 
 # """
 #     A dummy function for initializing a grid graph
