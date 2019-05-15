@@ -630,6 +630,8 @@ function count_most_likely_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_int
 
     epsilon = mapf.epsilon
     lambda = mapf.lambda
+    conflict_params_node = []
+    conflict_params_edge = []
 
     clear_graph_occupancy!(mapf::MAPF)
 
@@ -673,6 +675,7 @@ function count_most_likely_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_int
                 if cp > maximum([epsilon,node_conflict_p])
                     node_conflict_p = cp
                     node_conflict = NodeConflict(r1,r2,v,t1,t2,cp)
+                    conflict_params_node = [n1,n2,lambda,nn]
                 end
             end
         end
@@ -713,6 +716,7 @@ function count_most_likely_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_int
                                 edge_conflict_p = cp
                                 #time at which robot 1/2 leaves from node 2/1 (the last)
                                 edge_conflict = EdgeConflict(robot1_id,robot2_id,e.src,e.dst,t1+t_edge,t2+t_edge,cp)
+                                conflict_params_edge = [n1,n2,lambda,t_edge]
                             end
                         end
                     end
@@ -729,9 +733,9 @@ function count_most_likely_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_int
 
     clear_graph_occupancy!(mapf)
     if node_conflict_p >= edge_conflict_p
-        return node_conflict, invalid_edge_conflict(), countingtime
+        return node_conflict, invalid_edge_conflict(), countingtime,conflict_params_node
     else
-        return invalid_node_conflict(), edge_conflict, countingtime
+        return invalid_node_conflict(), edge_conflict, countingtime,conflict_params_edge
     end
 end
 
@@ -849,57 +853,101 @@ end
 # ----------------- Create constraints from conflicts ----------------------- #
 
 """generates a set of constraints from a NodeConflict"""
-function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::NodeConflict,t_delay::Float64)
+function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::NodeConflict,t_delay::Float64,conflict_params,epsilon)
     # If there was already a constraint and this was not enough to prevent collision,
     # we want to add t_delay to the already present delay
-    t_yield1 = maximum([conflict.t2,conflict.t1])
-    t_yield2 = maximum([conflict.t2,conflict.t1])
 
+    n1 = conflict_params[1]
+    n2 = conflict_params[2]
+    lambda = conflict_params[3]
+    nn = conflict_params[4]
+
+    t_yield1 = conflict.t1
+    t_yield2 = conflict.t2
     robot1_id = conflict.agent1_id
-    pre_existing_constraintDict = get(node.constraints,robot1_id,false)
-    if pre_existing_constraintDict != false
-        t_yield1 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield1)
-    end
+    #pre_existing_constraintDict = get(node.constraints,robot1_id,false)
+    #if pre_existing_constraintDict != false
+    #    t_yield1 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield1)
+    #end
 
     robot2_id = conflict.agent2_id
-    pre_existing_constraintDict = get(node.constraints,robot2_id,false)
-    if pre_existing_constraintDict != false
-        t_yield2 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield2)
+    #pre_existing_constraintDict = get(node.constraints,robot2_id,false)
+    #if pre_existing_constraintDict != false
+#        t_yield2 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield2)
+    #end
+
+    #Agent 1 yields:
+    tf1 = t_yield1
+    Pc=1
+    while Pc > epsilon
+        tf1 += t_delay
+        Pc = count_node_conflicts(n1,tf1,n2,t_yield2,nn,lambda;num_particles=5000)
     end
+
+    #Agent 2 yields:
+    tf2 = t_yield2
+    Pc=1
+    while Pc > epsilon
+        tf2 += t_delay
+        Pc = count_node_conflicts(n1,t_yield1,n2,tf2,nn,lambda;num_particles=5000)
+    end
+
 
     return [
         # Agent 1 may not occupy node until agent 2 leaves the node, with t_delay
         NodeConstraint(
             conflict.agent1_id,
             conflict.node_id,
-            t_yield1 + t_delay
+            tf1
         ),
         # Agent 2 may not occupy node until agent 1 leaves the node, with t_delay
         NodeConstraint(
             conflict.agent2_id,
             conflict.node_id,
-            t_yield2 + t_delay
+            tf2
         )
         ]
 end
 
 
 """generates a set of constraints from an EdgeConflict"""
-function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::EdgeConflict,t_delay::Float64)
-    t_yield1 = maximum([conflict.t2,conflict.t1])
-    t_yield2 = maximum([conflict.t2,conflict.t1])
+function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::EdgeConflict,t_delay::Float64,conflict_params,epsilon)
+    t_yield1 = conflict.t1
+    t_yield2 = conflict.t2
+
+    n1 = conflict_params[1]
+    n2 = conflict_params[2]
+    lambda = conflict_params[3]
+    t_edge = conflict_params[4]
 
     robot1_id = conflict.agent1_id
-    pre_existing_constraintDict = get(node.constraints,robot1_id,false)
-    if pre_existing_constraintDict != false
-        t_yield1 = get(pre_existing_constraintDict.edge_constraints,(conflict.node1_id,conflict.node2_id),t_yield1)
-    end
+    #pre_existing_constraintDict = get(node.constraints,robot1_id,false)
+    #if pre_existing_constraintDict != false
+    #    t_yield1 = get(pre_existing_constraintDict.edge_constraints,(conflict.node1_id,conflict.node2_id),t_yield1)
+    #end
 
     robot2_id = conflict.agent2_id
-    pre_existing_constraintDict = get(node.constraints,robot2_id,false)
-    if pre_existing_constraintDict != false
-        t_yield2 = get(pre_existing_constraintDict.edge_constraints,(conflict.node1_id,conflict.node2_id),t_yield2)
+    #pre_existing_constraintDict = get(node.constraints,robot2_id,false)
+    #if pre_existing_constraintDict != false
+    #    t_yield2 = get(pre_existing_constraintDict.edge_constraints,(conflict.node1_id,conflict.node2_id),t_yield2)
+    #end
+
+    #Agent 1 yields:
+    tf1 = t_yield1
+    Pc=1
+    while Pc > epsilon
+        tf1 += t_delay
+        Pc = count_edge_conflicts(n1,tf1,n2,t_yield2,t_edge,lambda;num_particles=5000)
     end
+
+    #Agent 2 yields:
+    tf2 = t_yield2
+    Pc=1
+    while Pc > epsilon
+        tf2 += t_delay
+        Pc = count_edge_conflicts(n1,t_yield1,n2,tf2,t_edge,lambda;num_particles=5000)
+    end
+
 
     return [
         # Agent 1 may not enter node 1 of Edge(node1,node2) until robot 2 is
@@ -908,7 +956,7 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::E
             conflict.agent1_id,
             conflict.node1_id,
             conflict.node2_id,
-            t_yield1 + t_delay # + 1
+            tf1 # + 1
         ),
         # Agent 2 may not enter node 2 of Edge(node1,node2) until robot 1 is
         # finished traversing node 2.
@@ -916,7 +964,7 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::E
             conflict.agent2_id,
             conflict.node2_id,
             conflict.node1_id,
-            t_yield2 + t_delay# + 1
+            tf2# + 1
         )
         ]
 end
@@ -997,13 +1045,13 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         node = dequeue!(priority_queue)
         # check for conflicts
         # node_conflict, edge_conflict, integral_deltat = get_most_likely_conflicts!(mapf,node.solution,num_interactions)
-        node_conflict, edge_conflict, counting_deltat = count_most_likely_conflicts!(mapf,node.solution,num_interactions)
+        node_conflict, edge_conflict, counting_deltat,conflict_params = count_most_likely_conflicts!(mapf,node.solution,num_interactions)
         countingtime += counting_deltat
         if is_valid(node_conflict)
             println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
-            constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay)
+            constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
         elseif is_valid(edge_conflict)
-            constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay)
+            constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
         else
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
             print("Time spent on probability count: ", countingtime, " \n")
