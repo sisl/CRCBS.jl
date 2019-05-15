@@ -60,19 +60,14 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     s::Integer,                       # the start vertex
     t::Integer,                       # the end vertex
     constraints::C,         # constraints on which nodes can be traversed at which time
+    distmx_DP,
     distmx::AbstractMatrix{T}=weights(g),
     heuristic::Function=n -> zero(T)) where {C, T, U}
 
     E = Edge{eltype(g)}
 
-    E = Edge{eltype(g)}
-    x_t = get_prop(g,t,:x)
-    y_t = get_prop(g,t,:y)
     function heuristic_n(n)
-        x = get_prop(g,n,:x)
-        y = get_prop(g,n,:y)
-        dist = (x-x_t)^2 + (y-y_t)^2
-        return dist
+        return distmx_DP[n,t]
     end
 
     # if we do checkbounds here, we can use @inbounds in a_star_impl!

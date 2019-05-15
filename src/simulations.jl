@@ -14,7 +14,10 @@ struct Experiment_parameters
     es::Vector{Tuple{Int,Int}}
     starts::Vector{Int}
     goals::Vector{Int}
+    xs::Vector{Int}
+    ys::Vector{Int}
 end
+
 
 
 
@@ -51,11 +54,12 @@ function load_experiment_parameters(file)
     return parameters
 end
 
-function solution_to_txt(solution, time, astartime, fnctime, id)
+function solution_to_txt(solution, time, astartime, fnctime, num_iterations,id)
     io = open(string("../experiments/solutions/CBS_",string(id),".txt"), "w")
     println(io,time)
     println(io,astartime)
     println(io,fnctime)
+    println(io,num_iterations)
     for path in solution
         for e in path
             print(io, string(string(e.src), " ", string(e.dst), "; "))
@@ -69,8 +73,8 @@ end
 function run_problem(name)
     exp_parms = load_experiment_parameters(name)
     G = MetaGraph()
-    for v in exp_parms.vs
-        add_vertex!(G)
+    for (k,v) in enumerate(exp_parms.vs)
+        add_vertex!(G,Dict(:x=>exp_parms.xs[k],:y=>exp_parms.ys[k]))
     end
     for e in exp_parms.es
         add_edge!(G,e[1],e[2])
@@ -82,8 +86,9 @@ function run_problem(name)
     cost = a[1][2]
     astartime = a[1][3]
     fnctime = a[1][4]
+    num_iterations = a[1][5]
     computation_time = a[2]
-    solution_to_txt(llsolution,computation_time, astartime, fnctime, name)
+    solution_to_txt(llsolution,computation_time, astartime, fnctime,num_iterations, name)
     return (llsolution,cost,computation_time)
 end
 # ---------------------------------------------------------------------------- #
