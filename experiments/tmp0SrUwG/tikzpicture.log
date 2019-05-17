@@ -1,0 +1,31 @@
+This is LuaTeX, Version beta-0.80.0 (TeX Live 2015/Debian) (rev 5238)  (format=lualatex 2019.4.4)  15 MAY 2019 17:40
+ \write18 enabled.
+**./tmp0SrUwG/tikzpicture.tex
+(./tmp0SrUwG/tikzpicture.tex
+LaTeX2e <2016/02/01>
+Babel <3.9q> and hyphenation patterns for 1 language(s) loaded.
+
+! LaTeX Error: File `standalone.cls' not found.
+
+Type X to quit or <RETURN> to proceed,
+or enter new name. (Default extension: cls)
+
+Enter file name: 
+! Emergency stop.
+<read *> 
+   
+l.2 \usepackage
+             {pgfplots}
+End of file on the terminal!
+
+
+
+Here is how much of LuaTeX's memory you used:
+ 13 strings out of 495004
+ 100000,89155 words of node,token memory allocated 188 words of node memory still in use:
+   31 glue_spec, 1 dir nodes
+   avail lists: 2:12,3:1
+ 3698 multiletter control sequences out of 65536+600000
+ 14 fonts using 562767 bytes
+ 10i,0n,7p,61b,15s stack positions out of 5000i,500n,10000p,200000b,100000s
+!  ==> Fatal error occurred, no output PDF file produced!

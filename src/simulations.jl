@@ -968,7 +968,7 @@ function load_solution_times(file)
 end
 # ---------------------------------------------------------------------------- #
 
-function run_cbs_particles(name; type="CBS", sub_name="", save_simulation=true)
+function run_cbs_particles(name; type="CBS", sub_name="", save_simulation=true,get_stats=false)
     lambda=1.0
     epsilon=0.01
     t_delay=1.0
@@ -997,7 +997,7 @@ function run_cbs_particles(name; type="CBS", sub_name="", save_simulation=true)
     llsolution = LowLevelSolution()
     # turn txt into list of solutions
     for (k,ln) in enumerate(eachline(f))
-        if type == "CBS" && k < 4
+        if type == "CBS" && k < 5
             continue
         end
         edgelist = split(ln,";")[1:end-1]
@@ -1005,7 +1005,11 @@ function run_cbs_particles(name; type="CBS", sub_name="", save_simulation=true)
 
         for edge in edgelist
             vertices = split(edge, " ")
-            e = Edge(parse(Int64, vertices[1]), parse(Int64,vertices[2]))
+            if vertices[1] == ""
+                e = Edge(parse(Int64, vertices[2]), parse(Int64,vertices[3]))
+            else
+                e = Edge(parse(Int64, vertices[1]), parse(Int64,vertices[2]))
+            end
             push!(es,e)
         end
         push!(llsolution, es)
@@ -1020,5 +1024,8 @@ function run_cbs_particles(name; type="CBS", sub_name="", save_simulation=true)
         write(file,"times",solution_times)
     end
 
-    return solution_times
+    if get_stats
+        (global_cp, conflict_counts_locally, mean_prob_err,std_prob_err) = get_conflict_stats(mapf,llsolution,solution_times,2000)
+    end
+    return solution_times,global_cp,conflict_counts_locally,mean_prob_err,std_prob_err
 end
