@@ -1,0 +1,16 @@
+2019-05-24T16:31:10 Created temporary directory: /tmp/pip-ephem-wheel-cache-snb7va87
+2019-05-24T16:31:10 Created temporary directory: /tmp/pip-req-tracker-cjswx6dr
+2019-05-24T16:31:10 Created requirements tracker '/tmp/pip-req-tracker-cjswx6dr'
+2019-05-24T16:31:10 Created temporary directory: /tmp/pip-install-_24g8zye
+2019-05-24T16:31:10 Cleaning up...
+2019-05-24T16:31:10 Removed build tracker '/tmp/pip-req-tracker-cjswx6dr'
+2019-05-24T16:31:10 ERROR: You must give at least one requirement to install (see "pip help install")
+2019-05-24T16:31:10 Exception information:
+2019-05-24T16:31:10 Traceback (most recent call last):
+2019-05-24T16:31:10   File "/home/peltzer/.local/lib/python3.5/site-packages/pip/_internal/cli/base_command.py", line 178, in main
+2019-05-24T16:31:10     status = self.run(options, args)
+2019-05-24T16:31:10   File "/home/peltzer/.local/lib/python3.5/site-packages/pip/_internal/commands/install.py", line 326, in run
+2019-05-24T16:31:10     self.name, wheel_cache
+2019-05-24T16:31:10   File "/home/peltzer/.local/lib/python3.5/site-packages/pip/_internal/cli/base_command.py", line 305, in populate_requirement_set
+2019-05-24T16:31:10     '(see "pip help %(name)s")' % opts)
+2019-05-24T16:31:10 pip._internal.exceptions.CommandError: You must give at least one requirement to install (see "pip help install")
