@@ -18,6 +18,7 @@ using DataFrames
 
 include("utils.jl")
 include("CT_graph.jl") #Contains functions to generate and use CT graphs
+include("Whittaker.jl")
 
 
 export
