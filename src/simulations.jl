@@ -19,6 +19,18 @@ struct Experiment_parameters
     ys::Vector{Int}
 end
 
+# Old version
+# struct Experiment_parameters
+#     name::String
+#     lambda::Float64
+#     epsilon::Float64
+#     t_delay::Float64
+#     num_particles::Int64
+#     vs::Vector{Int}
+#     es::Vector{Tuple{Int,Int}}
+#     starts::Vector{Int}
+#     goals::Vector{Int}
+# end
 
 # -------------------- SIMULATION  and PROCESSING ---------------------------- #
 # returns solution_times

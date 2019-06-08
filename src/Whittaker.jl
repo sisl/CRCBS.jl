@@ -7,6 +7,7 @@ export
 Hypergeometric1F1,
 conflict_probability_node_w,
 WhittakerM,
+WhittakerM_cont,
 WhittakerW
 
 function Hypergeometric1F1(a::Real,b::Real,t,N=50)
@@ -63,14 +64,30 @@ end
 
 function WhittakerM(l,m,z)
     if 2*m+1 < 0
-        return z^(-m+1/2)*exp(-z/2)*Hypergeometric1F1(-m-l+1/2,2*(-m)+1,z)
+        if round(m)==m
+            return WhittakerM(l,m+0.0001,z)
+        end
+        return real(z^(-m+1/2)*exp(-z/2)*Hypergeometric1F1(-m-l+1/2,2*(-m)+1,z))
     else
-        return z^(m+1/2)*exp(-z/2)*Hypergeometric1F1(m-l+1/2,2*m+1,z)
+        return real(z^(m+1/2)*exp(-z/2)*Hypergeometric1F1(m-l+1/2,2*m+1,z))
     end
 end
 
+function WhittakerM_cont(l,m,z)
+    if round(m) == m
+        return  WhittakerM(l,m+0.0001,z)
+    end
+    return real(z^(-m+1/2)*exp(-z/2)*Hypergeometric1F1(-m-l+1/2,2*(-m)+1,z))
+end
 
-function WhittakerW(l,m,z)
+
+function WhittakerW(k,mu,z)
+
+    l = mu - k + 0.5
+    m = 1 + 2*mu + 0.00001
+
+    return real(z^(-mu+1/2)*exp(-z/2)*(gamma(1-m)*Hypergeometric1F1(l,m,z)/gamma(l+1-m) + gamma(m-1)*Hypergeometric1F1(l+1-m,2-m,z)/gamma(l+0.00001)))
+
     if 0.5-m-l < 0
         return gamma(2*m)*WhittakerM(l,-m,z)/gamma(1/2+m-l) + gamma(-2*m)*WhittakerM(l,m,z)/gamma(1/2-m-l)
     else
@@ -86,21 +103,23 @@ function conflict_probability_node_w(n1,t1,n2,t2,nn,lambda)
     beta = 0.5*(1-n1-n2)
     c1 = 1.0/(gamma(n1)*(2.0*lambda)^((n1+n2)/2.0))
     c2 = 1.0/(gamma(n2)*(2.0*lambda)^((n1+n2)/2.0))
-    phi = 0.5*(n1+n2)
+    #c1 = (gamma(n1)*(2.0*lambda)^((n1+n2)/2.0))
+    #c2 = (gamma(n2)*(2.0*lambda)^((n1+n2)/2.0))
+    phi = 0.5*(n1+n2)-1
 
 
     function hplus(y)
-        density = real((1-cdf(Gamma(nn,lambda),abs(t1-t2-y))) * c1 * 1.0/(y^phi) * WhittakerM(alpha,beta,2*y/lambda))
+        density = (1-cdf(Gamma(nn,lambda),abs(t1-t2-y))) * c1 * (y^phi) * WhittakerM(alpha,beta,2*y/lambda)
         return density
     end
     function hminus(y)
-        density = real((1-cdf(Gamma(nn,lambda),abs(t1-t2-y))) * c1 * 1.0/((-y)^phi) * WhittakerM(alpha,beta,-2*y/lambda))
+        density = (1-cdf(Gamma(nn,lambda),abs(t1-t2-y))) * c2 * ((-y)^phi) * WhittakerM(-alpha,beta,-2*y/lambda)
         return density
     end
 
-    a = -100.0
+    a = -30.0
     b = 0.01
-    c = 100.0
+    c = 30.0
 
     res1 = @timed(hquadrature(hminus,a,-b,maxevals=10^6))
     C1,err1 = res1[1]

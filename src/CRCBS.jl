@@ -1026,7 +1026,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     distmx_DP = compute_distance_matrix(mapf.graph,distmx)
 
     # priority queue that stores nodes in order of their cost
-    max_iterations = 10000
+    max_iterations = 800
     countingtime = 0.0
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
     time_spent_on_astar = 0.0

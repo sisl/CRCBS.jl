@@ -82,7 +82,7 @@ function plot_optimal_nominal_paths(file;type="CRCBS",graphfilename="",save=true
 
     # Save and close
     if save == true
-        savefig(string("../experiments/plots/",savedir,type,"_",file))
+        savefig(string("../experiments/plots/",savedir,type,"_",file,".pdf"))
     end
     close(f)
     return myplot
