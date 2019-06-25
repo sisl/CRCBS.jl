@@ -362,6 +362,45 @@ end
 # --------------- Finding and sorting likely collisions --------------------- #
 
 function get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+    #Count node conflicts quickly to elimininate cases with zeros
+    res = @timed(count_node_conflicts(n1,t1,n2,t2,nn,lambda;num_particles=1000))
+    preliminary_count = res[1]
+    dtcount = res[2]
+    if preliminary_count < 0.0001
+        return 0.0,0.0,dt_count
+    else
+        return integrate_node_with_box(n1,t1,n2,t2,nn,lambda,dtcount)
+    end
+end
+
+function integrate_node_with_box(n1,t1,n2,t2,nn,lambda,dtcount)
+    function h(x)
+        y = x[1]
+        t = x[2]
+        density = (1-cdf(Gamma(nn,lambda),abs(t2-t1-y))) * pdf(Gamma(n1,lambda), t) * pdf(Gamma(n2,lambda),t-y)
+        return density
+    end
+
+    tmax = (-n1*n2 + n1 + n2 - 1)*lambda/(1-n1)
+    ymax = tmax - (n1-1)*lambda
+
+    yleft = min(ymax,t1-t2)
+    yright = max(ymax,t1-t2)
+
+    tleft = max(0,min(tmax,t1-t2+(n1-1)/lambda))
+    tright=max(0,max(tmax,t1-t2+(n1-1)/lambda))
+
+    left = [yleft-bound_radius,max(tleft-bound_radius,0)]
+    right = [yright + bound_radius, tright+bound_radius]
+
+    res1 = @timed(hcubature(h,left,right,maxevals=10^8))
+    C,err = res1[1]
+    dtint = res1[2] #time spent performing integration
+
+    return C, err, dtint + dtcount
+end
+
+function get_collision_probability_node_old(n1,t1,n2,t2,nn,lambda)
 
     function h(x)
         y = x[1]
@@ -397,7 +436,35 @@ function count_node_conflicts(n1,t1,n2,t2,nn,lambda;num_particles=10000)
 end
 
 function get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+    #Count edge conflicts quickly to elimininate cases with zeros
+    res = @timed(count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda;num_particles=1000))
+    preliminary_count = res[1]
+    dtcount = res[2]
+    if preliminary_count < 0.0001
+        return 0.0,0.0,dt_count
+    else
+        return integrate_edge_with_box(n1,t1,n2,t2,t_edge,lambda,dtcount)
+    end
+end
 
+function integrate_edge_with_box(n1,t1,n2,t2,t_edge,lambda,dtcount)
+    function h(x)
+        e2 = x[1]
+        density = (cdf(Gamma(n2,lambda),max(0,(e2+t2-t1+t_edge))) -  cdf(Gamma(n2,lambda),max(0,(e2+t2-t1-t_edge))) ) * pdf(Gamma(n1,lambda), e2)
+        return density
+    end
+
+    a = [0.0]
+    b = [100.0]
+
+    res1 = @timed(hcubature(h,a,b,maxevals=10^8))
+    C,err = res1[1]
+    dtint = res1[2] #time spent performing integration
+
+    return C, err, dtint + dtcount
+end
+
+function get_collision_probability_edge_old(n1,t1,n2,t2,t_edge,lambda)
 
     function f(x)
         z = x[1]
@@ -874,7 +941,7 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::N
     robot2_id = conflict.agent2_id
     #pre_existing_constraintDict = get(node.constraints,robot2_id,false)
     #if pre_existing_constraintDict != false
-#        t_yield2 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield2)
+    #t_yield2 = get(pre_existing_constraintDict.node_constraints,conflict.node_id,t_yield2)
     #end
 
     #Agent 1 yields:

@@ -63,14 +63,15 @@ function Hypergeometric1F1(a::Real,b::Real,t,N=50)
 end
 
 function WhittakerM(l,m,z)
-    if 2*m+1 < 0
-        if round(m)==m
-            return WhittakerM(l,m+0.0001,z)
-        end
-        return real(z^(-m+1/2)*exp(-z/2)*Hypergeometric1F1(-m-l+1/2,2*(-m)+1,z))
-    else
-        return real(z^(m+1/2)*exp(-z/2)*Hypergeometric1F1(m-l+1/2,2*m+1,z))
-    end
+    return real(z^(m+1/2)*exp(-z/2)*Hypergeometric1F1(m-l+1/2,2*m+1,z))
+    # if 2*m+1 < 0
+    #     if round(m)==m
+    #         return WhittakerM(l,m+0.0001,z)
+    #     end
+        # return real(z^(-m+1/2)*exp(-z/2)*Hypergeometric1F1(-m-l+1/2,2*(-m)+1,z))
+    # else
+    #     return real(z^(m+1/2)*exp(-z/2)*Hypergeometric1F1(m-l+1/2,2*m+1,z))
+    # end
 end
 
 function WhittakerM_cont(l,m,z)
