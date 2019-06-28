@@ -7,19 +7,20 @@ function LightGraphs.a_star_impl!(g::AbstractGraph,# the graph
     mapf::MAPF,
     colormap::Vector{UInt8},  # an (initialized) color-map to indicate status of vertices
     distmx::AbstractMatrix,
-    heuristic::Function)
+    heuristic::Function,
+    start_time::Float64)
 
     E = Edge{eltype(g)}
 
     @inbounds while !isempty(frontier)
         (cost_so_far, path, u) = dequeue!(frontier)
         if u == t
-            return path
+            return path, cost_so_far
         end
 
         for v in LightGraphs.outneighbors(g, u)
             # Skip node if it violates any of the constraints
-            if violates_constraints(constraints,v,path,mapf)
+            if violates_constraints(constraints,v,path,mapf,start_time)
                 continue
             end
             if get(colormap, v, 0) < 2
@@ -35,7 +36,7 @@ function LightGraphs.a_star_impl!(g::AbstractGraph,# the graph
         end
         colormap[u] = 2
     end
-    Vector{E}()
+    Vector{E}(),typemax(Float64)
 end
 
 """
@@ -60,6 +61,7 @@ the distance matrix is set to [`LightGraphs.DefaultDistance`](@ref) and the heur
 function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     s::Integer,                       # the start vertex
     t::Integer,                       # the end vertex
+    start_time::Float64,
     constraints::C,         # constraints on which nodes can be traversed at which time
     mapf::MAPF,
     distmx_DP,
@@ -80,8 +82,8 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     #Edit: we need to check whether the constraint is violated because we start at an impossible place
     # This means the constraint shouldn't have been there so we return an invalid solution
 
-    if violates_constraints(constraints,s,[],mapf)
-        return Vector{E}()
+    if violates_constraints(constraints,s,[],mapf,start_time)
+        return Vector{E}(), typemax(Float64)
     end
 
     # if we do checkbounds here, we can use @inbounds in a_star_impl!
@@ -91,5 +93,5 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     frontier[(zero(T), Vector{E}(), U(s))] = zero(T)
     colormap = empty_colormap(nv(g))
     colormap[s] = 1
-    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, mapf, colormap, distmx, heuristic_n)
+    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, mapf, colormap, distmx, heuristic_n,start_time)
 end
