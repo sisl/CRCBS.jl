@@ -31,7 +31,16 @@ export
     StateConstraint,
     ActionConstraint,
 
-    ConstraintDict
+    ConstraintDict,
+    add_constraint!,
+
+    ConstraintTreeNode,
+    initialize_root_node,
+    initialize_child_node,
+    get_constraints,
+    violates_constraints,
+    get_cost,
+    generate_constraints_from_conflict
 
 
 """
@@ -383,4 +392,124 @@ function add_constraint!(constraint_dict::ConstraintDict,constraint::ActionConst
     if get_agent_id(constraint_dict) == get_agent_id(constraint)
         constraint_dict.action_constraints[constraint] = true
     end
+end
+
+
+"""
+    A node of a constraint tree. Each node has a set of constraints, a candidate
+    solution (set of robot paths), and a cost
+"""
+@with_kw mutable struct ConstraintTreeNode{S,A} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
+    # # Environment
+    # env::E
+    # maps agent_id to the set of constraints involving that agent
+    constraints::Dict{Int,ConstraintDict} = Dict{Int,ConstraintDict}()
+    # maintains a list of all conflicts
+    conflict_table::ConflictTable = ConflictTable()
+    # set of paths (one per agent) through graph
+    solution::LowLevelSolution = LowLevelSolution{S,A}()
+    # cost = sum([length(path) for path in solution])
+    cost::Int = -1
+    # index of parent node
+    parent::Int = -1
+    # indices of two child nodes
+    children::Tuple{Int,Int} = (-1,-1)
+    # unique id
+    id::Int = -1
+end
+
+"""
+    retrieve constraints corresponding to this node and this path
+"""
+function get_constraints(node::ConstraintTreeNode, path_id::Int)
+    return get(node.constraints, path_id, ConstraintDict())
+end
+
+"""
+    adds a `StateConstraint` to a ConstraintTreeNode
+"""
+function add_constraint!(node::ConstraintTreeNode,constraint::StateConstraint,mapf::MAPF)
+    if !(states_match(constraint.v, mapf.goals[get_agent_id(constraint)]))
+        node.constraints[get_agent_id(constraint)].state_constraints[constraint] = true
+        return true
+    end
+    return false
+end
+
+"""
+    adds an `ActionConstraint` to a ConstraintTreeNode
+"""
+function add_constraint!(node::ConstraintTreeNode,constraint::ActionConstraint,mapf::MAPF)
+    if (constraint.v1 != mapf.goals[get_agent_id(constraint)]) && (constraint.v1 != mapf.goals[get_agent_id(constraint)])
+        node.constraints[get_agent_id(constraint)].action_constraints[constraint] = true
+        node.constraints[get_agent_id(constraint)].action_constraints[flip(constraint)] = true
+        return true
+    end
+    return false
+end
+
+# """
+#     checks to see if two `ConstraintTreeNode`s are identical (in terms of their
+#     constraints)
+# """
+# function compare_constraint_nodes(node1::ConstraintTreeNode,node2::ConstraintTreeNode)
+#     constraints1 = union([collect(keys(v)) for (k,v) in node1.constraints])
+#     constraints2 = union([collect(keys(v)) for (k,v) in node2.constraints])
+#     return length(setdiff(constraints1,constraints2)) == 0
+# end
+
+"""
+    Helper function to get the cost of a particular solution
+"""
+function get_cost(paths::LowLevelSolution)
+    return sum([length(p) for p in paths])
+end
+
+"""
+    Helper function to get the cost of a particular node
+"""
+function get_cost(node::ConstraintTreeNode)
+    return get_cost(node.solution)
+end
+
+"""
+    generates a set of constraints from a StateConflict
+"""
+function generate_constraints_from_conflict(conflict::StateConflict)
+    return [
+        # Agent 1 may not occupy node at time t + 1
+        StateConstraint(
+            agent1_id(conflict),
+            state1(conflict),
+            time_of(conflict)
+        ),
+        # Agent 2 may not occupy node at time t + 1
+        StateConstraint(
+            agent2_id(conflict),
+            state2(conflict),
+            time_of(conflict)
+        )
+        ]
+end
+
+"""
+    generates a set of constraints from an ActionConflict
+"""
+function generate_constraints_from_conflict(conflict::ActionConflict)
+    return [
+        # Agent 1 may not traverse Edge(node1,node2) at time t
+        ActionConstraint(
+            agent1_id(conflict),
+            state1(conflict),
+            state2(conflict),
+            time_of(conflict) # + 1
+        ),
+        # Agent 2 may not traverse Edge(node2,node1) at time t
+        ActionConstraint(
+            agent2_id(conflict),
+            state2(conflict),
+            state1(conflict),
+            time_of(conflict) # + 1
+        )
+        ]
 end
