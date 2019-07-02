@@ -269,28 +269,28 @@ end
 #The conversion from NodeConstraint to ConstraintDict is done here
 function add_constraint!(node::ConstraintTreeNode,constraint::NodeConstraint,mapf::MAPF)
     # We add the constraint whatever happens (wait before reaching your goal to let the other agent pass)
-    node.constraints[constraint.a].node_constraints[constraint.v] = constraint.t
-    return true
-    # if constraint.v != mapf.goals[constraint.a][end] #is the constraint not the final goal of the agent?
-    #     node.constraints[constraint.a].node_constraints[constraint.v] = constraint.t
-    #     return true
-    # end
-    # return false
+    #node.constraints[constraint.a].node_constraints[constraint.v] = constraint.t
+    #return true
+    if constraint.v != mapf.goals[constraint.a][end] #is the constraint not the final goal of the agent?
+        node.constraints[constraint.a].node_constraints[constraint.v] = constraint.t
+        return true
+    end
+    return false
 end
 
 """adds an `EdgeConstraint` t o a ConstraintTreeNode"""
 function add_constraint!(node::ConstraintTreeNode,constraint::EdgeConstraint,mapf::MAPF)
-    node.constraints[constraint.a].edge_constraints[(constraint.node1_id,constraint.node2_id)] = constraint.t
-    return true
-    # if (constraint.node2_id != mapf.goals[constraint.a][end])
-    #     println("Adding constraint")
-    #     println(constraint)
-    #     node.constraints[constraint.a].edge_constraints[(constraint.node1_id,constraint.node2_id)] = constraint.t
-    #     # For the moment we only want edge constraints to be unidirectional
-    #     #node.constraints[constraint.a].edge_constraints[(constraint.node2_id,constraint.node1_id)] = constraint.t
-    #     return true
-    # end
-    # return false
+    #node.constraints[constraint.a].edge_constraints[(constraint.node1_id,constraint.node2_id)] = constraint.t
+    #return true
+    if (constraint.node2_id != mapf.goals[constraint.a][end])
+        println("Adding constraint")
+        println(constraint)
+        node.constraints[constraint.a].edge_constraints[(constraint.node1_id,constraint.node2_id)] = constraint.t
+        # For the moment we only want edge constraints to be unidirectional
+        #node.constraints[constraint.a].edge_constraints[(constraint.node2_id,constraint.node1_id)] = constraint.t
+        return true
+    end
+    return false
 end
 
 
@@ -812,16 +812,8 @@ function generate_constraints_from_conflict(node::ConstraintTreeNode,conflict::E
     t_edge = conflict_params[4]
 
     robot1_id = conflict.agent1_id
-    #pre_existing_constraintDict = get(node.constraints,robot1_id,false)
-    #if pre_existing_constraintDict != false
-    #    t_yield1 = get(pre_existing_constraintDict.edge_constraints,(conflict.node1_id,conflict.node2_id),t_yield1)
-    #end
 
     robot2_id = conflict.agent2_id
-    #pre_existing_constraintDict = get(node.constraints,robot2_id,false)
-    #if pre_existing_constraintDict != false
-    #    t_yield2 = get(pre_existing_constraintDict.edge_constraints,(conflict.node1_id,conflict.node2_id),t_yield2)
-    #end
 
     #Agent 1 yields:
     tf1 = t_yield1
@@ -934,6 +926,7 @@ end
 
 
 include("low_level_search/a_star.jl") #Modified version of astar
+#include("low_level_search/dijkstra.jl") #Modified version of dijkstra - let's not use that now
 
 function prepare_edge_weight_mx!(mapf::MAPF)
     """ Returns the matrix of expected travel times from vertex to vertex """
@@ -1022,15 +1015,17 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         if is_valid(node_conflict)
 
             # Print
-            #println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
+            println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
 
             # Create two node constraints
             constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
+            println("Constraints")
+            println(constraints)
 
         elseif is_valid(edge_conflict)
 
             # Print
-            #println("Agents ", edge_conflict.agent1_id, " and ", edge_conflict.agent2_id, " conflict at edge ", edge_conflict.node1_id, " - ", edge_conflict.node2_id)
+            println("Agents ", edge_conflict.agent1_id, " and ", edge_conflict.agent2_id, " conflict at edge ", edge_conflict.node1_id, " - ", edge_conflict.node2_id)
 
             # Create two edge conflicts
             constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
@@ -1043,7 +1038,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
             print("Time spent on probability count: ", countingtime, " \n")
             print("Time spent on path finding: ", time_spent_on_astar, " \n")
-            return (node.solution, node.cost,countingtime,time_spent_on_astar,num_interactions,iteration_count)
+            return (node.solution, node.cost,countingtime,time_spent_on_astar,num_interactions,iteration_count,node,distmx_DP)
         end
 
         # generate new nodes from constraints
@@ -1077,10 +1072,10 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
 
     # If the max number of iterations has passed or if the priority queue has emptied, failure
     print("No Solution Found. Returning default solution")
-    return (LowLevelSolution(), typemax(Int),countingtime,time_spent_on_astar,num_interactions[1],iteration_count)
+    return (LowLevelSolution(), typemax(Int),countingtime,time_spent_on_astar,num_interactions[1],iteration_count,root_node,distmx_DP)
 end
 
-
+include("replanning.jl")
 include("simulations.jl")
 include("plotting.jl")
 

@@ -3,7 +3,8 @@ export
     run_convergence_tests_CRCBS,
     Experiment_parameters,
     run_problem,
-    run_cbs_particles
+    run_cbs_particles,
+    create_grid_pickandplace
 
 struct Experiment_parameters
     name::String
@@ -464,6 +465,50 @@ function create_grid_mapf(num_robots::Int64,
     mapf = MAPF(G,starts,goals,lambda,epsilon,t_delay)
     return mapf
 end
+
+# returns mapf
+function create_grid_pickandplace(num_robots::Int64,
+    grid_size::Tuple{Int64,Int64},
+    filling_density::Float64,
+    lambda::Float64,
+    epsilon::Float64,
+    t_delay::Float64
+    )
+    """Outputs the mapf to use for simulation"""
+
+    # Create graph
+    G = initialize_full_grid_graph_CT(grid_size[1],grid_size[2],filling_density)
+
+    #Sample without replacement to avoid any confusion
+    startsandgoals = shuffle(vertices(G))[1:3*num_robots]
+
+    #Starting position
+    starts = startsandgoals[1:num_robots]
+
+    #Where are the objects and where to place them
+    objects = startsandgoals[num_robots+1:2*num_robots]
+    targets = startsandgoals[2*num_robots+1:end]
+
+    # Create mapf goals
+    goals = Array{Array{Int64,1},1}()
+    for k in 1:length(objects)
+        push!(goals,[objects[k],targets[k]])
+    end
+
+    # Times at which the robots start
+    start_times = Vector{}([10.0*rand() for k in 1:num_robots])
+
+    # Task completion times
+    goal_completion_times = Vector{}([[1.0+3.0*rand() for k in 1:length(goals[j])] for j in 1:length(goals)])
+
+    # Now create MAPF
+    mapf = MAPF(G,starts,start_times,goals,goal_completion_times,lambda,epsilon,t_delay)
+
+    return mapf
+end
+
+
+
 
 function run_experiment_set_CRCBS(name::String,
     num_agents::Tuple,

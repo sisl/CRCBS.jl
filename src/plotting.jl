@@ -1,7 +1,9 @@
 export
     plot_SVtime_vs_nrobots,
     plot_optimal_nominal_paths,
-    plot_simulations
+    plot_simulations,
+    plot_problem,
+    plot_solution
 
 
 function plot_SVtime_vs_nrobots(files)
@@ -87,7 +89,6 @@ function plot_optimal_nominal_paths(file;type="CRCBS",graphfilename="",save=true
     close(f)
     return myplot
 end
-
 
 function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_particles = 20,savedir="")
     if graphfilename == ""
@@ -227,4 +228,59 @@ function plot_simulations(file;type="CRCBS",graphfilename="",timehorizon=10,num_
         savefig(string("../experiments/plots/", savedir,type,"_",file,"_time_",t))
     end
     return
+end
+
+function plot_problem(mapf::MAPF)
+
+    #Setting
+    markersizes = 10
+
+    # Initialize plot
+    myplot = plot(legend=false)
+
+    # Draw lines wherever there is an edge in the graph
+    for e in edges(mapf.graph)
+        xs = [get_prop(mapf.graph,e.src,:x),get_prop(mapf.graph,e.dst,:x)]
+        ys = [get_prop(mapf.graph,e.src,:y),get_prop(mapf.graph,e.dst,:y)]
+        plot!(xs,ys,color=:gray)
+    end
+
+    # Draw squares wherever there is a start
+    for (k,start_vtx) in enumerate(mapf.starts)
+        x = get_prop(mapf.graph,start_vtx,:x)
+        y = get_prop(mapf.graph,start_vtx,:y)
+        scatter!([x],[y],marker=:square,markersize = markersizes,color=k)
+    end
+
+    # Draw triangles wherever there is an object and stars wherever there is a goal
+    for (k,goal_list) in enumerate(mapf.goals)
+        object_vtx = goal_list[1]
+        x_obj = get_prop(mapf.graph,object_vtx,:x)
+        y_obj = get_prop(mapf.graph,object_vtx,:y)
+        scatter!([x_obj],[y_obj],marker=:utriangle,markersize = markersizes,color=k)
+        goal_vtx = goal_list[2]
+        x_g = get_prop(mapf.graph,goal_vtx,:x)
+        y_g = get_prop(mapf.graph,goal_vtx,:y)
+        scatter!([x_g],[y_g],marker=:star5,markersize = markersizes,color=k)
+    end
+
+    # return plot
+    return myplot
+end
+
+function plot_solution(mapf::MAPF,solution::LowLevelSolution)
+    # Start by plotting everything that is not a solution
+    myplot = plot_problem(mapf)
+
+    # Add the solution to this plot
+    for agent in 1:length(solution)
+        for e in solution[agent]
+            x1 = get_prop(mapf.graph,e.src,:x)
+            x2 = get_prop(mapf.graph,e.dst,:x)
+            y1 = get_prop(mapf.graph,e.src,:y)
+            y2 = get_prop(mapf.graph,e.dst,:y)
+            plot!([x1,x2],[y1,y2],color=agent,linewidth=2)
+        end
+    end
+    return myplot
 end
