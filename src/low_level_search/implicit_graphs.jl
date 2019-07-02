@@ -22,11 +22,10 @@ function A_star_impl!(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
             sp = get_next_state(env,s,a)
             # Skip node if it violates any of the constraints
             if violates_constraints(env,path,s,a,sp)
-                # @show s,a,sp
                 continue
             end
             if !get(explored,sp,false)
-                new_path = cat(path, PathNode(s, a, sp), dims=1)
+                new_path = cat(path, PathNode(s, a, sp))
                 path_cost = cost_so_far + get_transition_cost(env,s,a,sp)
                 enqueue!(frontier,
                     (path_cost, new_path, sp) => path_cost + heuristic(sp))
@@ -34,7 +33,7 @@ function A_star_impl!(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
         end
         explored[s] = true
     end
-    Path()
+    Path{S,A}()
 end
 
 # g(n) = cost of the path from the start node to n,
@@ -64,7 +63,7 @@ function A_star(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
     heuristic::Function = s -> 0.0) where {S,A}
 
     initial_cost = 0
-    frontier = PriorityQueue{Tuple{PathCost, Path{S,A}, S},PathCost}()
+    frontier = PriorityQueue{Tuple{PathCost, Path{S,A}, S}, PathCost}()
     enqueue!(frontier, (initial_cost, Path{S,A}(), start_state)=>initial_cost)
     explored = Dict{S,Bool}()
 

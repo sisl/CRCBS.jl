@@ -1,4 +1,6 @@
 export
+    DefaultState,
+    DefaultAction,
     AbstractLowLevelEnv,
     action_type,
     state_type,
@@ -7,6 +9,7 @@ export
     get_s,
     get_a,
     get_sp,
+    DefaultPathNode,
 
     Path,
     get_path_node,
@@ -18,6 +21,7 @@ export
 
     LowLevelSolution,
     PathCost,
+    AbstractMAPFSolver,
 
     states_match,
     is_goal,
@@ -31,6 +35,9 @@ export
     check_termination_criteria
 
 struct DefaultState end
+struct DefaultAction end
+wait(DefaultState) = DefaultAction()
+get_next_state(s::DefaultState,a::DefaultAction) = DefaultState()
 
 """
     `AbstractLowLevelEnv{S,A}`
@@ -58,13 +65,29 @@ end
 get_s(p::PathNode) = p.s
 get_a(p::PathNode) = p.a
 get_sp(p::PathNode) = p.sp
+const DefaultPathNode = PathNode{DefaultState,DefaultAction}
 
 """
     `Path{S,A}`
 
     Encodes a motion plan as a sequence of `PathNode{S,A}`s
 """
-const Path{S,A} = Vector{PathNode{S,A}}
+# const Path{S,A} = Vector{PathNode{S,A}}
+abstract type AbstractPath end
+@with_kw mutable struct Path{S,A} <: AbstractPath
+    path_nodes  ::Vector{PathNode{S,A}} = Vector{PathNode{S,A}}()
+    cost        ::Int                   = 0
+end
+Path(v::Vector{PathNode{S,A}}) where {S,A} = Path(v,0)
+Base.cat(p::Path{S,A},x::PathNode{S,A},i...) where {S,A} = Path{S,A}(cat(p.path_nodes,x,dims=1),p.cost)
+Base.get(p::Path,i,default) = get(p.path_nodes,i,default)
+Base.getindex(p::Path,i) = getindex(p.path_nodes,i)
+Base.setindex!(p::Path,x,i) = setindex!(p.path_nodes,x,i)
+Base.length(p::Path) = length(p.path_nodes)
+Base.push!(p::Path,x) = push!(p.path_nodes,x)
+# num_steps(p::Path) = length(p.path_nodes)
+get_cost(p::Path) = p.cost
+Base.copy(p::Path) = Path(copy(p.path_nodes),p.cost)
 
 """
     returns the `PathNode` (s,a,s') corresponding to step `t` of `path`
@@ -72,12 +95,15 @@ const Path{S,A} = Vector{PathNode{S,A}}
     If `t` is greater than the length of `path`, the `PathNode` returned
     is (s,wait(s),s) corresponding to waiting at that node of the path
 """
-function get_path_node(path::Path,t)
+function get_path_node(path::Path{S,A},t) where {S,A}
     if t <= length(path)
         return path[t]
     else
         t₀ = length(path)
-        sp = get_final_state(path)
+        node = get(path,length(path),PathNode{S,A}())
+        s = get_s(node)
+        a = get_a(node)
+        sp = get_sp(node)
         for τ in length(path)+1:t
             s = sp
             a = wait(s)
@@ -95,7 +121,7 @@ end
     If `t` is greater than the length of `path`, the returned action defaults to
     a `wait` action.
 """
-function get_action(path::Path{S,A}, t::Int) where {S,A}
+function get_action(path::Path, t::Int)
     get_a(get_path_node(path,t))
 end
 
@@ -146,11 +172,12 @@ const LowLevelSolution{S,A} = Vector{Path{S,A}}
 
 const PathCost = Int
 
+# abstract type CostModel end
+#
+# struct MakeSpan <: CostModel end
 
-
-abstract type CostModel end
-
-struct MakeSpan <: CostModel end
+""" Abstract type for algorithms that solve MAPF instances """
+abstract type AbstractMAPFSolver end
 
 ################################################################################
 ######################## General Methods to Implement ##########################
@@ -219,6 +246,3 @@ function violates_constraints end
     returns true if any termination criterion is satisfied
 """
 function check_termination_criteria end
-
-# detect_action_conflict
-# detect_state_conflict

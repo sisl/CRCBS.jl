@@ -38,11 +38,17 @@ end
 # Define package tests
 @time @testset "CRCBS Package Tests" begin
     testdir = joinpath(dirname(@__DIR__), "test")
-    # @time @testset "CRCBS.MainTests" begin
-    #     include(joinpath(testdir, "test_main.jl"))
-    # end
+    @time @testset "CRCBS.ProblemDefinitionTests" begin
+        include(joinpath(testdir, "test_problem_definitions.jl"))
+    end
+    @time @testset "CRCBS.InterfaceTests" begin
+        include(joinpath(testdir, "test_interface.jl"))
+    end
     @time @testset "CRCBS.CommonTests" begin
         include(joinpath(testdir, "test_common.jl"))
+    end
+    @time @testset "CRCBS.ImplicitGraphsTests" begin
+        include(joinpath(testdir, "test_implicit_graph.jl"))
     end
     @time @testset "CRCBS.CBSTests" begin
         include(joinpath(testdir, "test_cbs.jl"))
@@ -50,9 +56,6 @@ end
     # @time @testset "CRCBS.HeuristicTests" begin
     #     include(joinpath(testdir, "test_heuristics.jl"))
     # end
-    @time @testset "CRCBS.ImplicitGraphsTests" begin
-        include(joinpath(testdir, "implicit_graph_tests.jl"))
-    end
     # @time @testset "CRCBS.DemoTests" begin
     #     include(joinpath(testdir, "test_demo.jl"))
     # end
