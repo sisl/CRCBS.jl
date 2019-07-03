@@ -1,3 +1,5 @@
+"""Structures and functions used for replanning"""
+
 
 struct NewAgent
     # New start positions
@@ -9,6 +11,25 @@ struct NewAgent
     # Each intermediary goal takes some additional time for task completion, which is stored here
     goal_completion_times::Vector{Array{Float64,1}}
 end
+
+function merge_MAPFs!(mapf::MAPF,newagent::NewAgent)
+
+    # Concatenate data for these agents
+    starts = vcat(mapf.starts,newagent.starts)
+    start_times = vcat(mapt.start_times,newagent.start_times)
+    goals = vcat(mapf.goals,newagent.goals)
+    goal_completion_times = vcat(mapf.goal_completion_times,newagent.goal_completion_times)
+
+    # Save new data into mapf
+    mapf.starts = starts
+    mapf.start_times = start_times
+    mapf.goals = goals
+    mapf.goal_completion_times = goal_completion_times
+
+    return # No need to return the mapf, it is modified
+end
+
+function jump_in_time!(mapf,node,time)
 
 function replan_CTCBS(mapf::MAPF,new_agent,time,node::ConstraintTreeNode,distmx_DP,path_finder=LightGraphs.a_star)
 

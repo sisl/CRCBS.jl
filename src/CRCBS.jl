@@ -561,8 +561,10 @@ function fill_graph_with_path!(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
     occupancy = get_prop(mapf.graph,start_vert,:occupancy)
 
     # Add element to the occupancy dictionary of the start vertex:
+    # There is no chance that the same robot is seen at the start vertex before
+    # starting time, so we are safe here doing only this:
     # Map robot id to (n,t,t_task)
-    setindex!(occupancy,(sum_ns_traversed, time_traversed,t_task),robot_id) #robot_id is the key
+    setindex!(occupancy,[(sum_ns_traversed, time_traversed,t_task)],robot_id) #robot_id is the key
 
     # Update the occupancy property of the vertex with the new dictionary
     set_prop!(mapf.graph,robotpath[1].src,:occupancy,occupancy)
@@ -577,9 +579,19 @@ function fill_graph_with_path!(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
         t_edge = get_prop(mapf.graph,e, :weight)
         n_next_node = get_prop(mapf.graph, e.dst, :n_delay)
 
-        # Add occupancy for the edge
+        # Get current occupancy for the edge
         occupancy = get_prop(mapf.graph,e,:occupancy)
-        setindex!(occupancy,(sum_ns_traversed, time_traversed),robot_id) #robot_id is the key
+
+        # Has the same robot already traversed this edge?
+        traversal = get(occupancy,robot_id,[])
+
+        # Concatenate all traversal information
+        newtraversal = vcat(traversal,[(sum_ns_traversed, time_traversed)])
+
+        # Replace travel information in occupancy dictionary
+        setindex!(occupancy,newtraversal,robot_id) #robot_id is the key
+
+        # Overwrite occupancy in the graph
         set_prop!(mapf.graph,e,:occupancy,occupancy)
 
         # Update nominal time
@@ -594,9 +606,19 @@ function fill_graph_with_path!(robot_id::Int, robotpath::GraphPath, mapf::MAPF)
             t_task = 0.0
         end
 
-        # Add occupancy for second vertex of the edge
+        # Get occupancy for second vertex of the edge
         occupancy = get_prop(mapf.graph,e.dst,:occupancy)
-        setindex!(occupancy,(sum_ns_traversed, time_traversed,t_task),robot_id) #robot_id is the key
+
+        # Get current occupancy for the robot
+        traversal = get(occupancy,robot_id,[])
+
+        # Concatenate old and new traversal information
+        newtraversal = vcat(traversal,(sum_ns_traversed, time_traversed,t_task))
+
+        # Replace travel information in occupancy
+        setindex!(occupancy,newtraversal,robot_id) #robot_id is the key
+
+        # Overwrite occupancy in the graph
         set_prop!(mapf.graph,e.dst,:occupancy,occupancy)
 
         # Update traversal time with t_task
@@ -616,10 +638,10 @@ function clear_graph_occupancy!(mapf::MAPF)
         and will be lacking memory to store all intermediate occupancy graphs,
         so we can't that much do this and need this function."""
     for v in vertices(mapf.graph)
-        set_prop!(mapf.graph, v, :occupancy, Dict{Int64, Tuple{Int64,Float64,Float64}}())
+        set_prop!(mapf.graph, v, :occupancy, Dict{Int64, Array{Tuple{Int64,Int64,Int64},1}}())
     end
     for e in edges(mapf.graph)
-        set_prop!(mapf.graph, e, :occupancy, Dict{Int64, Tuple{Int64,Float64}}())
+        set_prop!(mapf.graph, e, :occupancy, Dict{Int64, Array{Tuple{Int64,Int64,Int64},1}}())
     end
     return
 end

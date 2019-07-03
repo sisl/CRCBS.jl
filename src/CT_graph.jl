@@ -65,11 +65,11 @@ function initialize_full_grid_graph_CT(x_max=10.0,y_max=10.0,filling_density=1.0
     G = initialize_full_grid_graph(x_max,y_max,filling_density)
     for e in edges(G)
         set_prop!(G,e,:weight,1.0)
-        set_prop!(G,e,:occupancy, Dict{Int64, Tuple{Int64,Float64}}())
+        set_prop!(G,e,:occupancy, Dict{Int64, Array{Tuple{Int64,Int64,Int64},1}}())
     end
     for v in vertices(G)
         set_prop!(G,v,:n_delay,1.0)
-        set_prop!(G,v,:occupancy,Dict{Int64, Tuple{Int64,Float64,Float64}}())
+        set_prop!(G,v,:occupancy,Dict{Int64, Array{Tuple{Int64,Int64,Int64},1}}())
     end
     return G
 end
