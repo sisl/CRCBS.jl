@@ -11,6 +11,7 @@ struct Experiment_parameters
     lambda::Float64
     epsilon::Float64
     t_delay::Float64
+    conflict_threshold_time::Float64 #new
     num_particles::Int64
     vs::Vector{Int}
     es::Vector{Tuple{Int,Int}}
@@ -152,19 +153,6 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
                 (n1,t1) = occupancy[r1]
                 (n2,t2) = occupancy[r2]
                 (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
-                # if cp==0
-                #     println("found probability of zero with parameters")
-                #     println("n1: ", n1)
-                #     println("t1: ", t1)
-                #     println("n2: ", n2)
-                #     println("t2: ", t2)
-                #     println("nn: ", nn)
-                #     println("lambda: ", lambda)
-                # end
-
-
-                # Count conflicts
-                #Index of node v traversal for robots 1 and 2
 
                 path_r1 = []
                 for e in paths[r1]
@@ -331,19 +319,7 @@ function push_conflict_stats!(mapf::MAPF,paths::LowLevelSolution,solution_times:
                 (n1,t1) = occupancy[r1]
                 (n2,t2) = occupancy[r2]
                 (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
-                # if cp==0
-                #     println("found probability of zero with parameters")
-                #     println("n1: ", n1)
-                #     println("t1: ", t1)
-                #     println("n2: ", n2)
-                #     println("t2: ", t2)
-                #     println("nn: ", nn)
-                #     println("lambda: ", lambda)
-                # end
 
-
-                # Count conflicts
-                #Index of node v traversal for robots 1 and 2
                 path_r1 = []
                 for e in paths[r1]
                     append!(path_r1, e.src)
@@ -452,7 +428,8 @@ function create_grid_mapf(num_robots::Int64,
     filling_density::Float64,
     lambda::Float64,
     epsilon::Float64,
-    t_delay::Float64
+    t_delay::Float64,
+    conflict_threshold_time::Float64
     )
     """Outputs the mapf to use for simulation"""
     G = initialize_full_grid_graph_CT(grid_size[1],grid_size[2],filling_density)
@@ -462,7 +439,7 @@ function create_grid_mapf(num_robots::Int64,
     starts = startsandgoals[1:num_robots]
     goals = startsandgoals[num_robots+1:end]
 
-    mapf = MAPF(G,starts,goals,lambda,epsilon,t_delay)
+    mapf = MAPF(G,starts,goals,lambda,epsilon,t_delay,conflict_threshold_time)
     return mapf
 end
 
@@ -472,7 +449,8 @@ function create_grid_pickandplace(num_robots::Int64,
     filling_density::Float64,
     lambda::Float64,
     epsilon::Float64,
-    t_delay::Float64
+    t_delay::Float64,
+    conflict_threshold_time::Float64
     )
     """Outputs the mapf to use for simulation"""
 
@@ -502,13 +480,10 @@ function create_grid_pickandplace(num_robots::Int64,
     goal_completion_times = Vector{}([[1.0+3.0*rand() for k in 1:length(goals[j])] for j in 1:length(goals)])
 
     # Now create MAPF
-    mapf = MAPF(G,starts,start_times,goals,goal_completion_times,lambda,epsilon,t_delay)
+    mapf = MAPF(G,starts,start_times,goals,goal_completion_times,lambda,epsilon,t_delay,conflict_threshold_time)
 
     return mapf
 end
-
-
-
 
 function run_experiment_set_CRCBS(name::String,
     num_agents::Tuple,
@@ -519,7 +494,8 @@ function run_experiment_set_CRCBS(name::String,
     epsilon::Float64,
     t_delay::Float64,
     num_experiments::Int64,
-    num_trials::Int64
+    num_trials::Int64,
+    conflict_threshold_time::Float64
     )
 
     print("Started \n")
@@ -585,7 +561,7 @@ function run_experiment_set_CRCBS(name::String,
         mapf = create_grid_mapf(num_agent_list[i],
         (grid_x_list[i],grid_y_list[i]),
         filling_density_list[i],
-        lambda,epsilon,t_delay)
+        lambda,epsilon,t_delay,conflict_threshold_time)
         n_nodes = length(vertices(mapf.graph))
         n_edges = div(length(edges(mapf.graph)),2) #Edge 1 - 2 and 2 - 1 are the same
 
@@ -735,7 +711,8 @@ function run_time_comparisons_CRCBS(name::String,
     epsilon::Float64,
     t_delay::Float64,
     num_experiments::Int64,
-    num_trials::Int64
+    num_trials::Int64,
+    conflict_threshold_time::Float64
     )
 
     savedir= "../experiments/Timing_tests/"
@@ -802,7 +779,7 @@ function run_time_comparisons_CRCBS(name::String,
         mapf = create_grid_mapf(num_agent_list[i],
         (grid_x_list[i],grid_y_list[i]),
         filling_density_list[i],
-        lambda,epsilon,t_delay)
+        lambda,epsilon,t_delay,conflict_threshold_time)
         n_nodes = length(vertices(mapf.graph))
         n_edges = div(length(edges(mapf.graph)),2) #Edge 1 - 2 and 2 - 1 are the same
 
@@ -863,7 +840,7 @@ function mapf_to_exp_parameters(name,num_particles,mapf)
     es = [(e.src,e.dst) for e in edges(mapf.graph)]
     xs = [get_prop(mapf.graph,v,:x) for v in vertices(mapf.graph)]
     ys = [get_prop(mapf.graph,v,:y) for v in vertices(mapf.graph)]
-    return Experiment_parameters(name,mapf.lambda,mapf.epsilon,mapf.t_delay,num_particles,vs,es,mapf.starts,mapf.goals,xs,ys)
+    return Experiment_parameters(name,mapf.lambda,mapf.epsilon,mapf.t_delay,mapf.conflict_threshold_time,num_particles,vs,es,mapf.starts,mapf.goals,xs,ys)
 end
 
 function solution_to_txt(solution, id)
@@ -904,18 +881,14 @@ end
 
 function load_experiment_parameters(file)
     """Creates an experiment set with all the experiment sets"""
-    experiment_vector = Vector{}()
-
 
     exp_set = load(string("../experiments/experiment_parameters/",file,".jld"))
-    #println(exp_set)
     parameters = exp_set["parms"]
 
-    #parameters = Experiment_parameters(experiment_vector)
     return parameters
 end
 
-function run_problem(name; sub_name="", lambda=1.0,epsilon=0.01,t_delay=1.0,dataframe=false,num_trials=1000)
+function run_problem(name; sub_name="", lambda=1.0,epsilon=0.01,t_delay=1.0,conflict_threshold_time=2.0,dataframe=false,num_trials=1000)
     if sub_name == ""
         sub_name = name
     end
@@ -931,7 +904,7 @@ function run_problem(name; sub_name="", lambda=1.0,epsilon=0.01,t_delay=1.0,data
         add_edge!(G,e[1],e[2])
         set_prop!(G, Edge(e[1],e[2]), :weight, 1.0)
     end
-    mapf = MAPF(G,exp_parms.starts,exp_parms.goals,lambda,epsilon,t_delay)
+    mapf = MAPF(G,exp_parms.starts,exp_parms.goals,lambda,epsilon,t_delay,conflict_threshold_time)
 
 
     a = @timed(CTCBS(mapf))

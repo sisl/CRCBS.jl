@@ -29,7 +29,36 @@ function merge_MAPFs!(mapf::MAPF,newagent::NewAgent)
     return # No need to return the mapf, it is modified
 end
 
-function jump_in_time!(mapf,node,time)
+function jump_in_time!(mapf,time,node)
+    """We delete all constraints that happen before time and erase all agents that have reached their goals"""
+
+    # First, we delete all constraints that happen before time
+    for agent in keys(node.constraints)
+        for v in keys(node.constraints[agent].node_constraints)
+            t = node.constraints[agent].node_constraints[v]
+            if t < time
+                delete!(node.constraints[agent].node_constraints,v)
+            end
+        end
+        for e in keys(node.constraints[agent].edge_constraints)
+            t = node.constraints[agent].edge_constraints[e]
+            if t < time
+                delete!(node.constraints[agent].edge_constraints,e)
+            end
+        end
+    end
+
+    # Simulate where everyone is currently, then
+    # robot Ri starts at node j at time ti and its path is now [j j2 j3...]
+
+
+    # Now the new mapf.starts and mapf.start times could be updated for the old robots with the time of
+    # their departure (or arrival + expected stay) from start_node, and start_node itself (current node)
+
+
+
+    return
+end
 
 function replan_CTCBS(mapf::MAPF,new_agent,time,node::ConstraintTreeNode,distmx_DP,path_finder=LightGraphs.a_star)
 

@@ -53,6 +53,7 @@ struct MAPF{G <: AbstractGraph} # Multi Agent Path Finding Problem
     lambda::Float64
     epsilon::Float64
     t_delay::Float64
+    conflict_threshold_time::Float64
 end
 
 num_agents(mapf::MAPF) = length(mapf.starts)
