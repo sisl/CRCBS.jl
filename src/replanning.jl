@@ -1,9 +1,9 @@
 """Structures and functions used for replanning"""
 
 
-struct NewAgent
+struct NewAgents
     # New start positions
-    starts::Vector{Int}
+    start::Vector{Int}
     # start times = time at which the robots appear on the graph and suddenly need to accomplish task k
     start_times::Vector{Float64}
     # goals now contains lists, thanks to which we can set intermediate goals (pick up object, etc)
@@ -12,19 +12,41 @@ struct NewAgent
     goal_completion_times::Vector{Array{Float64,1}}
 end
 
-function merge_MAPFs!(mapf::MAPF,newagent::NewAgent)
+struct NewAgent
+    # New start position
+    start::Int
+    # start time = time at which the robot appears on the graph and suddenly needs to accomplish task k
+    start_time::Float64
+    # goals now are lists, thanks to which we can set intermediate goals (pick up object, etc)
+    goals::Array{Int64,1}
+    # Each intermediary goal takes some additional time for task completion, which is stored here
+    goal_completion_times::Array{Float64,1}
+end
+
+function merge_MAPFs!(mapf::MAPF,newagents::NewAgents)
 
     # Concatenate data for these agents
-    starts = vcat(mapf.starts,newagent.starts)
-    start_times = vcat(mapt.start_times,newagent.start_times)
-    goals = vcat(mapf.goals,newagent.goals)
-    goal_completion_times = vcat(mapf.goal_completion_times,newagent.goal_completion_times)
+    starts = vcat(mapf.starts,newagents.starts)
+    start_times = vcat(mapt.start_times,newagents.start_times)
+    goals = vcat(mapf.goals,newagents.goals)
+    goal_completion_times = vcat(mapf.goal_completion_times,newagents.goal_completion_times)
 
     # Save new data into mapf
     mapf.starts = starts
     mapf.start_times = start_times
     mapf.goals = goals
     mapf.goal_completion_times = goal_completion_times
+
+    return # No need to return the mapf, it is modified
+end
+
+function reassign_agent_MAPF!(mapf::MAPF,newagent::NewAgent,id::Int64)
+
+    # Replace data for this agent
+    mapf.starts[id] = newagent.start
+    mapf.start_times[id] = newagent.start_time
+    mapf.goals[id] = newagent.goals
+    mapf.goal_completion_times[id] = newagent.goal_completion_times
 
     return # No need to return the mapf, it is modified
 end
@@ -169,4 +191,139 @@ function replan_CTCBS(mapf::MAPF,new_agent,time,node::ConstraintTreeNode,distmx_
     # If the max number of iterations has passed or if the priority queue has emptied, failure
     print("No Solution Found. Returning default solution")
     return (LowLevelSolution(), typemax(Int),countingtime,time_spent_on_astar,num_interactions[1],iteration_count)
+end
+
+function run_particles_until_t!(mapf::MAPF, solution::LowLevelSolution,end_time::Float64)
+    """Simulates 1 particle into the given solution.
+    returns solution_times, a vector of arrays
+    Also returns the truncated solution that is has not yet been through, and
+    the new starting time for the first of the nodes."""
+    # solution is a vector of vectors of edges, we return for each node
+    # the time at which the robot arrives and the time at which it leaves in a
+    # tuple. So there are num_edges + 1 tuples in a vector of solution_times.
+    lambda = mapf.lambda
+    # For each robot, we have an array with dimension 1 being the node index,
+    # dimension 2 being the start or end node, and dimension 3 being the index
+    # of the particle.
+    solution_times = Vector{Array{Float64,3}}()
+    num_robots = length(solution)
+
+    for (agent_id, agent_solution) in enumerate(solution)
+
+        #Initialize array of times
+        num_edges = length(agent_solution)
+        time_array = zeros(Float64, num_edges+1,2) #We took away the last dimension which was number of particles
+
+        # We start at the agent's starting departure time.
+        time = mapf.start_times[agent_id]
+
+        # All particles start at the first node at the same starting time.
+        time_array[1,1] = time
+
+        # To keep track of the intermediate goals, let's set:
+        advancement=1 # Looking for goal 1
+
+        for (edge_idx,edge) in enumerate(agent_solution)
+
+            # In case this edge is the last one we start traversing, we want to
+            # record the start time to set it as the new start time.
+            arrive_at_node1_time = time
+
+            # ----------------------- Node 1 ---------------------------- #
+
+            #Get the info for the delay of the distribution at this node
+            node1_delay = get_prop(mapf.graph, edge.src,:n_delay)
+            distrib = Gamma(node1_delay,lambda)
+
+            # Generate a random delay from this Distribution
+            node_time = rand(distrib,num_particles)
+
+            # What if our node is an intermediary goal? then we add goal
+            # completion time
+            task_completion_time = 0.0
+            if edge.src == mapf.goals[agent_id][advancement]
+                # What if it was actually the final goal?
+                if length(mapf.goals[agent_id]) == advancement
+                    # This means the goal was actually our first node
+                    # The agent thus stops moving and becomes part of the
+                    # dynamic environment as long as it does not have any new task
+                    # assigned to it. The new task will be assigned before
+                    # merging mapfs and the corresponding agent will be removed.
+                    mapf.start_time[agent_id] = 0.0
+                    mapf.goals[agent_id] = [edge.src]
+                    mapf.goal_completion_times[agent_id] = [500.0]
+                    mapf.starts[agent_id] = edge.src
+                    # Finally, because of this, if the agent is idle and awaiting
+                    # a new task, then everyone else will plan to avoid it.
+
+
+
+                else
+                    # We can get the task completion time
+                    task_completion_time = mapf.goal_completion_times[agent_id][advancement]
+                    advancement += 1
+                end
+            end
+
+            # Advance time with delay at node
+            time = time + node_time + task_completion_time
+
+            # Update time array with the time at which particles quit node 1
+            time_array[edge_idx,2] = time
+
+            # ------------------- Along the edge ------------------------ #
+
+            t_edge = get_prop(mapf.graph,edge,:weight) #scalar
+            edge_time = t_edge*ones(Float64,num_particles)
+
+            # Advance time for the particles
+            time = time + edge_time
+
+            # If time is bigger than end time, we will not say that the robot
+            # has arrived at end_time + remaining. While this would not be a
+            # problem in simulation, while we actually run the system we don't
+            # want to suppose what will happen and take it as valid. (+ we need
+            # the occupancy information at the edge for the remaining time.)
+            # Finally, we stop at the previous node and set the start time accordingly
+            if time > end_time
+
+                # Set new start time to time at which it entered node 1
+                mapf.start_time = arrive_at_node1_time
+
+                # Truncate every node it has traversed from the solution
+                # If first iteration, edge_idx = 1, the solution is returned whole
+                solution[agent_id] = solution[agent_id][edge_idx:end]
+
+                # Quit the for so that we push time_array into solution_times
+                break
+            end
+
+
+            # Add the deterministic time delay to indicate when the particle
+            # enters the second node of the edge
+            time_array[edge_idx+1,1] = time
+
+
+            # ----------------------- Node 2 ---------------------------- #
+            # ------------- Special case of target node ----------------- #
+            if edge_idx == length(agent_solution)
+                # Get the info for the delay of the distribution at this node
+                node1_delay = get_prop(mapf.graph, edge.dst,:n_delay)
+                distrib = Gamma(node1_delay,lambda)
+
+                # Generate a random delay from this Distribution
+                node_time = rand(distrib,num_particles)
+
+                # Advance time for the particles
+                time = time + node_time
+
+                # Update time array with the time at which particles quit node 2
+                time_array[edge_idx+1,2] = time
+            end
+
+        end
+        push!(solution_times,time_array)
+
+    end
+    return solution_times
 end
