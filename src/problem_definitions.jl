@@ -9,8 +9,8 @@ export
     goal vertices on that graph. Note that this is the _labeled_ case, where
     each agent has a specific assigned destination.
 """
-struct MAPF{S,G <: AbstractGraph} # Multi Agent Path Finding Problem
-    graph::G
+struct MAPF{S,G} # Multi Agent Path Finding Problem
+    graph::G # <: AbstractGraph
     starts::Vector{S}   # Vector of initial agent states
     goals::Vector{S}    # Vector of goal states
 end

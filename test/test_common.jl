@@ -92,21 +92,8 @@ let
     starts = [State(),State()]
     paths = [Path([P(),P()]),Path([P(),P()])]
 
-    error_thrown = false
-    try
-        detect_state_conflict(paths[1],paths[2],1)
-    catch ErrorException
-        error_thrown = true
-    end
-    @test error_thrown
-
-    error_thrown = false
-    try
-        detect_action_conflict(paths[1],paths[2],1)
-    catch ErrorException
-        error_thrown = true
-    end
-    @test error_thrown
+    @test_throws ErrorException detect_state_conflict(paths[1],paths[2],1)
+    @test_throws ErrorException detect_action_conflict(paths[1],paths[2],1)
 end
 let
     P = PathNode{CommonTests.State,CommonTests.Action}
@@ -180,29 +167,26 @@ let
     @test CRCBS.get_agent_id(action_constraint) == action_constraint.a
 end
 let
-    constraints = ConstraintDict(a = 1)
+    constraints = ConstraintTable(a = 1)
     @test get_agent_id(constraints) == constraints.a
-
-    # add a constraint whose agent id does not match
-    add_constraint!(constraints, StateConstraint(get_agent_id(constraints)+1,2,2))
+    # add a constraint whose agent id does not match (should throw an error)
+    @test_throws ErrorException add_constraint!(constraints, StateConstraint(get_agent_id(constraints)+1,2,2))
     @test length(constraints.state_constraints) == 0
     @test length(constraints.action_constraints) == 0
-
-    # add a constraint whose agent id DOES not match
+    # add a constraint whose agent id DOES match
     add_constraint!(constraints, StateConstraint(get_agent_id(constraints),1,1))
     @test length(constraints.state_constraints) == 1
     @test length(constraints.action_constraints) == 0
-    # add a constraint whose agent id DOES not match
+    # add a constraint whose agent id DOES match
     add_constraint!(constraints, ActionConstraint(get_agent_id(constraints),1,1))
     @test length(constraints.action_constraints) == 1
-
 end
 let
     P = PathNode{CommonTests.State,CommonTests.Action}
     State = CommonTests.State
     Action = CommonTests.Action
     node = ConstraintTreeNode{State,Action}()
-    node.constraints[1] = ConstraintDict()
+    node.constraints[1] = ConstraintTable(a = 1)
     @test get_cost(node) == 0
     get_constraints(node,1)
     @test add_constraint!(node,StateConstraint(1,1,1))

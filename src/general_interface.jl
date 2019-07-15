@@ -32,7 +32,8 @@ export
     get_path_cost,
     get_heuristic,
     violates_constraints,
-    check_termination_criteria
+    check_termination_criteria,
+    solve!
 
 struct DefaultState end
 struct DefaultAction end
@@ -95,7 +96,7 @@ Base.copy(p::Path) = Path(copy(p.path_nodes),p.cost)
     If `t` is greater than the length of `path`, the `PathNode` returned
     is (s,wait(s),s) corresponding to waiting at that node of the path
 """
-function get_path_node(path::Path{S,A},t) where {S,A}
+function get_path_node(path::Path{S,A},t::Int) where {S,A}
     if t <= length(path)
         return path[t]
     else
@@ -246,3 +247,10 @@ function violates_constraints end
     returns true if any termination criterion is satisfied
 """
 function check_termination_criteria end
+
+"""
+    `solve!(solver, env)`
+
+    Compute a solution from a solver and env
+"""
+function solve! end

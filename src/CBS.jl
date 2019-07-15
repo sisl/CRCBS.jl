@@ -17,18 +17,26 @@ end
 end
 @with_kw struct CBSLowLevelEnv{G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action}
     graph::G                    = Graph()
-    constraints::ConstraintDict = ConstraintDict()
+    constraints::ConstraintTable = ConstraintTable()
     goal::State                 = State()
     agent_idx::Int              = -1
 end
 
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
-CRCBS.is_goal(env::CBSLowLevelEnv,s::State) = states_match(s, env.goal)
+function CRCBS.is_goal(env::CBSLowLevelEnv,s::State)
+    if states_match(s, env.goal)
+        # for constraint in env.constraints
+        # else
+        # end
+        return true
+    end
+    return false
+end
 CRCBS.wait(s::State) = Action(e=Edge(s.vtx,s.vtx))
 
 # get_possible_actions
 struct ActionIter
-    env::CBSLowLevelEnv
+    # env::CBSLowLevelEnv
     s::Int # source state
     neighbor_list::Vector{Int} # length of target edge list
 end
@@ -46,20 +54,40 @@ function Base.iterate(it::ActionIter, iter_state::ActionIterState)
     end
     Action(e=Edge(it.s,it.neighbor_list[iter_state.idx])), iter_state
 end
-CRCBS.get_possible_actions(env::CBSLowLevelEnv,s::State) = ActionIter(env,s.vtx,outneighbors(env.graph,s.vtx))
+CRCBS.get_possible_actions(env::CBSLowLevelEnv,s::State) = ActionIter(s.vtx,outneighbors(env.graph,s.vtx))
 CRCBS.get_next_state(s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
 CRCBS.get_next_state(env::CBSLowLevelEnv,s::State,a::Action) = get_next_state(s,a)
 CRCBS.get_transition_cost(env::CBSLowLevelEnv,s::State,a::Action,sp::State) = 1
 function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{State,Action}, s::State, a::Action, sp::State)
     t = length(path) + 1
-    if get(env.constraints.state_constraints,StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t),false)
-        # @show s,a,sp
-        return true
-    elseif get(env.constraints.action_constraints,ActionConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t),false)
-        # @show s,a,sp
-        return true
+    cs = StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
+    for c in env.constraints.state_constraints
+        if c == cs
+            # @show s,a,sp
+            return true
+        end
+    end
+    ca = StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
+    for c in env.constraints.state_constraints
+        if c == ca
+            # @show s,a,sp
+            return true
+        end
     end
     return false
+
+    # if get(env.constraints.state_constraints,
+    #     StateConstraint(get_agent_id(env.constraints),
+    #     PathNode(s,a,sp),t),false)
+    #     # @show s,a,sp
+    #     return true
+    # elseif get(env.constraints.action_constraints,
+    #     ActionConstraint(get_agent_id(env.constraints),
+    #     PathNode(s,a,sp),t),false)
+    #     # @show s,a,sp
+    #     return true
+    # end
+    # return false
 end
 CRCBS.check_termination_criteria(env::CBSLowLevelEnv,cost,path,s) = false
 
@@ -68,7 +96,7 @@ const CBSPath = Path{State,Action}
 
 """ Returns an invalid StateConflict """
 # invalid_state_conflict() = StateConflict(-1,-1,invalid_state(0),invalid_state(0),-1)
-invalid_state_conflict() = Conflict{PathNode{State,State},PathNode{State,State}}(conflict_type=STATE_CONFLICT)
+invalid_state_conflict() = Conflict{PathNode{State,Action},PathNode{State,Action}}(conflict_type=STATE_CONFLICT)
 
 """
     Detect a `StateConflict` between two CBS path nodes.
@@ -82,7 +110,8 @@ end
 
 """ Returns an invalid ActionConflict """
 # invalid_action_conflict() = ActionConflict(-1,-1,invalid_state(0),invalid_state(0),-1)
-invalid_action_conflict() = ActionConflict{State,State}()
+# invalid_action_conflict() = ActionConflict{State,State}()
+invalid_action_conflict() = Conflict{PathNode{State,Action},PathNode{State,Action}}(conflict_type=ACTION_CONFLICT)
 
 """
     Detect an `ActionConflict` between two CBS path nodes.
@@ -100,8 +129,8 @@ end
 function initialize_root_node(mapf::MAPF)
     ConstraintTreeNode(
         solution = LowLevelSolution{State,Action}([CBSPath() for a in 1:num_agents(mapf)]),
-        constraints = Dict{Int,ConstraintDict}(
-            i=>ConstraintDict(a=i) for i in 1:length(mapf.starts)
+        constraints = Dict{Int,ConstraintTable}(
+            i=>ConstraintTable(a=i) for i in 1:length(mapf.starts)
             ),
         id = 1)
 end
@@ -110,7 +139,7 @@ end
     Initialize a new `ConstraintTreeNode` with the same `solution` and
     `constraints` as the parent node
 """
-function initialize_child_node(parent_node::ConstraintTreeNode)
+function initialize_child_search_node(parent_node::ConstraintTreeNode)
     ConstraintTreeNode(
         solution = copy(parent_node.solution),
         constraints = copy(parent_node.constraints),
@@ -159,7 +188,7 @@ end
 """
     Run Conflict-Based Search on an instance of MAPF
 """
-function (solver::CBSsolver)(mapf::MAPF,path_finder=A_star)
+function CRCBS.solve!(solver::CBSsolver, mapf::MAPF, path_finder=A_star)
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
     # node_list = Vector{ConstraintTreeNode}()
@@ -189,7 +218,7 @@ function (solver::CBSsolver)(mapf::MAPF,path_finder=A_star)
 
         # generate new nodes from constraints
         for constraint in constraints
-            new_node = initialize_child_node(node)
+            new_node = initialize_child_search_node(node)
             # new_node.id = length(node_list) + 1
             if add_constraint!(new_node,constraint)
                 low_level_search!(solver,mapf,new_node,[get_agent_id(constraint)])
@@ -590,7 +619,7 @@ end
 #     # Environment
 #     env::E
 #     # maps agent_id to the set of constraints involving that agent
-#     constraints::Dict{Int,ConstraintDict} = Dict{Int,ConstraintDict}()
+#     constraints::Dict{Int,ConstraintTable} = Dict{Int,ConstraintTable}()
 #     # maintains a list of all conflicts
 #     conflict_table::ConflictTable = ConflictTable()
 #     # set of paths (one per agent) through graph
@@ -618,8 +647,8 @@ end
 # function initialize_root_node(mapf::MAPF)
 #     ConstraintTreeNode(
 #         solution = LowLevelSolution{CBS_State,CBS_Action}([CBSPath() for a in 1:num_agents(mapf)]),
-#         constraints = Dict{Int,ConstraintDict}(
-#             i=>ConstraintDict(a=i) for i in 1:length(mapf.starts)
+#         constraints = Dict{Int,ConstraintTable}(
+#             i=>ConstraintTable(a=i) for i in 1:length(mapf.starts)
 #             ),
 #         id = 1)
 # end
@@ -628,7 +657,7 @@ end
 #     Initialize a new `ConstraintTreeNode` with the same `solution` and
 #     `constraints` as the parent node
 # """
-# function initialize_child_node(parent_node::ConstraintTreeNode)
+# function initialize_child_search_node(parent_node::ConstraintTreeNode)
 #     ConstraintTreeNode(
 #         solution = copy(parent_node.solution),
 #         constraints = copy(parent_node.constraints),
@@ -712,7 +741,7 @@ end
 #
 #         # generate new nodes from constraints
 #         for constraint in constraints
-#             new_node = initialize_child_node(node)
+#             new_node = initialize_child_search_node(node)
 #             # new_node.id = length(node_list) + 1
 #             if add_constraint!(new_node,constraint,mapf)
 #                 low_level_search!(solver,mapf,new_node,[get_agent_id(constraint)])
@@ -766,7 +795,7 @@ function (solver::ICBS)(mapf::MAPF,path_finder=LightGraphs.a_star)    # priority
 
         # generate new nodes from constraints
         for constraint in constraints
-            new_node = initialize_child_node(node)
+            new_node = initialize_child_search_node(node)
             if add_constraint!(new_node,constraint,mapf)
                 low_level_search!(mapf,new_node,[get_agent_id(constraint)])
                 if is_valid(new_node.solution, mapf)

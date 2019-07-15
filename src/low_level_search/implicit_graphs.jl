@@ -13,6 +13,7 @@ function A_star_impl!(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
     while !isempty(frontier)
         (cost_so_far, path, s) = dequeue!(frontier)
         if is_goal(env,s)
+            # TODO Check for constraints that take effect later than the completion time
             return path
         elseif check_termination_criteria(env,cost_so_far,path,s)
             break

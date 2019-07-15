@@ -33,12 +33,12 @@ export
     StateConstraint,
     ActionConstraint,
 
-    ConstraintDict,
+    ConstraintTable,
     add_constraint!,
 
     ConstraintTreeNode,
     initialize_root_node,
-    initialize_child_node,
+    initialize_child_search_node,
     get_constraints,
     violates_constraints,
     get_cost,
@@ -178,29 +178,6 @@ function detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect
     return conflict_table
 end
 
-# """
-#     Encodes a conflict wherein two agents occupy a particular node at a
-#     particular time.
-#
-#     Default constructor returns an INVALID instance
-# """
-# @with_kw struct StateConflict{S1,S2}
-#     agent1_id::Int = -1
-#     agent2_id::Int = -1
-#     state1::S1 = S1()
-#     state2::S2 = S2()
-#     t::Int = -1
-# end
-# conflict_type(s::StateConflict) = StateConflict
-# agent1_id(conflict::StateConflict) = conflict.agent1_id
-# agent2_id(conflict::StateConflict) = conflict.agent2_id
-# state1(conflict::StateConflict) = conflict.state1
-# state2(conflict::StateConflict) = conflict.state2
-# time_of(conflict::StateConflict) = conflict.t
-#
-# """ Checks if a node conflict is valid """
-# is_valid(conflict::StateConflict) = (agent1_id(conflict) != -1)
-
 """
     Detect a `StateConflict` between two path nodes. Must be overridden for each
     specific path class
@@ -218,29 +195,6 @@ function detect_state_conflict(path1::Path, path2::Path, t::Int)
     end
     return false
 end
-
-# """
-#     Encodes a conflict between two agents at a particular edge at a particular
-#     time. This means that the agents are trying to swap places at time t.
-#
-#     Default constructor returns an INVALID instance
-# """
-# @with_kw struct ActionConflict{S1,S2} <: CBSConflict
-#     agent1_id::Int = -1
-#     agent2_id::Int = -1
-#     state1::S1 = S1()
-#     state2::S2 = S2()
-#     t::Int = -1
-# end
-# conflict_type(s::ActionConflict) = ActionConflict
-# agent1_id(conflict::ActionConflict) = conflict.agent1_id
-# agent2_id(conflict::ActionConflict) = conflict.agent2_id
-# state1(conflict::ActionConflict) = conflict.state1
-# state2(conflict::ActionConflict) = conflict.state2
-# time_of(conflict::ActionConflict) = conflict.t
-#
-# """ checks if an edge node is invalid """
-# is_valid(conflict::ActionConflict) = (agent1_id(conflict) != -1)
 
 """
     Detect an `ActionConflict` between two path nodes. Must be overridden for
@@ -400,6 +354,7 @@ struct StateConstraint{N} <: CBSConstraint
     v::N   # PathNode
     t::Int # time ID
 end
+Base.isless(c1::CBSConstraint,c2::CBSConstraint) = ([c1.t] < [c2.t])
 
 """
     Encodes a constraint that agent `a` may not traverse `Edge(v1,v2)` at time
@@ -414,17 +369,19 @@ end
 """
     constraint dictionary for fast constraint lookup within a_star
 """
-@with_kw struct ConstraintDict
-    state_constraints::Dict{StateConstraint,Bool} = Dict{StateConstraint,Bool}()
-    action_constraints::Dict{ActionConstraint,Bool} = Dict{ActionConstraint,Bool}()
+@with_kw struct ConstraintTable
+    # state_constraints::Dict{StateConstraint,Bool} = Dict{StateConstraint,Bool}()
+    state_constraints::Vector{StateConstraint} = Vector{StateConstraint}()
+    # action_constraints::Dict{ActionConstraint,Bool} = Dict{ActionConstraint,Bool}()
+    action_constraints::Vector{ActionConstraint} = Vector{ActionConstraint}()
     a::Int = -1 # agent_id
 end
-get_agent_id(c::ConstraintDict) = c.a
+get_agent_id(c::ConstraintTable) = c.a
 
-# """ Helper function to merge two instances of `ConstraintDict` """
-# function Base.merge(d1::ConstraintDict,d2::ConstraintDict)
+# """ Helper function to merge two instances of `ConstraintTable` """
+# function Base.merge(d1::ConstraintTable,d2::ConstraintTable)
 #     @assert(get_agent_id(d1)==get_agent_id(d2))
-#     ConstraintDict(
+#     ConstraintTable(
 #         merge(d1.state_constraints,d2.state_constraints),
 #         merge(d1.action_constraints,d2.action_constraints),
 #         get_agent_id(d1)
@@ -432,34 +389,42 @@ get_agent_id(c::ConstraintDict) = c.a
 # end
 #
 # """
-#      Combines two `Dict`s of `ConstraintDict`s into a single `Dict` of
-#      `ConstraintDict`s where the value associated with each key in the
+#      Combines two `Dict`s of `ConstraintTable`s into a single `Dict` of
+#      `ConstraintTable`s where the value associated with each key in the
 #      resulting dictionary is the union of the values for the input dictionaries
 #      at that key
 # """
-# function Base.merge(dict1::Dict{K,ConstraintDict},dict2::Dict{K,ConstraintDict}) where K
+# function Base.merge(dict1::Dict{K,ConstraintTable},dict2::Dict{K,ConstraintTable}) where K
 #     new_dict = typeof(dict1)()
 #     for k in union(collect(keys(dict1)),collect(keys(dict2)))
-#         new_dict[k] = merge(get(dict1,k,ConstraintDict()), get(dict1,k,ConstraintDict()))
+#         new_dict[k] = merge(get(dict1,k,ConstraintTable()), get(dict1,k,ConstraintTable()))
 #     end
 #     return new_dict
 # end
 
 """
-    Adds a `StateConstraint` to a ConstraintDict
+    Adds a `StateConstraint` to a ConstraintTable
 """
-function add_constraint!(constraint_dict::ConstraintDict,constraint::StateConstraint)
+function add_constraint!(constraint_dict::ConstraintTable,constraint::StateConstraint)
     if get_agent_id(constraint_dict) == get_agent_id(constraint)
-        constraint_dict.state_constraints[constraint] = true
+        # constraint_dict.state_constraints[constraint] = true
+        # insert constraint so that sorted order is maintained
+        insert_to_sorted_array!(constraint_dict.state_constraints, constraint)
+    else
+        error("get_agent_id(constraint_dict) != get_agent_id(constraint)")
     end
 end
 
 """
-    Adds an `ActionConstraint` to a ConstraintDict
+    Adds an `ActionConstraint` to a ConstraintTable
 """
-function add_constraint!(constraint_dict::ConstraintDict,constraint::ActionConstraint)
+function add_constraint!(constraint_dict::ConstraintTable,constraint::ActionConstraint)
     if get_agent_id(constraint_dict) == get_agent_id(constraint)
-        constraint_dict.action_constraints[constraint] = true
+        # constraint_dict.action_constraints[constraint] = true
+        # insert constraint so that sorted order is maintained
+        insert_to_sorted_array!(constraint_dict.action_constraints, constraint)
+    else
+        error("get_agent_id(constraint_dict) != get_agent_id(constraint)")
     end
 end
 
@@ -472,7 +437,7 @@ end
     # # Environment
     # env::E
     # maps agent_id to the set of constraints involving that agent
-    constraints     ::Dict{Int,ConstraintDict} = Dict{Int,ConstraintDict}()
+    constraints     ::Dict{Int,ConstraintTable} = Dict{Int,ConstraintTable}()
     # maintains a list of all conflicts
     conflict_table  ::ConflictTable             = ConflictTable()
     # set of paths (one per agent) through graph
@@ -491,34 +456,18 @@ end
     retrieve constraints corresponding to this node and this path
 """
 function get_constraints(node::ConstraintTreeNode, path_id::Int)
-    return get(node.constraints, path_id, ConstraintDict())
+    return get(node.constraints, path_id, ConstraintTable(a = path_id))
 end
 
 """
     adds a `StateConstraint` to a ConstraintTreeNode
 """
-function add_constraint!(node::ConstraintTreeNode,constraint::StateConstraint) #,mapf::MAPF)
+function add_constraint!(node::ConstraintTreeNode,constraint::CBSConstraint) #,mapf::MAPF)
     # Constraint is not legal if it prevents an agent from reaching its goal
     # if !(states_match(get_s(constraint.v), mapf.goals[get_agent_id(constraint)])
     #     || states_match(get_sp(constraint.v), mapf.goals[get_agent_id(constraint)]))
-    node.constraints[get_agent_id(constraint)].state_constraints[constraint] = true
+    add_constraint!(get_constraints(node, get_agent_id(constraint)), constraint)
     return true
-    # end
-    # return false
-end
-
-"""
-    adds an `ActionConstraint` to a ConstraintTreeNode
-"""
-function add_constraint!(node::ConstraintTreeNode,constraint::ActionConstraint) #,mapf::MAPF)
-    # Constraint is not legal if it prevents an agent from remaining at its goal
-    # if !(states_match(get_s(constraint.v), mapf.goals[get_agent_id(constraint)])
-    #     && states_match(get_sp(constraint.v), mapf.goals[get_agent_id(constraint)]))
-    node.constraints[get_agent_id(constraint)].action_constraints[constraint] = true
-    # node.constraints[get_agent_id(constraint)].action_constraints[flip(constraint)] = true
-    return true
-    # end
-    # return false
 end
 
 # """
@@ -544,26 +493,6 @@ end
 function get_cost(node::ConstraintTreeNode)
     return get_cost(node.solution)
 end
-
-# """
-#     generates a set of constraints from a StateConflict
-# """
-# function generate_constraints_from_conflict(conflict::StateConflict)
-#     return [
-#         # Agent 1 may not occupy node at time t + 1
-#         StateConstraint(
-#             agent1_id(conflict),
-#             state1(conflict),
-#             time_of(conflict)
-#         ),
-#         # Agent 2 may not occupy node at time t + 1
-#         StateConstraint(
-#             agent2_id(conflict),
-#             state2(conflict),
-#             time_of(conflict)
-#         )
-#         ]
-# end
 
 """
     generates a Vector of (State or Action) Constraints from a conflict
@@ -595,25 +524,3 @@ function generate_constraints_from_conflict(conflict::Conflict)
     end
     return constraints
 end
-
-# """
-#     generates a set of constraints from an ActionConflict
-# """
-# function generate_constraints_from_conflict(conflict::ActionConflict)
-#     return [
-#         # Agent 1 may not traverse Edge(node1,node2) at time t
-#         ActionConstraint(
-#             agent1_id(conflict),
-#             state1(conflict),
-#             state2(conflict),
-#             time_of(conflict) # + 1
-#         ),
-#         # Agent 2 may not traverse Edge(node2,node1) at time t
-#         ActionConstraint(
-#             agent2_id(conflict),
-#             state2(conflict),
-#             state1(conflict),
-#             time_of(conflict) # + 1
-#         )
-#         ]
-# end

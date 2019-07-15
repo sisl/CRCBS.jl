@@ -47,6 +47,9 @@ end
     @time @testset "CRCBS.CommonTests" begin
         include(joinpath(testdir, "test_common.jl"))
     end
+    @time @testset "CRCBS.UtilsTests" begin
+        include(joinpath(testdir, "test_utils.jl"))
+    end
     @time @testset "CRCBS.ImplicitGraphsTests" begin
         include(joinpath(testdir, "test_implicit_graph.jl"))
     end

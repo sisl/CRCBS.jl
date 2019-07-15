@@ -15,8 +15,8 @@ StateConstraint
 ActionConstraint
 ConstraintTreeNode
 initialize_root_node
-initialize_child_node
-ConstraintDict
+initialize_child_search_node
+ConstraintTable
 get_constraints
 add_constraint!
 violates_constraints

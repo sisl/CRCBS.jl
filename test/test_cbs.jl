@@ -65,7 +65,7 @@ let
     graph = Graph(3)
     add_edge!(graph,1,2)
     add_edge!(graph,1,3)
-    constraints = ConstraintDict()
+    constraints = ConstraintTable()
     env = CBS.CBSLowLevelEnv() #graph=graph,constraints=constraints)
     # s = State(1)
     # for a in get_possible_actions(env,s)
@@ -85,7 +85,7 @@ let
     # for p in node.solution
     #     @show [n.sp for n in p.path_nodes]
     # end
-    solver(mapf)
+    CRCBS.solve!(solver,mapf)
     # conflict_table = detect_conflicts(node.solution)
     # detect_conflicts!(conflict_table,node.solution,[1])
     # get_next_conflicts(conflict_table)
