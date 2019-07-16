@@ -186,6 +186,9 @@ function low_level_search!(
     # Only compute a path for the indices specified by idxs
     for i in idxs
         # TODO allow passing custom heuristic
+        dists = gdistances(mapf.graph,mapf.goals[i].vtx)
+        heuristic(s) = dists[s.vtx]
+        
         path = path_finder(
             CBSLowLevelEnv(
                 graph = mapf.graph,
@@ -194,7 +197,7 @@ function low_level_search!(
                 agent_idx = i
                 ),
                 mapf.starts[i],
-                s -> states_match(s,mapf.goals[i])
+                heuristic #s -> states_match(s,mapf.goals[i])
             )
         node.solution[i] = path
     end
@@ -220,20 +223,20 @@ function CRCBS.solve!(solver::CBSsolver, mapf::MAPF, path_finder=A_star)
         # push!(node_list,root_node)
     end
 
-    k = 0
+#     k = 0
     while length(priority_queue) > 0
-        @show k += 1
+#         @show k += 1
         node = dequeue!(priority_queue)
         # check for conflicts
         conflict = get_next_conflict(node.conflict_table)
-        @show conflict.node1.sp, conflict.agent1_id
+#         @show conflict.node1.sp, conflict.agent1_id
         if is_valid(conflict)
             constraints = generate_constraints_from_conflict(conflict)
         else
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
-            for (i,p) in enumerate(node.solution)
-                @show i=>[n.sp.vtx for n in p.path_nodes]
-            end
+#             for (i,p) in enumerate(node.solution)
+#                 @show i=>[n.sp.vtx for n in p.path_nodes]
+#             end
             return node.solution, node.cost
         end
 
@@ -243,9 +246,9 @@ function CRCBS.solve!(solver::CBSsolver, mapf::MAPF, path_finder=A_star)
             # new_node.id = length(node_list) + 1
             if add_constraint!(new_node,constraint)
                 low_level_search!(solver,mapf,new_node,[get_agent_id(constraint)])
-                for (i,p) in enumerate(new_node.solution)
-                    @show i=>[n.sp.vtx for n in p.path_nodes]
-                end
+#                 for (i,p) in enumerate(new_node.solution)
+#                     @show i=>[n.sp.vtx for n in p.path_nodes]
+#                 end
                 detect_conflicts!(new_node.conflict_table,new_node.solution,[get_agent_id(constraint)]) # update conflicts related to this agent
                 if is_valid(new_node.solution, mapf)
                     # @show new_node.constraints
