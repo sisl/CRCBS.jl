@@ -126,14 +126,15 @@ end
     find_index_in_sorted_array(array, x)
 
     Assumes that array is already sorted. Returns index at which x would need to
-    be inserted in order to maintain ordering of array
+    be inserted in order to maintain ordering of array. Chooses the smallest
+    index in the case of a tie.
 """
 function find_index_in_sorted_array(array, x)
     A = 0
     C = length(array)+1
     B = max(1,Int(round((A+C) / 2)))
     while C-A > 1
-        if x < array[B]
+        if x < array[B] || ( !(array[B] < x) && !(x < array[B]))
             A = A
             C = B
             B = Int(ceil((A+C) / 2))

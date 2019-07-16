@@ -30,6 +30,7 @@ export
 
     CBSConstraint,
     get_agent_id,
+    get_time_of,
     StateConstraint,
     ActionConstraint,
 
@@ -345,6 +346,8 @@ end
 
 abstract type CBSConstraint end
 get_agent_id(c::CBSConstraint) = c.a
+get_time_of(c::CBSConstraint) = c.t
+get_path_node(c::CBSConstraint) = c.v
 
 """
     Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
@@ -370,10 +373,12 @@ end
     constraint dictionary for fast constraint lookup within a_star
 """
 @with_kw struct ConstraintTable
-    # state_constraints::Dict{StateConstraint,Bool} = Dict{StateConstraint,Bool}()
-    state_constraints::Vector{StateConstraint} = Vector{StateConstraint}()
-    # action_constraints::Dict{ActionConstraint,Bool} = Dict{ActionConstraint,Bool}()
-    action_constraints::Vector{ActionConstraint} = Vector{ActionConstraint}()
+    # Sets
+    state_constraints::Set{StateConstraint} = Set{StateConstraint}()
+    action_constraints::Set{ActionConstraint} = Set{ActionConstraint}()
+    # Vectors
+    sorted_state_constraints::Vector{StateConstraint} = Vector{StateConstraint}()
+    sorted_action_constraints::Vector{ActionConstraint} = Vector{ActionConstraint}()
     a::Int = -1 # agent_id
 end
 get_agent_id(c::ConstraintTable) = c.a
@@ -407,9 +412,9 @@ get_agent_id(c::ConstraintTable) = c.a
 """
 function add_constraint!(constraint_dict::ConstraintTable,constraint::StateConstraint)
     if get_agent_id(constraint_dict) == get_agent_id(constraint)
-        # constraint_dict.state_constraints[constraint] = true
+        push!(constraint_dict.state_constraints, constraint)
         # insert constraint so that sorted order is maintained
-        insert_to_sorted_array!(constraint_dict.state_constraints, constraint)
+        insert_to_sorted_array!(constraint_dict.sorted_state_constraints, constraint)
     else
         error("get_agent_id(constraint_dict) != get_agent_id(constraint)")
     end
@@ -420,9 +425,9 @@ end
 """
 function add_constraint!(constraint_dict::ConstraintTable,constraint::ActionConstraint)
     if get_agent_id(constraint_dict) == get_agent_id(constraint)
-        # constraint_dict.action_constraints[constraint] = true
+        push!(constraint_dict.action_constraints, constraint)
         # insert constraint so that sorted order is maintained
-        insert_to_sorted_array!(constraint_dict.action_constraints, constraint)
+        insert_to_sorted_array!(constraint_dict.sorted_action_constraints, constraint)
     else
         error("get_agent_id(constraint_dict) != get_agent_id(constraint)")
     end

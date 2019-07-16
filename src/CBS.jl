@@ -25,9 +25,19 @@ end
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
 function CRCBS.is_goal(env::CBSLowLevelEnv,s::State)
     if states_match(s, env.goal)
-        # for constraint in env.constraints
-        # else
-        # end
+        ###########################
+        # Cannot terminate if there is a constraint on the goal state in the
+        # future (e.g. the robot will need to move out of the way so another
+        # robot can pass)
+        for constraint in env.constraints.sorted_state_constraints
+            if s.t < get_time_of(constraint)
+                if states_match(s, get_sp(constraint.v))
+                    # @show s.t, get_time_of(constraint)
+                    return false
+                end
+            end
+        end
+        ###########################
         return true
     end
     return false
@@ -60,32 +70,40 @@ CRCBS.get_next_state(env::CBSLowLevelEnv,s::State,a::Action) = get_next_state(s,
 CRCBS.get_transition_cost(env::CBSLowLevelEnv,s::State,a::Action,sp::State) = 1
 function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{State,Action}, s::State, a::Action, sp::State)
     t = length(path) + 1
-    cs = StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
-    for c in env.constraints.state_constraints
-        if c == cs
-            # @show s,a,sp
-            return true
-        end
-    end
-    ca = StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
-    for c in env.constraints.state_constraints
-        if c == ca
-            # @show s,a,sp
-            return true
-        end
+    if StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t) in env.constraints.state_constraints
+        # @show s,a,sp
+        return true
+    elseif ActionConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t) in env.constraints.action_constraints
+        # @show s,a,sp
+        return true
     end
     return false
 
-    # if get(env.constraints.state_constraints,
-    #     StateConstraint(get_agent_id(env.constraints),
-    #     PathNode(s,a,sp),t),false)
-    #     # @show s,a,sp
-    #     return true
-    # elseif get(env.constraints.action_constraints,
-    #     ActionConstraint(get_agent_id(env.constraints),
-    #     PathNode(s,a,sp),t),false)
-    #     # @show s,a,sp
-    #     return true
+    # cs = StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
+    # constraints = env.constraints.sorted_state_constraints
+    # idx = max(1, find_index_in_sorted_array(constraints, cs)-1)
+    # for i in idx:length(constraints)
+    #     c = constraints[i]
+    #     if c == cs
+    #         @show s,a,sp
+    #         return true
+    #     end
+    #     if c.t < cs.t
+    #         break
+    #     end
+    # end
+    # ca = StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
+    # constraints = env.constraints.sorted_action_constraints
+    # idx = max(1, find_index_in_sorted_array(constraints, ca)-1)
+    # for i in idx:length(constraints)
+    #     c = constraints[i]
+    #     if c == ca
+    #         @show s,a,sp
+    #         return true
+    #     end
+    #     if c.t < ca.t
+    #         break
+    #     end
     # end
     # return false
 end
@@ -213,6 +231,9 @@ function CRCBS.solve!(solver::CBSsolver, mapf::MAPF, path_finder=A_star)
             constraints = generate_constraints_from_conflict(conflict)
         else
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
+            for (i,p) in enumerate(node.solution)
+                @show i=>[n.sp.vtx for n in p.path_nodes]
+            end
             return node.solution, node.cost
         end
 
@@ -222,8 +243,8 @@ function CRCBS.solve!(solver::CBSsolver, mapf::MAPF, path_finder=A_star)
             # new_node.id = length(node_list) + 1
             if add_constraint!(new_node,constraint)
                 low_level_search!(solver,mapf,new_node,[get_agent_id(constraint)])
-                for p in new_node.solution
-                    @show [n.sp.vtx for n in p.path_nodes]
+                for (i,p) in enumerate(new_node.solution)
+                    @show i=>[n.sp.vtx for n in p.path_nodes]
                 end
                 detect_conflicts!(new_node.conflict_table,new_node.solution,[get_agent_id(constraint)]) # update conflicts related to this agent
                 if is_valid(new_node.solution, mapf)
