@@ -23,7 +23,10 @@ num_goals(mapf::AbstractMAPF) = length(mapf.goals)
 """
     MultiMAPF{S,G}
 
-    A multi-stage MAPF, where agents have a sequence of assigned goals
+    The Multi-Stage Multi-Agent Path-Finding problem. Each agent is assigned an
+    arbitrarily long vector of goal states to visit, and the optimal solution is
+    the lowest-cost list of trajectories for which each agent visits its
+    assigned goals in the specified order.
 """
 struct MultiMAPF{S,G} <: AbstractMAPF
     graph::G # <: AbstractGraph
