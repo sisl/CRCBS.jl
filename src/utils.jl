@@ -2,18 +2,9 @@ export
     get_dist_matrix,
     pad_matrix,
     initialize_full_grid_graph,
-    initialize_regular_grid_graph
-
-"""
-    Get the distance matrix corresponding to the edge weights of a graph
-"""
-function get_dist_matrix(G::AbstractGraph)
-    distmx = zeros(Float64,nv(G),nv(G))
-    for v in vertices(G)
-        distmx[v,:] .= dijkstra_shortest_paths(G,v).dists
-    end
-    distmx
-end
+    initialize_regular_grid_graph,
+    find_index_in_sorted_array,
+    insert_to_sorted_array!
 
 """
     helper to pad a matrix with some value around the edges
@@ -128,3 +119,41 @@ function initialize_regular_grid_graph(;
     end
     G
 end
+
+# """
+#     find_index_in_sorted_array(array, x)
+#
+#     Assumes that array is already sorted. Returns index at which x would need to
+#     be inserted in order to maintain ordering of array. Chooses the smallest
+#     index in the case of a tie.
+# """
+# function find_index_in_sorted_array(array, x)
+#     A = 0
+#     C = length(array)+1
+#     B = max(1,Int(round((A+C) / 2)))
+#     while C-A > 1
+#         if x < array[B] || ( !(array[B] < x) && !(x < array[B]))
+#             A = A
+#             C = B
+#             B = Int(ceil((A+C) / 2))
+#         else
+#             A = B
+#             C = C
+#             B = Int(ceil((A+C) / 2))
+#         end
+#     end
+#     return B
+# end
+#
+# """
+#     insert_to_sorted_array!(array, x)
+#
+#     Assumes that array is already sorted. Inserts new element x so that
+#     array remains sorted. Requires that Base.isless(a::C,b::C) where
+#     C==typeof(x) be implemented.
+# """
+# function insert_to_sorted_array!(array, x)
+#     B = find_index_in_sorted_array(array, x)
+#     insert!(array, B, x)
+#     array
+# end
