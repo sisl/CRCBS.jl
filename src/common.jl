@@ -49,7 +49,7 @@ export
 """
     Checks if an individual path satisfies start and end constraints
 """
-function is_valid(path::Path{S,A},start::S,goal::S) where {S,A}
+function is_valid(path::Path{S,A},start::S,goal::G) where {S,G,A}
     return (states_match(get_initial_state(path), start)
         && states_match(get_final_state(path), goal))
 end
@@ -57,7 +57,7 @@ end
 """
     checks if a solution is valid
 """
-function is_valid(solution::LowLevelSolution{S,A},starts::Vector{S},goals::Vector{S}) where {S,A}
+function is_valid(solution::LowLevelSolution{S,A},starts::Vector{S},goals::Vector{G}) where {S,G,A}
     for (i,path) in enumerate(solution)
         if !is_valid(path,starts[i],goals[i])
             return false
@@ -69,7 +69,7 @@ end
 """
     checks if a solution is valid
 """
-function is_valid(solution::LowLevelSolution,mapf::MAPF)
+function is_valid(solution::LowLevelSolution,mapf::AbstractMAPF)
     is_valid(solution,mapf.starts,mapf.goals)
 end
 

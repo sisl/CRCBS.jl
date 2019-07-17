@@ -39,6 +39,7 @@ struct DefaultState end
 struct DefaultAction end
 wait(DefaultState) = DefaultAction()
 get_next_state(s::DefaultState,a::DefaultAction) = DefaultState()
+get_next_state(env,s::DefaultState,a::DefaultAction) = DefaultState()
 
 """
     `AbstractLowLevelEnv{S,A}`
