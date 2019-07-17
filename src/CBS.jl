@@ -256,7 +256,7 @@ function CRCBS.solve!(solver::CBSsolver, mapf::MAPF, path_finder=A_star)
         for constraint in constraints
             new_node = initialize_child_search_node(node)
             # new_node.id = length(node_list) + 1
-            if add_constraint!(new_node,constraint)
+            if add_constraint!(new_node,constraint) && length(node.solution[get_agent_id(constraint)].path_nodes) > constraint.t
                 low_level_search!(solver,mapf,new_node,[get_agent_id(constraint)])
                 # for (i,p) in enumerate(new_node.solution)
                 #     @show i=>[n.sp.vtx for n in p.path_nodes]
