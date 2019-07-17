@@ -60,10 +60,15 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     s::Integer,                       # the start vertex
     t::Integer,                       # the end vertex
     constraints::C,         # constraints on which nodes can be traversed at which time
+    distmx_DP,
     distmx::AbstractMatrix{T}=weights(g),
     heuristic::Function=n -> zero(T)) where {C, T, U}
 
     E = Edge{eltype(g)}
+
+    function heuristic_n(n)
+        return distmx_DP[n,t]
+    end
 
     # if we do checkbounds here, we can use @inbounds in a_star_impl!
     checkbounds(distmx, Base.OneTo(nv(g)), Base.OneTo(nv(g)))
@@ -72,5 +77,5 @@ function LightGraphs.a_star(g::AbstractGraph{U},  # the g
     frontier[(zero(T), Vector{E}(), U(s))] = zero(T)
     colormap = empty_colormap(nv(g))
     colormap[s] = 1
-    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, colormap, distmx, heuristic)
+    LightGraphs.a_star_impl!(g, U(t), frontier, constraints, colormap, distmx, heuristic_n)
 end

@@ -5,6 +5,7 @@ using DataStructures
 using LightGraphs, MetaGraphs
 using LinearAlgebra
 using NearestNeighbors
+using JLD
 
 include("utils.jl")
 include("low_level_search/a_star.jl")
@@ -484,12 +485,14 @@ end
 """
 function low_level_search!(mapf::MAPF,
     node::ConstraintTreeNode,
+    distmx,
+    distmx_DP,
     idxs=collect(1:num_agents(mapf)),
     path_finder=LightGraphs.a_star)
     # Only compute a path for the indices specified by idxs
     for i in idxs
         # TODO allow passing custom heuristic
-        path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i))
+        path = path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),distmx_DP,distmx)
         node.solution[i] = path
     end
     node.cost = get_cost(node.solution)
@@ -515,38 +518,64 @@ function (solver::CBS)(mapf::MAPF,path_finder=LightGraphs.a_star)
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 
+    # For astar, add delay information to the graph that you didn't have while constructing it
+    distmx = 1000000 .* ones(length(vertices(mapf.graph)),length(vertices(mapf.graph)))
+    for e in edges(mapf.graph)
+        distmx[e.src,e.dst] = 1.0
+    end
+    for v in vertices(mapf.graph)
+        distmx[v,v] = 1
+    end
+
+    #Now that the weight matrix is computed, let's find the distmx for the heuristic
+    distmx_DP = compute_distance_matrix(mapf.graph,distmx)
+
+    # Counting time spent on astar and finding the next conflict
+    astartime = 0
+    fnctime = 0
+    num_iterations=0
+
     root_node = initialize_root_node(mapf)
-    low_level_search!(mapf,root_node)
+    res = @timed(low_level_search!(mapf,root_node,distmx,distmx_DP))
+    astartime += res[2]
     if is_valid(root_node.solution,mapf)
         enqueue!(priority_queue, root_node => root_node.cost)
     end
 
     while length(priority_queue) > 0
         node = dequeue!(priority_queue)
+
         # check for conflicts
-        node_conflict, edge_conflict = get_next_conflicts(node.solution)
+        gnc = @timed(get_next_conflicts(node.solution))
+        node_conflict = gnc[1][1]
+        edge_conflict = gnc[1][2]
+        fnctime += gnc[2]
+
         if is_valid(node_conflict)
             constraints = generate_constraints_from_conflict(node_conflict)
         elseif is_valid(edge_conflict)
             constraints = generate_constraints_from_conflict(edge_conflict)
         else
             print("Optimal Solution Found! Cost = ",node.cost,"\n")
-            return node.solution, node.cost
+            return node.solution, node.cost,astartime,fnctime,num_iterations
         end
 
         # generate new nodes from constraints
         for constraint in constraints
             new_node = initialize_child_node(node)
             if add_constraint!(new_node,constraint,mapf)
-                low_level_search!(mapf,new_node,[get_agent_id(constraint)])
+                res = @timed(low_level_search!(mapf,new_node,distmx,distmx_DP,[get_agent_id(constraint)]))
+                astartime += res[2]
                 if is_valid(new_node.solution, mapf)
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end
             end
         end
+        num_iterations += 1
+        #println("Iteration")
     end
     print("No Solution Found. Returning default solution")
-    return LowLevelSolution(), typemax(Int)
+    return LowLevelSolution(), typemax(Int),astartime,fnctime,num_iterations
 end
 
 """
@@ -598,5 +627,6 @@ function (solver::ICBS)(mapf::MAPF,path_finder=LightGraphs.a_star)    # priority
 end
 
 include("low_level_search/heuristics.jl")
+include("simulations.jl")
 
 end # module
