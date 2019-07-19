@@ -38,12 +38,14 @@ export
     add_constraint!,
 
     ConstraintTreeNode,
-    initialize_root_node,
+    # initialize_root_node,
     initialize_child_search_node,
     get_constraints,
     violates_constraints,
     get_cost,
-    generate_constraints_from_conflict
+    generate_constraints_from_conflict,
+
+    low_level_search!
 
 
 """
@@ -458,6 +460,21 @@ end
 end
 
 """
+    `initialize_child_search_node(parent_node::ConstraintTreeNode)`
+
+    Initialize a new `ConstraintTreeNode` with the same `solution` and
+    `constraints` as the parent node
+"""
+function initialize_child_search_node(parent_node::ConstraintTreeNode)
+    ConstraintTreeNode(
+        solution = copy(parent_node.solution),
+        constraints = copy(parent_node.constraints),
+        conflict_table = copy(parent_node.conflict_table),
+        parent = parent_node.id
+    )
+end
+
+"""
     retrieve constraints corresponding to this node and this path
 """
 function get_constraints(node::ConstraintTreeNode, path_id::Int)
@@ -528,4 +545,34 @@ function generate_constraints_from_conflict(conflict::Conflict)
         ))
     end
     return constraints
+end
+
+"""
+    `low_level_search!(
+        solver::S where {S<:AbstractMAPFSolver},
+        mapf::M where {M<:AbstractMAPF},
+        node::ConstraintTreeNode,
+        idxs=collect(1:num_agents(mapf)),
+        path_finder=A_star)`
+
+    Returns a low level solution for a MAPF with constraints. The heuristic
+    function for cost-to-go is user-defined and environment-specific
+"""
+function low_level_search!(
+    solver::S where {S<:AbstractMAPFSolver},
+    mapf::M where {M<:AbstractMAPF},
+    node::ConstraintTreeNode,
+    idxs=collect(1:num_agents(mapf)),
+    path_finder=A_star)
+    # Only compute a path for the indices specified by idxs
+    for i in idxs
+        env = build_env(mapf, node, i)
+        h = s-> heuristic(env,s)
+        # Solve!
+        path = path_finder(env, mapf.starts[i], h)
+        node.solution[i] = path
+    end
+    node.cost = get_cost(node.solution)
+    # TODO check if solution is valid
+    return true
 end

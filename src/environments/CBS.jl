@@ -15,15 +15,34 @@ end
     e::Edge{Int}    = Edge(-1,-1)
     Δt::Int         = 1
 end
-@with_kw struct CBSLowLevelEnv{G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action}
+function construct_distance_array(G,goal)
+    if goal.vtx != -1 && nv(G) > goal.vtx
+        d = gdistances(G,goal.vtx)
+    else
+        d = Vector{Float64}()
+    end
+    return d
+end
+@with_kw struct LowLevelEnv{G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action}
     graph::G                    = Graph()
     constraints::ConstraintTable = ConstraintTable()
     goal::State                 = State()
     agent_idx::Int              = -1
+    # helpers
+    dists::Vector{Float64}      = construct_distance_array(graph,goal)
 end
+function CRCBS.build_env(mapf::MAPF, node::ConstraintTreeNode, idx::Int)
+    LowLevelEnv(
+        graph = mapf.graph,
+        constraints = get_constraints(node,idx),
+        goal = mapf.goals[idx],
+        agent_idx = idx
+        )
+end
+CRCBS.heuristic(env::LowLevelEnv,s) = env.dists[s.vtx]
 
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
-function CRCBS.is_goal(env::CBSLowLevelEnv,s::State)
+function CRCBS.is_goal(env::LowLevelEnv,s::State)
     if states_match(s, env.goal)
         ###########################
         # Cannot terminate if there is a constraint on the goal state in the
@@ -46,7 +65,7 @@ CRCBS.wait(s::State) = Action(e=Edge(s.vtx,s.vtx))
 
 # get_possible_actions
 struct ActionIter
-    # env::CBSLowLevelEnv
+    # env::LowLevelEnv
     s::Int # source state
     neighbor_list::Vector{Int} # length of target edge list
 end
@@ -64,11 +83,11 @@ function Base.iterate(it::ActionIter, iter_state::ActionIterState)
     end
     Action(e=Edge(it.s,it.neighbor_list[iter_state.idx])), iter_state
 end
-CRCBS.get_possible_actions(env::CBSLowLevelEnv,s::State) = ActionIter(s.vtx,outneighbors(env.graph,s.vtx))
+CRCBS.get_possible_actions(env::LowLevelEnv,s::State) = ActionIter(s.vtx,outneighbors(env.graph,s.vtx))
 CRCBS.get_next_state(s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
-CRCBS.get_next_state(env::CBSLowLevelEnv,s::State,a::Action) = get_next_state(s,a)
-CRCBS.get_transition_cost(env::CBSLowLevelEnv,s::State,a::Action,sp::State) = 1
-function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{State,Action}, s::State, a::Action, sp::State)
+CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action) = get_next_state(s,a)
+CRCBS.get_transition_cost(env::LowLevelEnv,s::State,a::Action,sp::State) = 1
+function CRCBS.violates_constraints(env::LowLevelEnv, path::Path{State,Action}, s::State, a::Action, sp::State)
     t = length(path) + 1
     if StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t) in env.constraints.state_constraints
         # @show s,a,sp
@@ -107,7 +126,7 @@ function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{State,Action
     # end
     # return false
 end
-CRCBS.check_termination_criteria(env::CBSLowLevelEnv,cost,path,s) = false
+CRCBS.check_termination_criteria(env::LowLevelEnv,cost,path,s) = false
 
 """ Type alias for a path through the graph """
 const CBSPath = Path{State,Action}
@@ -156,7 +175,7 @@ end
 """
     Construct an empty `ConstraintTreeNode` from a `MAPF` instance
 """
-function initialize_root_node(mapf::MAPF)
+function CRCBS.initialize_root_node(mapf::MAPF)
     ConstraintTreeNode(
         solution = LowLevelSolution{State,Action}([CBSPath() for a in 1:num_agents(mapf)]),
         constraints = Dict{Int,ConstraintTable}(
@@ -165,118 +184,94 @@ function initialize_root_node(mapf::MAPF)
         id = 1)
 end
 
-"""
-    Initialize a new `ConstraintTreeNode` with the same `solution` and
-    `constraints` as the parent node
-"""
-function initialize_child_search_node(parent_node::ConstraintTreeNode)
-    ConstraintTreeNode(
-        solution = copy(parent_node.solution),
-        constraints = copy(parent_node.constraints),
-        conflict_table = copy(parent_node.conflict_table),
-        parent = parent_node.id
-    )
-end
+# """
+#     Initialize a new `ConstraintTreeNode` with the same `solution` and
+#     `constraints` as the parent node
+# """
+# function initialize_child_search_node(parent_node::ConstraintTreeNode)
+#     ConstraintTreeNode(
+#         solution = copy(parent_node.solution),
+#         constraints = copy(parent_node.constraints),
+#         conflict_table = copy(parent_node.conflict_table),
+#         parent = parent_node.id
+#     )
+# end
+
+# """
+#     The Conflict-Based Search algorithm for multi-agent path finding - Sharon et
+#     al 2012
+#
+#     https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
+# """
+# struct CBSsolver <: AbstractMAPFSolver end
 
 """
-    The Conflict-Based Search algorithm for multi-agent path finding - Sharon et
-    al 2012
+    `default_solution(solver::CBS_Solver, mapf::MAPF)`
 
-    https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
+    Defines what is returned by the solver in case of failure to find a feasible
+    solution.
 """
-struct CBSsolver <: AbstractMAPFSolver end
+CRCBS.default_solution(solver::CBS_Solver, mapf::MAPF) = LowLevelSolution{State,Action}(), typemax(Int)
 
-"""
-    Returns a low level solution for a MAPF with constraints
-"""
-function low_level_search!(
-    solver::CBSsolver,
-    mapf::MAPF,
-    node::ConstraintTreeNode,
-    idxs=collect(1:num_agents(mapf)),
-    path_finder=A_star)
-    # Only compute a path for the indices specified by idxs
-    for i in idxs
-        # TODO allow passing custom heuristic
-        dists = gdistances(mapf.graph,mapf.goals[i].vtx)
-        heuristic(s) = dists[s.vtx]
-
-        path = path_finder(
-            CBSLowLevelEnv(
-                graph = mapf.graph,
-                constraints = get_constraints(node,i),
-                goal = mapf.goals[i],
-                agent_idx = i
-                ),
-                mapf.starts[i],
-                heuristic #s -> states_match(s,mapf.goals[i])
-            )
-        node.solution[i] = path
-    end
-    node.cost = get_cost(node.solution)
-    # TODO check if solution is valid
-    return true
-end
-
-"""
-    Run Conflict-Based Search on an instance of MAPF
-"""
-function CRCBS.solve!(solver::CBSsolver, mapf::MAPF, path_finder=A_star)
-    # priority queue that stores nodes in order of their cost
-    priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
-    # node_list = Vector{ConstraintTreeNode}()
-
-    root_node = initialize_root_node(mapf)
-    low_level_search!(solver,mapf,root_node)
-    detect_conflicts!(root_node.conflict_table,root_node.solution)
-    if is_valid(root_node.solution,mapf)
-        # @show root_node
-        enqueue!(priority_queue, root_node => root_node.cost)
-        # push!(node_list,root_node)
-    end
-
-    # k = 0
-    while length(priority_queue) > 0
-        # @show k += 1
-        node = dequeue!(priority_queue)
-        # check for conflicts
-        conflict = get_next_conflict(node.conflict_table)
-        # @show conflict.node1.sp, conflict.agent1_id
-        if is_valid(conflict)
-            constraints = generate_constraints_from_conflict(conflict)
-        else
-            print("Optimal Solution Found! Cost = ",node.cost,"\n")
-            # for (i,p) in enumerate(node.solution)
-            #     @show i=>[n.sp.vtx for n in p.path_nodes]
-            # end
-            return node.solution, node.cost
-        end
-
-        # generate new nodes from constraints
-        for constraint in constraints
-            new_node = initialize_child_search_node(node)
-            # new_node.id = length(node_list) + 1
-            if add_constraint!(new_node,constraint) && length(node.solution[get_agent_id(constraint)].path_nodes) > constraint.t
-                low_level_search!(solver,mapf,new_node,[get_agent_id(constraint)])
-                # for (i,p) in enumerate(new_node.solution)
-                #     @show i=>[n.sp.vtx for n in p.path_nodes]
-                # end
-                detect_conflicts!(new_node.conflict_table,new_node.solution,[get_agent_id(constraint)]) # update conflicts related to this agent
-                if is_valid(new_node.solution, mapf)
-                    # @show new_node.constraints
-                    enqueue!(priority_queue, new_node => new_node.cost)
-                    # push!(node_list, new_node)
-                end
-            end
-        end
-        # if k > 5
-        #     break
-        # end
-    end
-    # @show length(node_list)
-    print("No Solution Found. Returning default solution")
-    return LowLevelSolution{State,Action}(), typemax(Int)
-end
+# """
+#     Run Conflict-Based Search on an instance of MAPF
+# """
+# function CRCBS.solve!(solver::CBSsolver, mapf::MAPF, path_finder=A_star)
+#     # priority queue that stores nodes in order of their cost
+#     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
+#     # node_list = Vector{ConstraintTreeNode}()
+#
+#     root_node = initialize_root_node(mapf)
+#     low_level_search!(solver,mapf,root_node)
+#     detect_conflicts!(root_node.conflict_table,root_node.solution)
+#     if is_valid(root_node.solution,mapf)
+#         # @show root_node
+#         enqueue!(priority_queue, root_node => root_node.cost)
+#         # push!(node_list,root_node)
+#     end
+#
+#     # k = 0
+#     while length(priority_queue) > 0
+#         # @show k += 1
+#         node = dequeue!(priority_queue)
+#         # check for conflicts
+#         conflict = get_next_conflict(node.conflict_table)
+#         # @show conflict.node1.sp, conflict.agent1_id
+#         if is_valid(conflict)
+#             constraints = generate_constraints_from_conflict(conflict)
+#         else
+#             print("Optimal Solution Found! Cost = ",node.cost,"\n")
+#             # for (i,p) in enumerate(node.solution)
+#             #     @show i=>[n.sp.vtx for n in p.path_nodes]
+#             # end
+#             return node.solution, node.cost
+#         end
+#
+#         # generate new nodes from constraints
+#         for constraint in constraints
+#             new_node = initialize_child_search_node(node)
+#             # new_node.id = length(node_list) + 1
+#             if add_constraint!(new_node,constraint) && length(node.solution[get_agent_id(constraint)].path_nodes) > constraint.t
+#                 low_level_search!(solver,mapf,new_node,[get_agent_id(constraint)])
+#                 # for (i,p) in enumerate(new_node.solution)
+#                 #     @show i=>[n.sp.vtx for n in p.path_nodes]
+#                 # end
+#                 detect_conflicts!(new_node.conflict_table,new_node.solution,[get_agent_id(constraint)]) # update conflicts related to this agent
+#                 if is_valid(new_node.solution, mapf)
+#                     # @show new_node.constraints
+#                     enqueue!(priority_queue, new_node => new_node.cost)
+#                     # push!(node_list, new_node)
+#                 end
+#             end
+#         end
+#         # if k > 5
+#         #     break
+#         # end
+#     end
+#     # @show length(node_list)
+#     print("No Solution Found. Returning default solution")
+#     return default_solution(solver, mapf)
+# end
 
 end
 
@@ -289,7 +284,7 @@ end
 # CBS_Action() = Edge(-1,-1)
 # wait(s::CBS_State) = CBS_Action(s.vtx,s.vtx)
 #
-# @with_kw struct CBSLowLevelEnv{G <: AbstractGraph,C} <: AbstractLowLevelEnv{CBS_State,CBS_Action}
+# @with_kw struct LowLevelEnv{G <: AbstractGraph,C} <: AbstractLowLevelEnv{CBS_State,CBS_Action}
 #     graph       ::G         = Graph()
 #     constraints ::C         = Vector()
 #     goal        ::CBS_State = CBS_State()
@@ -298,7 +293,7 @@ end
 #
 # # get_possible_actions
 # struct ActionIter
-#     env::CBSLowLevelEnv
+#     env::LowLevelEnv
 #     s::Int # source state
 #     neighbor_list::Vector{Int} # length of target edge list
 # end
@@ -316,11 +311,11 @@ end
 #     end
 #     Edge(it.s,it.neighbor_list[iter_state.idx]), iter_state
 # end
-# CRCBS.get_possible_actions(env::CBSLowLevelEnv,s::CBS_State) = ActionIter(env,s.vtx,outneighbors(env.graph,s.vtx))
-# CRCBS.get_next_state(env::CBSLowLevelEnv,s::CBS_State,a::CBS_Action) = CBS_State(a.dst)
+# CRCBS.get_possible_actions(env::LowLevelEnv,s::CBS_State) = ActionIter(env,s.vtx,outneighbors(env.graph,s.vtx))
+# CRCBS.get_next_state(env::LowLevelEnv,s::CBS_State,a::CBS_Action) = CBS_State(a.dst)
 # CRCBS.get_next_state(s::CBS_State,a::CBS_Action) = CBS_State(a.dst)
-# CRCBS.get_transition_cost(env::CBSLowLevelEnv,s::CBS_State,a::CBS_Action,sp::CBS_State) = 1
-# function CRCBS.violates_constraints(env::CBSLowLevelEnv, path::Path{CBS_State,CBS_Action}, s::CBS_State, a::CBS_Action, sp::CBS_State)
+# CRCBS.get_transition_cost(env::LowLevelEnv,s::CBS_State,a::CBS_Action,sp::CBS_State) = 1
+# function CRCBS.violates_constraints(env::LowLevelEnv, path::Path{CBS_State,CBS_Action}, s::CBS_State, a::CBS_Action, sp::CBS_State)
 #     t = length(path) + 1
 #     # if get(env.constraints.state_constraints,StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t),false)
 #     if get(env.constraints.state_constraints,StateConstraint(get_agent_id(env.constraints),sp,t),false)
@@ -335,7 +330,7 @@ end
 #     end
 #     return false
 # end
-# function CRCBS.check_termination_criteria(env::CBSLowLevelEnv,cost,path,s)
+# function CRCBS.check_termination_criteria(env::LowLevelEnv,cost,path,s)
 #     if length(path) > 40
 #         print("TERMINATING SEARCH BECAUSE PATH LENGTH HAS REACHED ARBITRARY LIMIT OF 40")
 #         return true
@@ -727,7 +722,7 @@ end
 #     for i in idxs
 #         # TODO allow passing custom heuristic
 #         path = path_finder(
-#             CBSLowLevelEnv(
+#             LowLevelEnv(
 #                 graph = mapf.graph,
 #                 constraints = get_constraints(node,i),
 #                 goal = mapf.goals[i],
@@ -796,50 +791,50 @@ end
 #     return LowLevelSolution(), typemax(Int)
 # end
 
-"""
-    The Improved Conflict-Based Search Algorithm - Boyarski et al 2015
-
-    https://www.ijcai.org/Proceedings/15/Papers/110.pdf
-"""
-struct ICBS <: AbstractMAPFSolver end
-
-"""
-    Run Improved Conflict-Based Search on an instance of MAPF
-"""
-function (solver::ICBS)(mapf::MAPF,path_finder=LightGraphs.a_star)    # priority queue that stores nodes in order of their cost
-    priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
-
-    root_node = initialize_root_node(mapf)
-    low_level_search!(mapf,root_node)
-    if is_valid(root_node.solution,mapf)
-        enqueue!(priority_queue, root_node => root_node.cost)
-    end
-
-    while length(priority_queue) > 0
-        node = dequeue!(priority_queue)
-        # check for conflicts
-        state_conflicts, action_conflicts = get_conflicts(node.solution)
-        # state_conflict, action_conflict = get_next_conflicts(node.solution)
-        if is_valid(state_conflict)
-            constraints = generate_constraints_from_conflict(state_conflict)
-        elseif is_valid(action_conflict)
-            constraints = generate_constraints_from_conflict(action_conflict)
-        else
-            print("Optimal Solution Found! Cost = ",node.cost,"\n")
-            return node.solution, node.cost
-        end
-
-        # generate new nodes from constraints
-        for constraint in constraints
-            new_node = initialize_child_search_node(node)
-            if add_constraint!(new_node,constraint,mapf)
-                low_level_search!(mapf,new_node,[get_agent_id(constraint)])
-                if is_valid(new_node.solution, mapf)
-                    enqueue!(priority_queue, new_node => new_node.cost)
-                end
-            end
-        end
-    end
-    print("No Solution Found. Returning default solution")
-    return LowLevelSolution(), typemax(Int)
-end
+# """
+#     The Improved Conflict-Based Search Algorithm - Boyarski et al 2015
+#
+#     https://www.ijcai.org/Proceedings/15/Papers/110.pdf
+# """
+# struct ICBS <: AbstractMAPFSolver end
+#
+# """
+#     Run Improved Conflict-Based Search on an instance of MAPF
+# """
+# function (solver::ICBS)(mapf::MAPF,path_finder=LightGraphs.a_star)    # priority queue that stores nodes in order of their cost
+#     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
+#
+#     root_node = initialize_root_node(mapf)
+#     low_level_search!(mapf,root_node)
+#     if is_valid(root_node.solution,mapf)
+#         enqueue!(priority_queue, root_node => root_node.cost)
+#     end
+#
+#     while length(priority_queue) > 0
+#         node = dequeue!(priority_queue)
+#         # check for conflicts
+#         state_conflicts, action_conflicts = get_conflicts(node.solution)
+#         # state_conflict, action_conflict = get_next_conflicts(node.solution)
+#         if is_valid(state_conflict)
+#             constraints = generate_constraints_from_conflict(state_conflict)
+#         elseif is_valid(action_conflict)
+#             constraints = generate_constraints_from_conflict(action_conflict)
+#         else
+#             print("Optimal Solution Found! Cost = ",node.cost,"\n")
+#             return node.solution, node.cost
+#         end
+#
+#         # generate new nodes from constraints
+#         for constraint in constraints
+#             new_node = initialize_child_search_node(node)
+#             if add_constraint!(new_node,constraint,mapf)
+#                 low_level_search!(mapf,new_node,[get_agent_id(constraint)])
+#                 if is_valid(new_node.solution, mapf)
+#                     enqueue!(priority_queue, new_node => new_node.cost)
+#                 end
+#             end
+#         end
+#     end
+#     print("No Solution Found. Returning default solution")
+#     return LowLevelSolution(), typemax(Int)
+# end

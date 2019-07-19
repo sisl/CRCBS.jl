@@ -23,6 +23,8 @@ export
     PathCost,
     AbstractMAPFSolver,
 
+    build_env,
+    initialize_root_node,
     states_match,
     is_goal,
     wait,
@@ -30,10 +32,12 @@ export
     get_next_state,
     get_transition_cost,
     get_path_cost,
-    get_heuristic,
+    heuristic,
+    # get_heuristic,
     violates_constraints,
     check_termination_criteria,
-    solve!
+    solve!,
+    default_solution
 
 struct DefaultState end
 struct DefaultAction end
@@ -186,6 +190,21 @@ abstract type AbstractMAPFSolver end
 ################################################################################
 
 """
+    build_env(mapf::AbstractMAPF, node::ConstraintTreeNode, idx::Int)
+
+    Constructs a new low-level search environment for a conflict-based search
+    mapf solver
+"""
+function build_env end
+
+"""
+    initialize_root_node
+
+    Construct an empty `ConstraintTreeNode` from a `AbstractMAPF` instance
+"""
+function initialize_root_node end
+
+"""
     state_match(s1::S,s2::S)
 
     returns true if s1 and s2 match (not necessarily the same as equal)
@@ -235,6 +254,13 @@ function get_transition_cost end
 function get_path_cost end
 
 """
+    heuristic(env::E <: AbstractLowLevelEnv{S,A},state::S)
+
+    get a heuristic "cost-to-go" from `state`
+"""
+function heuristic end
+
+"""
     violates_constraints(env::E <: AbstractLowLevelEnv{S,A},path::Path{S,A},s::S,a::A,sp::S)
 
     returns `true` if taking action `a` from state `s` violates any constraints
@@ -255,3 +281,11 @@ function check_termination_criteria end
     Compute a solution from a solver and env
 """
 function solve! end
+
+"""
+    `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
+
+    Defines what is returned by the solver in case of failure to find a feasible
+    solution.
+"""
+function default_solution end

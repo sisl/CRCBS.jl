@@ -56,6 +56,9 @@ end
     @time @testset "CRCBS.CBSTests" begin
         include(joinpath(testdir, "test_cbs.jl"))
     end
+    @time @testset "CRCBS.MultiStageCBSTests" begin
+        include(joinpath(testdir, "test_multi_stage_cbs.jl"))
+    end
     # @time @testset "CRCBS.HeuristicTests" begin
     #     include(joinpath(testdir, "test_heuristics.jl"))
     # end

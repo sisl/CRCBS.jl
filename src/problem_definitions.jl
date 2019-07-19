@@ -1,4 +1,5 @@
 export
+    AbstractMAPF,
     MAPF,
     MultiMAPF,
     num_agents,
