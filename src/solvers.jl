@@ -3,6 +3,12 @@ export
     CBS_Solver,
     ICBS_Solver
 
+"""
+    `solve!(solver::AbstractMAPFSolver, args ...)`
+
+    Run the algorithm represented by `solver` on an instance of a Multi-Agent
+    Path-Finding problem.
+"""
 function solve!(solver::AbstractMAPFSolver, args ...)
     throw(ArgumentError(string(
         "function CRCBS.solve!(solver::", typeof(solver),",...) not defined.",
@@ -11,11 +17,14 @@ function solve!(solver::AbstractMAPFSolver, args ...)
         )))
 end
 
+"""
+    The Conflict-Based Search algorithm for multi-agent path finding - Sharon et
+    al 2012
+
+    https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
+"""
 struct CBS_Solver <: AbstractMAPFSolver end
 
-"""
-    Run Conflict-Based Search on an instance of MultiMAPF
-"""
 function CRCBS.solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_finder=A_star)
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
@@ -80,9 +89,6 @@ end
 """
 struct ICBS_Solver <: AbstractMAPFSolver end
 
-"""
-    Run Improved Conflict-Based Search on an instance of MAPF
-"""
 function solve!(solver::ICBS_Solver, mapf::MAPF, path_finder=A_star)    # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 
