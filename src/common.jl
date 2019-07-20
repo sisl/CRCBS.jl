@@ -256,10 +256,13 @@ function add_conflict!(conflict_table::ConflictTable,conflict)
         push!(vec, conflict)
         conflict_table.action_conflicts[(i,j)] = vec
     end
+    # insert_to_sorted_array!(conflict_table.conflict_list, conflict)
 end
 
 """
-    returns the next conflict (temporally) that occurs in a conflict table
+    `get_next_conflict(conflict_table::ConflictTable)`
+
+    Returns the next conflict (temporally) that occurs in a conflict table
 """
 function get_next_conflict(conflict_table::ConflictTable)
     conflict = DefaultConflict()
