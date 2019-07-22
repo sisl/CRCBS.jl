@@ -5,16 +5,14 @@ export
 """
     The internal loop of the A* algorithm.
 """
-function A_star_impl!(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
+function A_star_impl!(env::E,# the graph
     frontier,               # an initialized heap containing the active nodes
-    # explored::Dict{S,Bool},
     explored::Set{S},
-    heuristic::Function) where {S,A}
+    heuristic::Function) where {S,A,E <: AbstractLowLevelEnv{S,A}}
 
     while !isempty(frontier)
         (cost_so_far, path, s) = dequeue!(frontier)
         if is_goal(env,s)
-            # TODO Check for constraints that take effect later than the completion time
             return path
         elseif check_termination_criteria(env,cost_so_far,path,s)
             break

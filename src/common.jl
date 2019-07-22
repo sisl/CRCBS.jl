@@ -19,6 +19,7 @@ export
 
     ConflictTable,
     get_conflicts,
+    count_conflicts,
     get_next_conflict,
     add_conflict!,
 
@@ -45,6 +46,7 @@ export
     get_cost,
     generate_constraints_from_conflict,
 
+    set_solution_path!,
     low_level_search!
 
 
@@ -72,7 +74,7 @@ end
     checks if a solution is valid
 """
 function is_valid(solution::LowLevelSolution,mapf::AbstractMAPF)
-    is_valid(solution,mapf.starts,mapf.goals)
+    is_valid(solution,get_starts(mapf),get_goals(mapf))
 end
 
 ################################################################################
@@ -227,7 +229,7 @@ end
 
 """ helper for retrieving conflicts associated with agents i and j """
 function get_conflicts(conflict_table::ConflictTable,i::Int,j::Int)
-    if i < j
+    if i <= j
         state_conflicts = get(conflict_table.state_conflicts, (i,j), Vector{Conflict}())
         action_conflicts = get(conflict_table.action_conflicts, (i,j), Vector{Conflict}())
     else
@@ -235,6 +237,28 @@ function get_conflicts(conflict_table::ConflictTable,i::Int,j::Int)
     end
     return state_conflicts, action_conflicts
 end
+
+"""
+    `count_conflicts(conflict_table::ConflictTable,i::Int,j::Int)`
+
+    helper for counting the number of conflicts between agent i and agent j
+"""
+function count_conflicts(conflict_table::ConflictTable,i::Int,j::Int)
+    state_conflicts, action_conflicts = get_conflicts(conflict_table,i,j)
+    return length(state_conflicts) + length(action_conflicts)
+end
+function count_conflicts(conflict_table::ConflictTable,idxs1::Vector{Int},idxs2::Vector{Int})
+    N = 0
+    for i in idxs1
+        for j in idxs2
+            if i != j
+                N += count_conflicts(conflict_table,i,j)
+            end
+        end
+    end
+    return N
+end
+
 
 """
     helper to insert conflicts into ConflictTable
@@ -551,6 +575,14 @@ function generate_constraints_from_conflict(conflict::Conflict)
 end
 
 """
+    `set_solution_paths(solution, paths, idxs)`
+"""
+function set_solution_path!(solution::LowLevelSolution, path::Path, idx::Int)
+    solution[idx] = path
+    return solution
+end
+
+"""
     `low_level_search!(
         solver::S where {S<:AbstractMAPFSolver},
         mapf::M where {M<:AbstractMAPF},
@@ -565,15 +597,16 @@ function low_level_search!(
     solver::S where {S<:AbstractMAPFSolver},
     mapf::M where {M<:AbstractMAPF},
     node::ConstraintTreeNode,
-    idxs=collect(1:num_agents(mapf)),
+    idxs=collect(1:num_agents(mapf));
     path_finder=A_star)
     # Only compute a path for the indices specified by idxs
     for i in idxs
         env = build_env(mapf, node, i)
         h = s-> heuristic(env,s)
         # Solve!
-        path = path_finder(env, mapf.starts[i], h)
-        node.solution[i] = path
+        # path = path_finder(env, mapf.starts[i], h)
+        path = path_finder(env, get_starts(mapf)[i], h)
+        set_solution_path!(node.solution, path, i)
     end
     node.cost = get_cost(node.solution)
     # TODO check if solution is valid

@@ -117,6 +117,7 @@ end
 struct ActionIterState
     idx::Int # idx of target node
 end
+ActionIterState() = ActionIterState(0)
 function Base.iterate(it::ActionIter)
     iter_state = ActionIterState(0)
     return iterate(it,iter_state)
@@ -144,7 +145,7 @@ function CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action)
     return State(a.e.dst, stage, s.t+a.Δt)
 end
 CRCBS.get_transition_cost(env::LowLevelEnv,s::State,a::Action,sp::State) = 1
-function CRCBS.violates_constraints(env::LowLevelEnv, path::Path{State,Action}, s::State, a::Action, sp::State)
+function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action, sp::State)
     t = length(path) + 1
     if StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t) in env.constraints.state_constraints
         # @show s,a,sp
@@ -218,7 +219,7 @@ function CRCBS.initialize_root_node(mapf::MultiMAPF)
     ConstraintTreeNode(
         solution = LowLevelSolution{State,Action}([CBSPath() for a in 1:num_agents(mapf)]),
         constraints = Dict{Int,ConstraintTable}(
-            i=>ConstraintTable(a=i) for i in 1:length(mapf.starts)
+            i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
             ),
         id = 1)
 end
