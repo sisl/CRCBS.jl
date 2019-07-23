@@ -5,11 +5,7 @@ export
 """
     The internal loop of the A* algorithm.
 """
-function A_star_impl!(env::E,# the graph
-    frontier,               # an initialized heap containing the active nodes
-    explored::Set{S},
-    heuristic::Function) where {S,A,E <: AbstractLowLevelEnv{S,A}}
-
+function A_star_impl!(env::E, frontier, explored::Set{S}, heuristic::Function) where {S,A,E <: AbstractLowLevelEnv{S,A}}
     while !isempty(frontier)
         (cost_so_far, path, s) = dequeue!(frontier)
         if is_goal(env,s)
@@ -27,8 +23,7 @@ function A_star_impl!(env::E,# the graph
             if !(sp in explored)
                 new_path = cat(path, PathNode(s, a, sp))
                 path_cost = cost_so_far + get_transition_cost(env,s,a,sp)
-                enqueue!(frontier,
-                    (path_cost, new_path, sp) => path_cost + heuristic(sp))
+                enqueue!(frontier, (path_cost, new_path, sp) => path_cost + heuristic(sp))
             end
         end
         push!(explored,s)

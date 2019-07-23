@@ -189,6 +189,9 @@ abstract type AbstractMAPFSolver end
 ######################## General Methods to Implement ##########################
 ################################################################################
 
+# Other methods to override that are implemented as defaults in common.jl:
+# - detect_conflicts!(conflict_table,n1::PathNode,n2::PathNode,i::Int,j::Int,t::Int)
+
 """
     build_env(mapf::AbstractMAPF, node::ConstraintTreeNode, idx::Int)
 

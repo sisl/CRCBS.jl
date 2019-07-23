@@ -50,11 +50,7 @@ function CRCBS.solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_
         for constraint in constraints
             new_node = initialize_child_search_node(node)
             if add_constraint!(new_node,constraint)
-                low_level_search!(
-                    solver,mapf,
-                    new_node,
-                    [get_agent_id(constraint)];
-                    path_finder=path_finder)
+                low_level_search!(solver, mapf, new_node,[get_agent_id(constraint)]; path_finder=path_finder)
                 detect_conflicts!(new_node.conflict_table,new_node.solution,[get_agent_id(constraint)]) # update conflicts related to this agent
                 if is_valid(new_node.solution, mapf)
                     enqueue!(priority_queue, new_node => new_node.cost)

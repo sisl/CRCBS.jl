@@ -40,7 +40,7 @@ end
     # helpers
     dists::Vector{Vector{Float64}} = construct_multi_stage_distance_array(graph,goal_sequence)
 end
-function CRCBS.build_env(mapf::MultiMAPF, node::ConstraintTreeNode, idx::Int)
+function CRCBS.build_env(mapf::M where {M <:MultiMAPF}, node::ConstraintTreeNode, idx::Int)
     LowLevelEnv(
         graph = mapf.graph,
         constraints = get_constraints(node,idx),

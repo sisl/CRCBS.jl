@@ -49,7 +49,6 @@ export
     set_solution_path!,
     low_level_search!
 
-
 """
     Checks if an individual path satisfies start and end constraints
 """
@@ -120,7 +119,6 @@ is_valid(conflict::Conflict) = ((conflict_type(conflict) != NULL_CONFLICT)
                                 && (agent1_id(conflict) != agent2_id(conflict))
                                 && (agent1_id(conflict) != -1)
                                 && (agent2_id(conflict) != -1))
-
 # """
 #     Reset conflict table (clear all conflicts between agent i and agent j)
 # """
@@ -157,7 +155,6 @@ function detect_conflicts!(conflict_table,path1::Path,path2::Path,i::Int,j::Int)
     end
     return conflict_table
 end
-
 
 """
     Populates a `ConflictTable` with all conflicts that occur in a given
@@ -225,6 +222,7 @@ end
 @with_kw struct ConflictTable
     state_conflicts::Dict{Tuple{Int,Int},Vector{Conflict}} = Dict{Tuple{Int,Int},Vector{Conflict}}()
     action_conflicts::Dict{Tuple{Int,Int},Vector{Conflict}} = Dict{Tuple{Int,Int},Vector{Conflict}}()
+    # TODO sorted_conflict_list
 end
 
 """ helper for retrieving conflicts associated with agents i and j """
@@ -264,11 +262,9 @@ end
     helper to insert conflicts into ConflictTable
 """
 function add_conflict!(conflict_table::ConflictTable,conflict)
-    # print("adding conflict")
     if !is_valid(conflict)
         return
     end
-    # @show conflict
     i = agent1_id(conflict)
     j = agent2_id(conflict)
     if conflict_type(conflict) == STATE_CONFLICT
