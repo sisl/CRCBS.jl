@@ -604,7 +604,9 @@ function low_level_search!(
         env = build_env(mapf, node, i)
         h = s-> heuristic(env,s)
         # Solve!
-        # path = path_finder(env, mapf.starts[i], h)
+        # TODO FIX get_starts(mapf)[i]. It's a little bit tacky, especially
+        # since the definition of MetaAgentCBS.State determines whether this
+        # will fail or not (for MetaAgentCBS_Solver).
         path = path_finder(env, get_starts(mapf)[i], h)
         set_solution_path!(node.solution, path, i)
     end

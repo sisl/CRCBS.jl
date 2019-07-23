@@ -14,6 +14,8 @@ num_agents(mapf::AbstractMAPF) = length(mapf.starts)
 num_goals(mapf::AbstractMAPF) = length(mapf.goals)
 get_starts(mapf::AbstractMAPF) = mapf.starts
 get_goals(mapf::AbstractMAPF) = mapf.goals
+get_start(mapf::AbstractMAPF, i) = get_starts(mapf)[i]
+get_goal(mapf::AbstractMAPF, i) = get_goals(mapf)[i]
 
 """
     A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
