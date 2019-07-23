@@ -66,7 +66,7 @@ function test_module()
     start_state = State(1,0)
 
     dists = gdistances(G,goal_state.v)
-    heuristic(s) = dists[s.v]
+    heuristic(env,s) = dists[s.v]
 
     path = A_star(env,start_state,heuristic)
 end
@@ -85,7 +85,7 @@ let
     start_state = ImplicitGraphsTests.State(1,0)
 
     dists = gdistances(G,goal_state.v)
-    heuristic(s) = dists[s.v]
+    heuristic(env,s) = dists[s.v]
 
     path = A_star(env,start_state,heuristic)
 end

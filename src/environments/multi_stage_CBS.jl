@@ -6,12 +6,17 @@ module MultiStageCBS
 using ..CRCBS
 using Parameters, LightGraphs, DataStructures
 
+################################################################################
+############################### ENVIRONMENT DEF ################################
+################################################################################
+# state
 @with_kw struct State
     vtx::Int    = -1 # vertex of graph
     stage::Int  = -1 # which stage of the sequence
     t::Int      = -1
 end
 CRCBS.is_valid(state::State) = state.vtx > 0
+# action
 @with_kw struct Action
     e::Edge{Int}    = Edge(-1,-1)
     Δt::Int         = 1
@@ -38,35 +43,31 @@ end
     goal_sequence::Vector{State}    = Vector{State}()
     agent_idx::Int                  = -1
     # helpers
-    dists::Vector{Vector{Float64}} = construct_multi_stage_distance_array(graph,goal_sequence)
+    dists::Dict{Int,Vector{Vector{Float64}}} = Dict(
+        agent_idx => construct_multi_stage_distance_array(graph,goal_sequence))
 end
-function CRCBS.build_env(mapf::M where {M <:MultiMAPF}, node::ConstraintTreeNode, idx::Int)
+function CRCBS.initialize_mapf(env::LowLevelEnv,starts::Vector{State},goals::Vector{Vector{State}})
+    dists = Dict(idx => construct_multi_stage_distance_array(env.graph,g) for (idx,g) in enumerate(goals))
+    MAPF(LowLevelEnv(graph=env.graph,dists=dists), starts, goals)
+end
+################################################################################
+######################## Low-Level (Independent) Search ########################
+################################################################################
+# build_env
+function CRCBS.build_env(mapf::MAPF{E,S,G} where {S,G,E <: LowLevelEnv}, node::ConstraintTreeNode, idx::Int)
     LowLevelEnv(
-        graph = mapf.graph,
+        graph = mapf.env.graph,
         constraints = get_constraints(node,idx),
         goal_sequence = mapf.goals[idx],
-        agent_idx = idx
+        agent_idx = idx,
+        dists = mapf.env.dists
         )
 end
-CRCBS.heuristic(env::LowLevelEnv,s) = env.dists[s.stage][s.vtx]
-
-""" Type alias for a path through the graph """
-const CBSPath = Path{State,Action}
-
-""" Helper for displaying Paths """
-function convert_to_vertex_lists(path::Path)
-    vtx_list = [n.sp.vtx for n in path.path_nodes]
-    if length(path) > 0
-        vtx_list = [get_s(get_path_node(path,1)).vtx, vtx_list...]
-    end
-    vtx_list
-end
-function convert_to_vertex_lists(solution::LowLevelSolution)
-    return [convert_to_vertex_lists(path) for path in solution]
-end
-
+# heuristic
+CRCBS.heuristic(env::LowLevelEnv,s) = env.dists[env.agent_idx][s.stage][s.vtx]
+# states_match
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
-function CRCBS.is_valid(path::CBSPath,start::State,goals::Vector{State})
+function CRCBS.is_valid(path::Path{State,Action},start::State,goals::Vector{State})
     valid = true
     stage = 1
     if states_match(start,goals[stage])
@@ -83,6 +84,7 @@ function CRCBS.is_valid(path::CBSPath,start::State,goals::Vector{State})
     end
     return false
 end
+# is_goal
 function CRCBS.is_goal(env::LowLevelEnv,s::State)
     if states_match(s, env.goal_sequence[s.stage])
         ###########################
@@ -106,8 +108,11 @@ function CRCBS.is_goal(env::LowLevelEnv,s::State)
     end
     return false
 end
+# check_termination_criteria
+CRCBS.check_termination_criteria(env::LowLevelEnv,cost,path,s) = false
+# wait
 CRCBS.wait(s::State) = Action(e=Edge(s.vtx,s.vtx))
-
+CRCBS.wait(env::LowLevelEnv,s::State) = Action(e=Edge(s.vtx,s.vtx))
 # get_possible_actions
 struct ActionIter
     # env::LowLevelEnv
@@ -117,7 +122,6 @@ end
 struct ActionIterState
     idx::Int # idx of target node
 end
-ActionIterState() = ActionIterState(0)
 function Base.iterate(it::ActionIter)
     iter_state = ActionIterState(0)
     return iterate(it,iter_state)
@@ -130,6 +134,7 @@ function Base.iterate(it::ActionIter, iter_state::ActionIterState)
     Action(e=Edge(it.s,it.neighbor_list[iter_state.idx])), iter_state
 end
 CRCBS.get_possible_actions(env::LowLevelEnv,s::State) = ActionIter(s.vtx,outneighbors(env.graph,s.vtx))
+# get_next_state
 function CRCBS.get_next_state(s::State,a::Action)
     @assert(is_valid(s))
     @assert(s.vtx == a.e.src)
@@ -144,14 +149,14 @@ function CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action)
     end
     return State(a.e.dst, stage, s.t+a.Δt)
 end
+# get_transition_cost
 CRCBS.get_transition_cost(env::LowLevelEnv,s::State,a::Action,sp::State) = 1
+# violates_constraints
 function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action, sp::State)
     t = length(path) + 1
     if StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t) in env.constraints.state_constraints
-        # @show s,a,sp
         return true
     elseif ActionConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t) in env.constraints.action_constraints
-        # @show s,a,sp
         return true
     end
     return false
@@ -184,65 +189,55 @@ function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action,
     # end
     # return false
 end
-CRCBS.check_termination_criteria(env::LowLevelEnv,cost,path,s) = false
 
-""" Returns an invalid StateConflict """
-invalid_state_conflict() = Conflict{PathNode{State,Action},PathNode{State,Action}}(conflict_type=STATE_CONFLICT)
-
-"""
-    Detect a `StateConflict` between two CBS path nodes.
-"""
+################################################################################
+###################### Conflict-Based Search (High-Level) ######################
+################################################################################
+# detect_state_conflict
 function CRCBS.detect_state_conflict(n1::PathNode{State,Action},n2::PathNode{State,Action})
     if n1.sp.vtx == n2.sp.vtx
         return true
     end
     return false
 end
-
-""" Returns an invalid ActionConflict """
-invalid_action_conflict() = Conflict{PathNode{State,Action},PathNode{State,Action}}(conflict_type=ACTION_CONFLICT)
-
-"""
-    Detect an `ActionConflict` between two CBS path nodes.
-"""
+function CRCBS.detect_state_conflict(env::LowLevelEnv,n1::PathNode{State,Action},n2::PathNode{State,Action})
+    detect_state_conflict(n1,n2)
+end
+# detect_action_conflict
 function CRCBS.detect_action_conflict(n1::PathNode{State,Action},n2::PathNode{State,Action})
     if (n1.a.e.src == n2.a.e.dst) && (n1.a.e.dst == n2.a.e.src)
         return true
     end
     return false
 end
-
-"""
-    Construct an empty `ConstraintTreeNode` from a `MAPF` instance
-"""
-function CRCBS.initialize_root_node(mapf::MultiMAPF)
+function CRCBS.detect_action_conflict(env::LowLevelEnv,n1::PathNode{State,Action},n2::PathNode{State,Action})
+    detect_action_conflict(n1,n2)
+end
+# initialize_root_node
+function CRCBS.initialize_root_node(mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv}
     ConstraintTreeNode(
-        solution = LowLevelSolution{State,Action}([CBSPath() for a in 1:num_agents(mapf)]),
+        solution = LowLevelSolution{State,Action}([Path{State,Action}() for a in 1:num_agents(mapf)]),
         constraints = Dict{Int,ConstraintTable}(
             i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
             ),
         id = 1)
 end
-
-"""
-    Initialize a new `ConstraintTreeNode` with the same `solution` and
-    `constraints` as the parent node
-"""
-function initialize_child_search_node(parent_node::ConstraintTreeNode)
-    ConstraintTreeNode(
-        solution = copy(parent_node.solution),
-        constraints = copy(parent_node.constraints),
-        conflict_table = copy(parent_node.conflict_table),
-        parent = parent_node.id
-    )
-end
-
-"""
-    `default_solution(solver::CBS_Solver)`
-
-    Defines what is returned by the solver in case of failure to find a feasible
-    solution.
-"""
+# default_solution
 CRCBS.default_solution(solver::CBS_Solver, mapf::MultiMAPF) = LowLevelSolution{State,Action}(), typemax(Int)
+
+################################################################################
+############################### HELPER FUNCTIONS ###############################
+################################################################################
+""" Helper for displaying Paths """
+function convert_to_vertex_lists(path::Path)
+    vtx_list = [n.sp.vtx for n in path.path_nodes]
+    if length(path) > 0
+        vtx_list = [get_s(get_path_node(path,1)).vtx, vtx_list...]
+    end
+    vtx_list
+end
+function convert_to_vertex_lists(solution::LowLevelSolution)
+    return [convert_to_vertex_lists(path) for path in solution]
+end
 
 end # end module MultiStageCBS

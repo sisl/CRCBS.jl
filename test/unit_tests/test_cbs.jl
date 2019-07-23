@@ -73,22 +73,12 @@ let
     # end
 end
 let
-    # solver = CBS.CBSsolver()
     solver = CBS_Solver()
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    mapf = MAPF(
-        G,
-        [CBS.State(1,0),CBS.State(2,0)],
-        [CBS.State(vtx=6),CBS.State(vtx=5)]
-        )
+    env = CBS.LowLevelEnv(graph=G)
+    starts = [CBS.State(1,0),CBS.State(2,0)]
+    goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
+    mapf = initialize_mapf(env,starts,goals)
     node = CBS.initialize_root_node(mapf)
-    # CBS.low_level_search!(solver,mapf,node)
-    # for p in node.solution
-    #     @show [n.sp for n in p.path_nodes]
-    # end
     CRCBS.solve!(solver,mapf)
-    # conflict_table = detect_conflicts(node.solution)
-    # detect_conflicts!(conflict_table,node.solution,[1])
-    # get_next_conflicts(conflict_table)
-    # mapf = MAPF()
 end

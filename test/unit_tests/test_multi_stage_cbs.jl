@@ -76,19 +76,18 @@ let
     # solver = MultiStageCBS.CBS_Solver()
     solver = CBS_Solver()
     G = initialize_regular_grid_graph(;n_obstacles_x=2,n_obstacles_y=2,obs_offset = [2;2])
-    mapf = MultiMAPF(
-        G,
-        [   MultiStageCBS.State(vtx=1,stage=1,t=0),
-            MultiStageCBS.State(vtx=2,stage=1,t=0),
-            MultiStageCBS.State(vtx=26,stage=1,t=10),
-            MultiStageCBS.State(vtx=167,stage=1,t=10),
-            MultiStageCBS.State(vtx=41,stage=1,t=4)    ],
-        [   [MultiStageCBS.State(vtx=6),MultiStageCBS.State(vtx=171)],
-            [MultiStageCBS.State(vtx=5),MultiStageCBS.State(vtx=90)],
-            [MultiStageCBS.State(vtx=100),MultiStageCBS.State(vtx=175)],
-            [MultiStageCBS.State(vtx=85)],
-            [MultiStageCBS.State(vtx=91),MultiStageCBS.State(vtx=1)]    ]
-        )
-    node = MultiStageCBS.initialize_root_node(mapf)
+    starts = [   MultiStageCBS.State(vtx=1,stage=1,t=0),
+        MultiStageCBS.State(vtx=2,stage=1,t=0),
+        MultiStageCBS.State(vtx=26,stage=1,t=10),
+        MultiStageCBS.State(vtx=167,stage=1,t=10),
+        MultiStageCBS.State(vtx=41,stage=1,t=4)    ]
+    goals = [   [MultiStageCBS.State(vtx=6),MultiStageCBS.State(vtx=171)],
+        [MultiStageCBS.State(vtx=5),MultiStageCBS.State(vtx=90)],
+        [MultiStageCBS.State(vtx=100),MultiStageCBS.State(vtx=175)],
+        [MultiStageCBS.State(vtx=85)],
+        [MultiStageCBS.State(vtx=91),MultiStageCBS.State(vtx=1)]    ]
+    env = MultiStageCBS.LowLevelEnv(graph=G)
+    mapf = initialize_mapf(env,starts,goals)
+    node = initialize_root_node(mapf)
     solution, cost = CRCBS.solve!(solver,mapf);
 end

@@ -23,7 +23,7 @@ function A_star_impl!(env::E, frontier, explored::Set{S}, heuristic::Function) w
             if !(sp in explored)
                 new_path = cat(path, PathNode(s, a, sp))
                 path_cost = cost_so_far + get_transition_cost(env,s,a,sp)
-                enqueue!(frontier, (path_cost, new_path, sp) => path_cost + heuristic(sp))
+                enqueue!(frontier, (path_cost, new_path, sp) => path_cost + heuristic(env,sp))
             end
         end
         push!(explored,s)
@@ -55,7 +55,7 @@ end
 """
 function A_star(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
     start_state::S,
-    heuristic::Function = s -> 0.0) where {S,A}
+    heuristic::Function = (env,s) -> 0.0) where {S,A}
 
     initial_cost = 0
     frontier = PriorityQueue{Tuple{PathCost, Path{S,A}, S}, PathCost}()

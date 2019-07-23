@@ -4,6 +4,8 @@ export
     num_goals,
     get_starts,
     get_goals,
+    get_start,
+    get_goal,
 
     MAPF,
     MultiMAPF,
@@ -16,6 +18,7 @@ get_starts(mapf::AbstractMAPF) = mapf.starts
 get_goals(mapf::AbstractMAPF) = mapf.goals
 get_start(mapf::AbstractMAPF, i) = get_starts(mapf)[i]
 get_goal(mapf::AbstractMAPF, i) = get_goals(mapf)[i]
+get_start(mapf::AbstractMAPF, env, i) = get_start(mapf,i)
 
 """
     A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
@@ -23,12 +26,10 @@ get_goal(mapf::AbstractMAPF, i) = get_goals(mapf)[i]
     goal vertices on that graph. Note that this is the _labeled_ case, where
     each agent has a specific assigned destination.
 """
-struct MAPF{S,G} <: AbstractMAPF # Multi Agent Path Finding Problem
-    graph::G            # <: AbstractGraph
+struct MAPF{E<:AbstractLowLevelEnv,S,G} <: AbstractMAPF # Multi Agent Path Finding Problem
+    env::E            # <: AbstractGraph
     starts::Vector{S}   # Vector of initial agent states
-    goals::Vector{S}    # Vector of goal states
-    # TODO store distance matrices here so they don't need to be regenerated at
-    # each iteration by build_env()
+    goals::Vector{G}    # Vector of goal states
 end
 
 """

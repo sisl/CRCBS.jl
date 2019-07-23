@@ -35,24 +35,30 @@ end
     goal::State                 = State()
     agent_idx::Int              = -1
     # helpers
-    dists::Vector{Float64}      = construct_distance_array(graph,goal)
+    dists::Dict{Int,Vector{Float64}} = Dict(goal.vtx => construct_distance_array(graph,goal))
+end
+function CRCBS.initialize_mapf(env::LowLevelEnv,starts::Vector{State},goals::Vector{State})
+    dists= Dict(g.vtx => construct_distance_array(env.graph,g) for g in goals)
+    MAPF(LowLevelEnv(graph=env.graph,dists=dists), starts, goals)
 end
 ################################################################################
 ######################## Low-Level (Independent) Search ########################
 ################################################################################
 # build_env
-function CRCBS.build_env(mapf::MAPF, node::ConstraintTreeNode, idx::Int)
+function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) where {S,G,E<:LowLevelEnv}
     LowLevelEnv(
-        graph = mapf.graph,
+        graph = mapf.env.graph,
         constraints = get_constraints(node,idx),
         goal = mapf.goals[idx],
-        agent_idx = idx
+        agent_idx = idx,
+        dists = mapf.env.dists
         )
 end
 # heuristic
-CRCBS.heuristic(env::LowLevelEnv,s) = env.dists[s.vtx]
+CRCBS.heuristic(env::LowLevelEnv,s) = env.dists[env.goal.vtx][s.vtx]
 # states_match
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
+CRCBS.states_match(env::LowLevelEnv,s1::State,s2::State) = (s1.vtx == s2.vtx)
 # is_goal
 function CRCBS.is_goal(env::LowLevelEnv,s::State)
     if states_match(s, env.goal)
@@ -77,9 +83,9 @@ end
 CRCBS.check_termination_criteria(env::LowLevelEnv,cost,path,s) = false
 # wait
 CRCBS.wait(s::State) = Action(e=Edge(s.vtx,s.vtx))
+CRCBS.wait(env::LowLevelEnv,s::State) = Action(e=Edge(s.vtx,s.vtx))
 # get_possible_actions
 struct ActionIter
-    # env::LowLevelEnv
     s::Int # source state
     neighbor_list::Vector{Int} # length of target edge list
 end
@@ -164,7 +170,7 @@ function CRCBS.detect_action_conflict(n1::PathNode{State,Action},n2::PathNode{St
 end
 CRCBS.detect_action_conflict(env::LowLevelEnv,n1::PathNode{State,Action},n2::PathNode{State,Action}) = detect_action_conflict(n1,n2)
 # initialize_root_node
-function CRCBS.initialize_root_node(mapf::MAPF)
+function CRCBS.initialize_root_node(mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv}
     ConstraintTreeNode(
         solution = LowLevelSolution{State,Action}([Path{State,Action}() for a in 1:num_agents(mapf)]),
         constraints = Dict{Int,ConstraintTable}(
@@ -173,19 +179,22 @@ function CRCBS.initialize_root_node(mapf::MAPF)
         id = 1)
 end
 # default_solution
-CRCBS.default_solution(solver::CBS_Solver, mapf::MAPF) = LowLevelSolution{State,Action}(), typemax(Int)
+function CRCBS.default_solution(solver::CBS_Solver, mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv}
+    return LowLevelSolution{State,Action}(), typemax(Int)
+end
 
 ################################################################################
 ############################### HELPER FUNCTIONS ###############################
 ################################################################################
-function convert_to_vertex_lists(path::Path)
+""" Helper for displaying Paths """
+function convert_to_vertex_lists(path::Path{State,Action})
     vtx_list = [n.sp.vtx for n in path.path_nodes]
     if length(path) > 0
         vtx_list = [get_s(get_path_node(path,1)).vtx, vtx_list...]
     end
     vtx_list
 end
-function convert_to_vertex_lists(solution::LowLevelSolution)
+function convert_to_vertex_lists(solution::LowLevelSolution{State,Action})
     return [convert_to_vertex_lists(path) for path in solution]
 end
 

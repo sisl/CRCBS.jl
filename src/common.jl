@@ -468,6 +468,8 @@ end
     # env::E
     # maps agent_id to the set of constraints involving that agent
     constraints     ::Dict{Int,ConstraintTable} = Dict{Int,ConstraintTable}()
+    # meta-agent groups
+    groups          ::Vector{Vector{Int}}       = Vector{Vector{Int}}()
     # maintains a list of all conflicts
     conflict_table  ::ConflictTable             = ConflictTable()
     # set of paths (one per agent) through graph
@@ -492,6 +494,7 @@ function initialize_child_search_node(parent_node::ConstraintTreeNode)
     ConstraintTreeNode(
         solution = copy(parent_node.solution),
         constraints = copy(parent_node.constraints),
+        groups = copy(parent_node.groups),
         conflict_table = copy(parent_node.conflict_table),
         parent = parent_node.id
     )
@@ -593,17 +596,18 @@ function low_level_search!(
     solver::S where {S<:AbstractMAPFSolver},
     mapf::M where {M<:AbstractMAPF},
     node::ConstraintTreeNode,
-    idxs=collect(1:num_agents(mapf));
+    idxs::Vector{Int}=collect(1:num_agents(mapf));
+    heuristic=heuristic,
     path_finder=A_star)
     # Only compute a path for the indices specified by idxs
     for i in idxs
         env = build_env(mapf, node, i)
-        h = s-> heuristic(env,s)
+        # h = s-> heuristic(env,s)
         # Solve!
         # TODO FIX get_starts(mapf)[i]. It's a little bit tacky, especially
         # since the definition of MetaAgentCBS.State determines whether this
         # will fail or not (for MetaAgentCBS_Solver).
-        path = path_finder(env, get_starts(mapf)[i], h)
+        path = path_finder(env, get_start(mapf,env,i), heuristic)
         set_solution_path!(node.solution, path, i)
     end
     node.cost = get_cost(node.solution)

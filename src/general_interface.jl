@@ -2,6 +2,7 @@ export
     DefaultState,
     DefaultAction,
     AbstractLowLevelEnv,
+    DefaultEnvironment,
     action_type,
     state_type,
 
@@ -23,6 +24,7 @@ export
     PathCost,
     AbstractMAPFSolver,
 
+    initialize_mapf,
     build_env,
     initialize_root_node,
     states_match,
@@ -57,6 +59,7 @@ get_next_state(env,s::DefaultState,a::DefaultAction) = DefaultState()
     In general, a concrete subtype of `AbstractLowLevelEnv`
 """
 abstract type AbstractLowLevelEnv{S,A} end
+struct DefaultEnvironment <: AbstractLowLevelEnv{DefaultState,DefaultAction} end
 action_type(env::E where {S,A,E <: AbstractLowLevelEnv{S,A}}) = A
 state_type(env::E where {S,A,E <: AbstractLowLevelEnv{S,A}}) = S
 
@@ -191,6 +194,11 @@ abstract type AbstractMAPFSolver end
 
 # Other methods to override that are implemented as defaults in common.jl:
 # - detect_conflicts!(conflict_table,n1::PathNode,n2::PathNode,i::Int,j::Int,t::Int)
+
+"""
+    `initialize_mapf`
+"""
+function initialize_mapf end
 
 """
     build_env(mapf::AbstractMAPF, node::ConstraintTreeNode, idx::Int)

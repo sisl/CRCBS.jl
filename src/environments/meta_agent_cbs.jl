@@ -10,11 +10,16 @@ using Parameters, LightGraphs, DataStructures
 const State{S} = Vector{S}
 const Action{A} = Vector{A}
 
-@with_kw struct LowLevelEnv{S,A,E <: AbstractLowLevelEnv{S,A}} <: AbstractLowLevelEnv{State{S},Action{A}}
-    envs::Vector{E} = Vector{CBS.LowLevelEnv}()
+@with_kw struct LowLevelEnv{S,A,G} <: AbstractLowLevelEnv{State{S},Action{A}}
+    # envs::Vector{E}             = Vector{CBS.LowLevelEnv}()
+    graph::G                    = Graph()
+    # starts::Vector{S}           = Vector{S}()
+    goal::State             = Vector{G}()
+    # helper for meta-agent grouping
+    groups::Vector{Vector{Int}} = Vector{Vector{Int}}()
 end
-function CRCBS.build_env(mapf::M where M <: MetaMAPF, node::ConstraintTreeNode, idxs::Vector{Int})
-    LowLevelEnv{CBS.State,CBS.Action,CBS.LowLevelEnv}([build_env(mapf.mapf,node,idx) for idx in idxs])
+function CRCBS.build_env(mapf::MAPF{E,S,G} where {S,G,E<:LowLevelEnv}, node::ConstraintTreeNode, idx::Int)
+    LowLevelEnv{CBS.State,CBS.Action,CBS.LowLevelEnv}([build_env(mapf,node,idx) for idx in node.groups[idx]])
 end
 function CRCBS.heuristic(env::LowLevelEnv,state::S) where {S <: State}
     c = 0

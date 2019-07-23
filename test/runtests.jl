@@ -39,33 +39,33 @@ end
 @time @testset "CRCBS Package Tests" begin
     testdir = joinpath(dirname(@__DIR__), "test")
     @time @testset "CRCBS.ProblemDefinitionTests" begin
-        include(joinpath(testdir, "test_problem_definitions.jl"))
+        include(joinpath(testdir, "unit_tests/test_problem_definitions.jl"))
     end
     @time @testset "CRCBS.InterfaceTests" begin
-        include(joinpath(testdir, "test_interface.jl"))
+        include(joinpath(testdir, "unit_tests/test_interface.jl"))
     end
     @time @testset "CRCBS.CommonTests" begin
-        include(joinpath(testdir, "test_common.jl"))
+        include(joinpath(testdir, "unit_tests/test_common.jl"))
     end
     @time @testset "CRCBS.UtilsTests" begin
-        include(joinpath(testdir, "test_utils.jl"))
+        include(joinpath(testdir, "unit_tests/test_utils.jl"))
     end
     @time @testset "CRCBS.ImplicitGraphsTests" begin
-        include(joinpath(testdir, "test_implicit_graph.jl"))
+        include(joinpath(testdir, "unit_tests/test_implicit_graph.jl"))
     end
     @time @testset "CRCBS.CBSTests" begin
-        include(joinpath(testdir, "test_cbs.jl"))
+        include(joinpath(testdir, "unit_tests/test_cbs.jl"))
     end
     @time @testset "CRCBS.MultiStageCBSTests" begin
-        include(joinpath(testdir, "test_multi_stage_cbs.jl"))
+        include(joinpath(testdir, "unit_tests/test_multi_stage_cbs.jl"))
     end
-    @time @testset "CRCBS.MetaAgentCBSTests" begin
-        include(joinpath(testdir, "test_meta_agent_cbs.jl"))
-    end
+    # @time @testset "CRCBS.MetaAgentCBSTests" begin
+    #     include(joinpath(testdir, "unit_tests/test_meta_agent_cbs.jl"))
+    # end
     # @time @testset "CRCBS.HeuristicTests" begin
-    #     include(joinpath(testdir, "test_heuristics.jl"))
+    #     include(joinpath(testdir, "unit_tests/test_heuristics.jl"))
     # end
     # @time @testset "CRCBS.DemoTests" begin
-    #     include(joinpath(testdir, "test_demo.jl"))
+    #     include(joinpath(testdir, "unit_tests/test_demo.jl"))
     # end
 end
