@@ -29,15 +29,22 @@ let
     @test action_count == 9
 end
 let
-    # solver = CBS.CBSsolver()
     solver = MetaAgentCBS_Solver(1)
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    mapf = MetaMAPF(MAPF(
-        G,
-        [CBS.State(1,0),CBS.State(2,0)],
-        [CBS.State(vtx=6),CBS.State(vtx=5)]
-        ))
-    node = initialize_root_node(mapf)
-    env = build_env(mapf,node,[1,2])
+    env = CBS.LowLevelEnv(graph=G)
+    starts = [CBS.State(1,0),CBS.State(2,0)]
+    goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
+    mapf = initialize_mapf(env,starts,goals)
+
+    CRCBS.solve!(solver,mapf)
+end
+let
+    solver = MetaAgentCBS_Solver(1)
+    G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
+    env = MultiStageCBS.LowLevelEnv(graph=G)
+    starts = [MultiStageCBS.State(vtx=1,stage=1,t=0),MultiStageCBS.State(vtx=2,stage=1,t=0)]
+    goals = [[MultiStageCBS.State(vtx=6)],[MultiStageCBS.State(vtx=5)]]
+    mapf = initialize_mapf(env,starts,goals)
+
     CRCBS.solve!(solver,mapf)
 end

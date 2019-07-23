@@ -133,6 +133,7 @@ function Base.iterate(it::ActionIter, iter_state::ActionIterState)
     end
     Action(e=Edge(it.s,it.neighbor_list[iter_state.idx])), iter_state
 end
+Base.length(iter::ActionIter) = length(iter.neighbor_list)
 CRCBS.get_possible_actions(env::LowLevelEnv,s::State) = ActionIter(s.vtx,outneighbors(env.graph,s.vtx))
 # get_next_state
 function CRCBS.get_next_state(s::State,a::Action)
@@ -223,7 +224,7 @@ function CRCBS.initialize_root_node(mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv
         id = 1)
 end
 # default_solution
-CRCBS.default_solution(solver::CBS_Solver, mapf::MultiMAPF) = LowLevelSolution{State,Action}(), typemax(Int)
+CRCBS.default_solution(mapf::MultiMAPF) = LowLevelSolution{State,Action}(), typemax(Int)
 
 ################################################################################
 ############################### HELPER FUNCTIONS ###############################

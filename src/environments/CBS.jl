@@ -35,10 +35,10 @@ end
     goal::State                 = State()
     agent_idx::Int              = -1
     # helpers
-    dists::Dict{Int,Vector{Float64}} = Dict(goal.vtx => construct_distance_array(graph,goal))
+    dists::Dict{Int,Vector{Float64}} = Dict(agent_idx => construct_distance_array(graph,goal))
 end
 function CRCBS.initialize_mapf(env::LowLevelEnv,starts::Vector{State},goals::Vector{State})
-    dists= Dict(g.vtx => construct_distance_array(env.graph,g) for g in goals)
+    dists = Dict(i => construct_distance_array(env.graph,g) for (i,g) in enumerate(goals))
     MAPF(LowLevelEnv(graph=env.graph,dists=dists), starts, goals)
 end
 ################################################################################
@@ -55,7 +55,7 @@ function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) 
         )
 end
 # heuristic
-CRCBS.heuristic(env::LowLevelEnv,s) = env.dists[env.goal.vtx][s.vtx]
+CRCBS.heuristic(env::LowLevelEnv,s) = env.dists[env.agent_idx][s.vtx]
 # states_match
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
 CRCBS.states_match(env::LowLevelEnv,s1::State,s2::State) = (s1.vtx == s2.vtx)
@@ -179,7 +179,7 @@ function CRCBS.initialize_root_node(mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv
         id = 1)
 end
 # default_solution
-function CRCBS.default_solution(solver::CBS_Solver, mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv}
+function CRCBS.default_solution(mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv}
     return LowLevelSolution{State,Action}(), typemax(Int)
 end
 

@@ -59,7 +59,7 @@ function CRCBS.solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_
         end
     end
     print("No Solution Found. Returning default solution")
-    return default_solution(solver, mapf)
+    return default_solution(mapf)
 end
 
 """
@@ -80,12 +80,13 @@ end
 
     Helper for merging two (meta) agents into a meta-agent
 """
-function combine_agents(conflict_table, groups::Vector{Vector{Int}}, beta)
+function combine_agents!(node, beta)
+    groups = node.groups
     N = length(groups)
     conflict_counts = zeros(Int,N,N)
     for (i,idxs1) in enumerate(groups)
         for (j,idxs2) in enumerate(groups)
-            conflict_counts[i,j] += count_conflicts(conflict_table,idxs1,idxs2)
+            conflict_counts[i,j] += count_conflicts(node.conflict_table,idxs1,idxs2)
         end
     end
     idx = argmax(conflict_counts)
@@ -95,12 +96,11 @@ function combine_agents(conflict_table, groups::Vector{Vector{Int}}, beta)
         groups = deepcopy(groups)
         groups[i] = [groups[i]..., groups[j]...]
         deleteat!(groups, j)
+        node.groups = groups
         return groups, i
     end
     return groups, -1
 end
-
-const AgentGroups = Vector{Vector{Int}}
 
 function get_group_index(groups, agent_idx)
     group_idx = -1
@@ -114,18 +114,18 @@ function get_group_index(groups, agent_idx)
 end
 
 function CRCBS.solve!(solver::MetaAgentCBS_Solver, mapf::M where {M<:AbstractMAPF}, path_finder=A_star)
-    priority_queue = PriorityQueue{Tuple{ConstraintTreeNode,AgentGroups},Int}()
+    priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
 
     root_node = initialize_root_node(mapf)
-    groups = [[i] for i in 1:num_agents(mapf)]
-    low_level_search!(solver,mapf,root_node,groups)
+    root_node.groups = [[i] for i in 1:num_agents(mapf)]
+    low_level_search!(solver,mapf,root_node)
     detect_conflicts!(root_node.conflict_table,root_node.solution)
     if is_valid(root_node.solution,mapf)
-        enqueue!(priority_queue, (root_node, groups) => root_node.cost)
+        enqueue!(priority_queue, root_node => root_node.cost)
     end
 
     while length(priority_queue) > 0
-        node, groups = dequeue!(priority_queue)
+        node = dequeue!(priority_queue)
         # check for conflicts
         conflict = get_next_conflict(node.conflict_table)
         if !is_valid(conflict)
@@ -133,31 +133,28 @@ function CRCBS.solve!(solver::MetaAgentCBS_Solver, mapf::M where {M<:AbstractMAP
             return node.solution, node.cost
         end
         # check if a new meta-agent needs to be formed
-        groups, group_idx = combine_agents(node.conflict_table, groups, solver.beta)
-        # generate new nodes from constraints
+        groups, group_idx = combine_agents!(node, solver.beta)
         if group_idx > 0 # New Meta Agent has been constructed
             new_node = initialize_child_search_node(node)
-            low_level_search!(solver, mapf, new_node, [groups[group_idx]])
-            for agent_id in groups[group_idx]
+            low_level_search!(solver, mapf, new_node, [group_idx])
+            for agent_id in node.groups[group_idx]
                 detect_conflicts!(new_node.conflict_table,new_node.solution,agent_id)
             end
             if is_valid(new_node.solution, mapf)
-                enqueue!(priority_queue, (new_node, groups) => new_node.cost)
+                enqueue!(priority_queue, new_node => new_node.cost)
             end
-        else
+        else # generate new nodes from constraints
             constraints = generate_constraints_from_conflict(conflict)
-            # @show constraints
             for constraint in constraints
                 new_node = initialize_child_search_node(node)
                 if add_constraint!(new_node,constraint)
-                    agent_idx = get_agent_id(constraint)
-                    group_idx = get_group_index(groups, agent_idx)
-                    low_level_search!(solver,mapf,new_node,[groups[group_idx]])
-                    for agent_id in groups[group_idx]
+                    group_idx = get_group_index(groups, get_agent_id(constraint))
+                    low_level_search!(solver, mapf, new_node, [group_idx])
+                    for agent_id in node.groups[group_idx]
                         detect_conflicts!(new_node.conflict_table,new_node.solution,agent_id)
                     end
                     if is_valid(new_node.solution, mapf)
-                        enqueue!(priority_queue, (new_node, groups) => new_node.cost)
+                        enqueue!(priority_queue, new_node => new_node.cost)
                     end
                 end
             end
@@ -166,7 +163,6 @@ function CRCBS.solve!(solver::MetaAgentCBS_Solver, mapf::M where {M<:AbstractMAP
     print("No Solution Found. Returning default solution")
     return default_solution(solver, mapf)
 end
-
 
 """
     The Improved Conflict-Based Search Algorithm - Boyarski et al 2015
