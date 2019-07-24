@@ -3,8 +3,7 @@ export
     pad_matrix,
     initialize_full_grid_graph,
     initialize_regular_grid_graph,
-    find_index_in_sorted_array,
-    insert_to_sorted_array!
+    initialize_grid_graph_with_obstacles
 
 """
     helper to pad a matrix with some value around the edges
@@ -120,40 +119,38 @@ function initialize_regular_grid_graph(;
     G
 end
 
-# """
-#     find_index_in_sorted_array(array, x)
-#
-#     Assumes that array is already sorted. Returns index at which x would need to
-#     be inserted in order to maintain ordering of array. Chooses the smallest
-#     index in the case of a tie.
-# """
-# function find_index_in_sorted_array(array, x)
-#     A = 0
-#     C = length(array)+1
-#     B = max(1,Int(round((A+C) / 2)))
-#     while C-A > 1
-#         if x < array[B] || ( !(array[B] < x) && !(x < array[B]))
-#             A = A
-#             C = B
-#             B = Int(ceil((A+C) / 2))
-#         else
-#             A = B
-#             C = C
-#             B = Int(ceil((A+C) / 2))
-#         end
-#     end
-#     return B
-# end
-#
-# """
-#     insert_to_sorted_array!(array, x)
-#
-#     Assumes that array is already sorted. Inserts new element x so that
-#     array remains sorted. Requires that Base.isless(a::C,b::C) where
-#     C==typeof(x) be implemented.
-# """
-# function insert_to_sorted_array!(array, x)
-#     B = find_index_in_sorted_array(array, x)
-#     insert!(array, B, x)
-#     array
-# end
+"""
+    Returns a grid graph that represents a 2D environment with obstacles placed
+    over specific vertices
+"""
+function initialize_grid_graph_with_obstacles(
+    dims::Vector{Int},obstacles::Vector{Vector{Int}}=Vector{Vector{Int}}())
+    vtx_grid = reshape(collect(1:dims[1]*dims[2]),dims[1],dims[2])
+    for obs in obstacles
+        vtx_grid[obs[1],obs[2]] = 0
+    end
+    discount = 0
+    for j in 1:dims[2]
+        for i in 1:dims[1]
+            if vtx_grid[i,j] == 0
+                discount += 1
+            else
+                vtx_grid[i,j] -= discount
+            end
+        end
+    end
+    G = MetaGraph(dims[1]*dims[2]-length(obstacles))
+    for i in 1:dims[1]
+        for j in 1:dims[2]
+            if vtx_grid[i,j] != 0
+                set_prop!(G,vtx_grid[i,j],:x,i)
+                set_prop!(G,vtx_grid[i,j],:y,j)
+                add_edge!(G,vtx_grid[i,j],vtx_grid[i,max(1,j-1)])
+                add_edge!(G,vtx_grid[i,j],vtx_grid[i,min(dims[2],j+1)])
+                add_edge!(G,vtx_grid[i,j],vtx_grid[max(1,i-1),j])
+                add_edge!(G,vtx_grid[i,j],vtx_grid[min(dims[1],i+1),j])
+            end
+        end
+    end
+    G, vtx_grid
+end
