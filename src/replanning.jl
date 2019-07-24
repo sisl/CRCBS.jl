@@ -40,7 +40,7 @@ function merge_MAPFs!(mapf::MAPF,newagents::NewAgents)
     return # No need to return the mapf, it is modified
 end
 
-function reassign_agent_MAPF!(mapf::MAPF,newagent::NewAgent,id::Int64)
+function reassign_agent_MAPF!(mapf::MAPF,newagent::NewAgent,node,id::Int64)
 
     # Replace data for this agent
     mapf.starts[id] = newagent.start
@@ -48,11 +48,19 @@ function reassign_agent_MAPF!(mapf::MAPF,newagent::NewAgent,id::Int64)
     mapf.goals[id] = newagent.goals
     mapf.goal_completion_times[id] = newagent.goal_completion_times
 
+    # Delete all constraints in involving this agent, since it has been reassigned
+    for v in keys(node.constraints[id].node_constraints)
+        delete!(node.constraints[id].node_constraints,v) #After this there will remain an empty dict
+    end
+    for e in keys(node.constraints[id].edge_constraints)
+        delete!(node.constraints[id].edge_constraints,e)
+    end
+
     return # No need to return the mapf, it is modified
 end
 
 function jump_in_time!(mapf,time,node)
-    """We delete all constraints that happen before time and erase all agents that have reached their goals"""
+    """We delete all constraints that happen before time"""
 
     # First, we delete all constraints that happen before time
     for agent in keys(node.constraints)
@@ -72,11 +80,9 @@ function jump_in_time!(mapf,time,node)
 
     # Simulate where everyone is currently, then
     # robot Ri starts at node j at time ti and its path is now [j j2 j3...]
-
-
-    # Now the new mapf.starts and mapf.start times could be updated for the old robots with the time of
-    # their departure (or arrival + expected stay) from start_node, and start_node itself (current node)
-
+    solution = node.solution
+    solution_times = run_particles_until_t!(mapf,solution,time)
+    node.solution = solution
 
 
     return
@@ -196,7 +202,7 @@ end
 function run_particles_until_t!(mapf::MAPF, solution::LowLevelSolution,end_time::Float64)
     """Simulates 1 particle into the given solution.
     returns solution_times, a vector of arrays
-    Also returns the truncated solution that is has not yet been through, and
+    Also modifies the truncated solution that is has not yet been through, and
     the new starting time for the first of the nodes."""
     # solution is a vector of vectors of edges, we return for each node
     # the time at which the robot arrives and the time at which it leaves in a
@@ -307,16 +313,21 @@ function run_particles_until_t!(mapf::MAPF, solution::LowLevelSolution,end_time:
             # ----------------------- Node 2 ---------------------------- #
             # ------------- Special case of target node ----------------- #
             if edge_idx == length(agent_solution)
+
+                # This means the agent has arrived to its goal
+                mapf.start_time[agent_id] = 0.0
+                mapf.goals[agent_id] = [edge.dst]
+                mapf.goal_completion_times[agent_id] = [500.0]
+                mapf.starts[agent_id] = edge.src
+
+                # This is just for the purpose of filling in time array with stuff
                 # Get the info for the delay of the distribution at this node
                 node1_delay = get_prop(mapf.graph, edge.dst,:n_delay)
                 distrib = Gamma(node1_delay,lambda)
-
                 # Generate a random delay from this Distribution
                 node_time = rand(distrib,num_particles)
-
-                # Advance time for the particles
+                # Advance time for the particles, we don't actually need that
                 time = time + node_time
-
                 # Update time array with the time at which particles quit node 2
                 time_array[edge_idx+1,2] = time
             end
