@@ -59,7 +59,7 @@ function A_star(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
 
     initial_cost = 0
     frontier = PriorityQueue{Tuple{PathCost, Path{S,A}, S}, PathCost}()
-    enqueue!(frontier, (initial_cost, Path{S,A}(), start_state)=>initial_cost)
+    enqueue!(frontier, (initial_cost, Path{S,A}(s0=start_state), start_state)=>initial_cost)
     explored = Set{S}()
 
     A_star_impl!(env,frontier,explored,heuristic)

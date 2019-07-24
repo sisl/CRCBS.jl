@@ -1,4 +1,10 @@
 let
+    # verify that State, Action and LowLevelEnv are default constructible
+    MetaAgentCBS.State{DefaultState}()
+    MetaAgentCBS.Action{DefaultAction}()
+    MetaAgentCBS.LowLevelEnv{DefaultState,DefaultAction,DefaultEnvironment}()
+end
+let
     N = 2
     env = MetaAgentCBS.LowLevelEnv{CBS.State,CBS.Action,CBS.LowLevelEnv}([CBS.LowLevelEnv() for i in 1:N])
     state = MetaAgentCBS.State([CBS.State() for i in 1:N])

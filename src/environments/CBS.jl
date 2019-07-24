@@ -41,6 +41,7 @@ function CRCBS.initialize_mapf(env::LowLevelEnv,starts::Vector{State},goals::Vec
     dists = Dict(i => construct_distance_array(env.graph,g) for (i,g) in enumerate(goals))
     MAPF(LowLevelEnv(graph=env.graph,dists=dists), starts, goals)
 end
+# TODO implement a check to be sure that no two agents have the same goal
 ################################################################################
 ######################## Low-Level (Independent) Search ########################
 ################################################################################

@@ -8,11 +8,11 @@ using ..CRCBS
 using Parameters, LightGraphs, DataStructures
 
 
-struct State{S}
-    states::Vector{S}
+@with_kw struct State{S}
+    states::Vector{S} = Vector{S}()
 end
-struct Action{A}
-    actions::Vector{A}
+@with_kw struct Action{A}
+    actions::Vector{A} = Vector{A}()
 end
 
 # const State{S} = Vector{S}

@@ -84,11 +84,12 @@ const DefaultPathNode = PathNode{DefaultState,DefaultAction}
 # const Path{S,A} = Vector{PathNode{S,A}}
 abstract type AbstractPath end
 @with_kw mutable struct Path{S,A} <: AbstractPath
+    s0          ::S                     = S()
     path_nodes  ::Vector{PathNode{S,A}} = Vector{PathNode{S,A}}()
     cost        ::Int                   = 0
 end
-Path(v::Vector{PathNode{S,A}}) where {S,A} = Path(v,0)
-Base.cat(p::Path{S,A},x::PathNode{S,A},i...) where {S,A} = Path{S,A}(cat(p.path_nodes,x,dims=1),p.cost)
+Path(v::Vector{PathNode{S,A}}) where {S,A} = Path(get_s(get(v,0,PathNode{S,A}())),v,0)
+Base.cat(p::Path{S,A},x::PathNode{S,A},i...) where {S,A} = Path{S,A}(p.s0,cat(p.path_nodes,x,dims=1),p.cost)
 Base.get(p::Path,i,default) = get(p.path_nodes,i,default)
 Base.getindex(p::Path,i) = getindex(p.path_nodes,i)
 Base.setindex!(p::Path,x,i) = setindex!(p.path_nodes,x,i)
@@ -96,7 +97,22 @@ Base.length(p::Path) = length(p.path_nodes)
 Base.push!(p::Path,x) = push!(p.path_nodes,x)
 # num_steps(p::Path) = length(p.path_nodes)
 get_cost(p::Path) = p.cost
-Base.copy(p::Path) = Path(copy(p.path_nodes),p.cost)
+Base.copy(p::Path) = Path(p.s0,copy(p.path_nodes),p.cost)
+
+function get_initial_state(path::Path{S,A}) where {S,A} 
+    if length(path) > 0
+        return get_s(get(path,1,PathNode{S,A}()))
+    else
+        return path.s0
+    end
+end
+function get_final_state(path::Path{S,A}) where {S,A}
+    if length(path) > 0
+        return get_sp(get(path,length(path),PathNode{S,A}()))
+    else
+        return path.s0
+    end
+end
 
 """
     returns the `PathNode` (s,a,s') corresponding to step `t` of `path`
@@ -109,10 +125,14 @@ function get_path_node(path::Path{S,A},t::Int) where {S,A}
         return path[t]
     else
         t₀ = length(path)
-        node = get(path,length(path),PathNode{S,A}())
-        s = get_s(node)
-        a = get_a(node)
-        sp = get_sp(node)
+        if t₀ == 0
+            sp = get_initial_state(path)
+        else
+            node = get(path,length(path),PathNode{S,A}())
+            s = get_s(node)
+            a = get_a(node)
+            sp = get_sp(node)
+        end
         for τ in length(path)+1:t
             s = sp
             a = wait(s)
@@ -165,16 +185,16 @@ end
 """
 function extend_path(path::Path,T::Int)
     new_path = copy(path)
-    while length(new_path) < T
-        s = get_final_state(new_path)
-        a = wait(s)
-        push!(new_path,PathNode(s,wait(s),get_next_state(s,a)))
-    end
+    extend_path!(new_path,T)
     return new_path
+#     while length(new_path) < T
+#         s = get_final_state(new_path)
+#         a = wait(s)
+#         push!(new_path,PathNode(s,wait(s),get_next_state(s,a)))
+#     end
+#     return new_path
 end
 
-get_initial_state(path::Path{S,A}) where {S,A} = get_s(get(path,1,PathNode{S,A}()))
-get_final_state(path::Path{S,A}) where {S,A} = get_sp(get(path,length(path),PathNode{S,A}()))
 
 """ Type alias for a list of agent paths """
 const LowLevelSolution{S,A} = Vector{Path{S,A}}
