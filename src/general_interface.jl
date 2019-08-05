@@ -6,6 +6,7 @@ export
     DefaultEnvironment,
     action_type,
     state_type,
+    cost_type,
 
     PathNode,
     get_s,
@@ -43,7 +44,7 @@ export
 
 struct DefaultState end
 struct DefaultAction end
-const DefaultPathCost = Int
+const DefaultPathCost = Float64
 wait(DefaultState) = DefaultAction()
 get_next_state(s::DefaultState,a::DefaultAction) = DefaultState()
 get_next_state(env,s::DefaultState,a::DefaultAction) = DefaultState()
@@ -62,8 +63,9 @@ get_next_state(env,s::DefaultState,a::DefaultAction) = DefaultState()
 """
 abstract type AbstractLowLevelEnv{S,A,C} end
 struct DefaultEnvironment <: AbstractLowLevelEnv{DefaultState,DefaultAction,DefaultPathCost} end
-action_type(env::E where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}}) = A
-state_type(env::E where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}}) = S
+action_type(env::E) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}} = A
+state_type(env::E) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}} = S
+cost_type(env::E) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}} = C
 
 """
     PathNode: includes current state `s`, action `a`, next state `sp`

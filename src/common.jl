@@ -475,7 +475,7 @@ end
     # set of paths (one per agent) through graph
     solution        ::LowLevelSolution{S,A}     = LowLevelSolution{S,A}()
     # cost = sum([length(path) for path in solution])
-    cost            ::C                         = -1
+    cost            ::C                         = DefaultPathCost(-1)
     # index of parent node
     parent          ::Int                       = -1
     # indices of two child nodes

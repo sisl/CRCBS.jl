@@ -29,7 +29,7 @@ function construct_distance_array(G,goal)
     end
     return d
 end
-@with_kw struct LowLevelEnv{G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action,DefaultPathCost}
+@with_kw struct LowLevelEnv{C,G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
     graph::G                    = Graph()
     constraints::ConstraintTable = ConstraintTable()
     goal::State                 = State()
@@ -39,7 +39,7 @@ end
 end
 function CRCBS.initialize_mapf(env::LowLevelEnv,starts::Vector{State},goals::Vector{State})
     dists = Dict(i => construct_distance_array(env.graph,g) for (i,g) in enumerate(goals))
-    MAPF(LowLevelEnv(graph=env.graph,dists=dists), starts, goals)
+    MAPF(typeof(env)(graph=env.graph,dists=dists), starts, goals)
 end
 # TODO implement a check to be sure that no two agents have the same goal
 ################################################################################
@@ -47,7 +47,7 @@ end
 ################################################################################
 # build_env
 function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) where {S,G,E<:LowLevelEnv}
-    LowLevelEnv(
+    typeof(mapf.env)(
         graph = mapf.env.graph,
         constraints = get_constraints(node,idx),
         goal = mapf.goals[idx],
@@ -56,7 +56,7 @@ function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) 
         )
 end
 # heuristic
-CRCBS.heuristic(env::LowLevelEnv,s) = env.dists[env.agent_idx][s.vtx]
+CRCBS.heuristic(env::LowLevelEnv{C,G},s) where {C,G} = C(env.dists[env.agent_idx][s.vtx])
 # states_match
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
 CRCBS.states_match(env::LowLevelEnv,s1::State,s2::State) = (s1.vtx == s2.vtx)
@@ -111,7 +111,9 @@ CRCBS.get_possible_actions(env::LowLevelEnv,s::State) = ActionIter(s.vtx,outneig
 CRCBS.get_next_state(s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
 CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action) = get_next_state(s,a)
 # get_transition_cost
-CRCBS.get_transition_cost(env::LowLevelEnv,s::State,a::Action,sp::State) = 1
+function CRCBS.get_transition_cost(env::LowLevelEnv{C,G},s::State,a::Action,sp::State) where {C,G}
+    return C(1)
+end
 # violates_constraints
 function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action, sp::State)
     t = length(path) + 1
@@ -177,6 +179,7 @@ function CRCBS.initialize_root_node(mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv
         constraints = Dict{Int,ConstraintTable}(
             i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
             ),
+        cost = cost_type(mapf.env)(0),
         id = 1)
 end
 # default_solution
