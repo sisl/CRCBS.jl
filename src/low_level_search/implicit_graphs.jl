@@ -9,7 +9,7 @@ function A_star_impl!(env::E, frontier, explored::Set{S}, heuristic::Function) w
     while !isempty(frontier)
         (cost_so_far, path, s) = dequeue!(frontier)
         if is_goal(env,s)
-            return path
+            return path # TODO return the cost as well
         elseif check_termination_criteria(env,cost_so_far,path,s)
             break
         end

@@ -67,10 +67,6 @@ let
     add_edge!(graph,1,3)
     constraints = ConstraintTable()
     env = CBS.LowLevelEnv() #graph=graph,constraints=constraints)
-    # s = State(1)
-    # for a in get_possible_actions(env,s)
-    #     @test typeof(a) == Action
-    # end
 end
 let
     solver = CBS_Solver()

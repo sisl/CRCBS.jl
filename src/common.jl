@@ -483,6 +483,9 @@ end
     # unique id
     id              ::Int                       = -1
 end
+action_type(node::N) where {S,A,C,N <: ConstraintTreeNode{S,A,C}} = A
+state_type(node::N) where {S,A,C,N <: ConstraintTreeNode{S,A,C}} = S
+cost_type(node::N) where {S,A,C,N <: ConstraintTreeNode{S,A,C}} = C
 
 """
     `initialize_child_search_node(parent_node::ConstraintTreeNode)`
@@ -538,8 +541,8 @@ end
 """
     Helper function to get the cost of a particular node
 """
-function get_cost(node::ConstraintTreeNode)
-    return get_cost(node.solution)
+function get_cost(node::N) where {S,A,C,N <: ConstraintTreeNode{S,A,C}}
+    return C(get_cost(node.solution))
 end
 
 """
