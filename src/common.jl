@@ -597,7 +597,7 @@ function low_level_search!(
     mapf::M where {M<:AbstractMAPF},
     node::ConstraintTreeNode,
     idxs::Vector{Int}=collect(1:num_agents(mapf));
-    heuristic=heuristic,
+    heuristic=get_heuristic_cost,
     path_finder=A_star)
     # Only compute a path for the indices specified by idxs
     for i in idxs

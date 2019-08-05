@@ -35,7 +35,7 @@ export
     get_next_state,
     get_transition_cost,
     get_path_cost,
-    heuristic,
+    get_heuristic_cost,
     # get_heuristic,
     violates_constraints,
     check_termination_criteria,
@@ -288,11 +288,11 @@ function get_transition_cost end
 function get_path_cost end
 
 """
-    `heuristic(env::E <: AbstractLowLevelEnv{S,A,C},state::S)`
+    `get_heuristic_cost(env::E <: AbstractLowLevelEnv{S,A,C},state::S)`
 
     get a heuristic "cost-to-go" from `state`
 """
-function heuristic end
+function get_heuristic_cost end
 
 """
     `violates_constraints(env::E <: AbstractLowLevelEnv{S,A,C},

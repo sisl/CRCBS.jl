@@ -52,7 +52,7 @@ function CRCBS.low_level_search!(
     mapf::M where {M<:AbstractMAPF},
     node::ConstraintTreeNode,
     idxs::Vector{Int}=collect(1:num_agents(mapf));
-    heuristic=heuristic,
+    heuristic=get_heuristic_cost,
     path_finder=A_star)
     # Only compute a path for the indices specified by idxs
     for i in idxs
@@ -71,10 +71,10 @@ function CRCBS.low_level_search!(
     return true
 end
 
-function CRCBS.heuristic(env::LowLevelEnv,state::S) where {S <: State}
+function CRCBS.get_heuristic_cost(env::LowLevelEnv,state::S) where {S <: State}
     c = 0
     for (e,s) in zip(env.envs, state.states)
-        c += heuristic(e,s)
+        c += get_heuristic_cost(e,s)
     end
     return c
 end

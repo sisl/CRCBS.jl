@@ -2,7 +2,7 @@ let
     s = CBS.State()
     @test states_match(s,s)
     a = CBS.Action()
-    env = CBS.LowLevelEnv{DefaultPathCost,Graph}()
+    env = CBS.LowLevelEnv()
 
     a = CRCBS.wait(s)
     sp = get_next_state(s,a)
@@ -13,7 +13,7 @@ end
 let
     s = CBS.State()
     a = CBS.Action()
-    env = CBS.LowLevelEnv{DefaultPathCost,Graph}()
+    env = CBS.LowLevelEnv()
     get_next_state(s,a)
     get_transition_cost(env,s,a,s)
 end
@@ -22,7 +22,7 @@ let
     add_edge!(G,1,2)
     add_edge!(G,2,2)
     add_edge!(G,2,3)
-    env = CBS.LowLevelEnv{DefaultPathCost,typeof(G)}(graph=G)
+    env = CBS.LowLevelEnv(graph=G)
     for a in get_possible_actions(env,CBS.State(2,0))
         @test a.e.src == 2
         @test a.e.dst ∈ [1,2,3]
@@ -37,7 +37,7 @@ let
     add_edge!(G,1,2)
     add_edge!(G,2,2)
     add_edge!(G,2,3)
-    env = CBS.LowLevelEnv{DefaultPathCost,typeof(G)}(graph=G)
+    env = CBS.LowLevelEnv(graph=G)
 
     paths = [
         Path{S,A}()
@@ -66,7 +66,7 @@ let
     add_edge!(graph,1,2)
     add_edge!(graph,1,3)
     constraints = ConstraintTable()
-    env = CBS.LowLevelEnv{DefaultPathCost,Graph}() #graph=graph,constraints=constraints)
+    env = CBS.LowLevelEnv() #graph=graph,constraints=constraints)
     # s = State(1)
     # for a in get_possible_actions(env,s)
     #     @test typeof(a) == Action
@@ -75,7 +75,7 @@ end
 let
     solver = CBS_Solver()
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    env = CBS.LowLevelEnv{DefaultPathCost,typeof(G)}(graph=G)
+    env = CBS.LowLevelEnv(graph=G)
     starts = [CBS.State(1,0),CBS.State(2,0)]
     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
     mapf = initialize_mapf(env,starts,goals)

@@ -11,6 +11,7 @@ include("general_interface.jl")
 include("problem_definitions.jl")
 include("common.jl")
 include("utils.jl")
+include("low_level_search/heuristics.jl")
 include("low_level_search/implicit_graphs.jl")
 
 include("solvers.jl")

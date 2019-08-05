@@ -64,7 +64,7 @@ function CRCBS.build_env(mapf::MAPF{E,S,G} where {S,G,E <: LowLevelEnv}, node::C
         )
 end
 # heuristic
-CRCBS.heuristic(env::LowLevelEnv,s) = env.dists[env.agent_idx][s.stage][s.vtx]
+CRCBS.get_heuristic_cost(env::LowLevelEnv,s) = env.dists[env.agent_idx][s.stage][s.vtx]
 # states_match
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
 function CRCBS.is_valid(path::Path{State,Action},start::State,goals::Vector{State})

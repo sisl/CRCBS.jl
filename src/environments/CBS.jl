@@ -21,25 +21,18 @@ end
     Δt::Int         = 1
 end
 # LowLevelEnv
-function construct_distance_array(G,goal)
-    if goal.vtx != -1 && nv(G) > goal.vtx
-        d = gdistances(G,goal.vtx)
-    else
-        d = Vector{Float64}()
-    end
-    return d
-end
-@with_kw struct LowLevelEnv{C,G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
+@with_kw struct LowLevelEnv{C,H,G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
     graph::G                    = Graph()
     constraints::ConstraintTable = ConstraintTable()
     goal::State                 = State()
     agent_idx::Int              = -1
     # helpers # TODO parameterize LowLevelEnv by heuristic type as well
-    dists::Dict{Int,Vector{Float64}} = Dict(agent_idx => construct_distance_array(graph,goal))
+    h::H                        = PerfectHeuristic(graph,Vector{Int}())
+    initial_cost::C             = DefaultPathCost(0)
 end
-function CRCBS.initialize_mapf(env::LowLevelEnv,starts::Vector{State},goals::Vector{State})
-    dists = Dict(i => construct_distance_array(env.graph,g) for (i,g) in enumerate(goals))
-    MAPF(typeof(env)(graph=env.graph,dists=dists), starts, goals)
+function CRCBS.initialize_mapf(env::LowLevelEnv{C,PerfectHeuristic,G},starts::Vector{State},goals::Vector{State}) where {C,G}
+    h = PerfectHeuristic(env.graph,[s.vtx for s in goals])
+    MAPF(typeof(env)(graph=env.graph,h=h), starts, goals)
 end
 # TODO implement a check to be sure that no two agents have the same goal
 ################################################################################
@@ -52,11 +45,11 @@ function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) 
         constraints = get_constraints(node,idx),
         goal = mapf.goals[idx],
         agent_idx = idx,
-        dists = mapf.env.dists
+        h = mapf.env.h
         )
 end
 # heuristic
-CRCBS.heuristic(env::LowLevelEnv{C,G},s) where {C,G} = C(env.dists[env.agent_idx][s.vtx])
+CRCBS.get_heuristic_cost(env::LowLevelEnv{C,PerfectHeuristic,G},s::State) where {C,G} = C(get_heuristic_cost(env.h,env.goal.vtx,s.vtx))
 # states_match
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
 CRCBS.states_match(env::LowLevelEnv,s1::State,s2::State) = (s1.vtx == s2.vtx)
