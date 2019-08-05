@@ -34,7 +34,7 @@ end
     constraints::ConstraintTable = ConstraintTable()
     goal::State                 = State()
     agent_idx::Int              = -1
-    # helpers
+    # helpers # TODO parameterize LowLevelEnv by heuristic type as well
     dists::Dict{Int,Vector{Float64}} = Dict(agent_idx => construct_distance_array(graph,goal))
 end
 function CRCBS.initialize_mapf(env::LowLevelEnv,starts::Vector{State},goals::Vector{State})
