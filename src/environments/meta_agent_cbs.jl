@@ -18,7 +18,7 @@ end
 # const State{S} = Vector{S}
 # const Action{A} = Vector{A}
 
-@with_kw struct LowLevelEnv{S,A,E<:AbstractLowLevelEnv{S,A}} <: AbstractLowLevelEnv{State{S},Action{A}}
+@with_kw struct LowLevelEnv{S,A,C,E<:AbstractLowLevelEnv{S,A,C}} <: AbstractLowLevelEnv{State{S},Action{A},C}
     envs::Vector{E}             = Vector{CBS.LowLevelEnv}()
     # graph::G                    = Graph()
     # # starts::Vector{S}           = Vector{S}()
@@ -26,8 +26,8 @@ end
     # # helper for meta-agent grouping
     # groups::Vector{Vector{Int}} = Vector{Vector{Int}}()
 end
-construct_meta_env(envs::Vector{E} where {E <: CBS.LowLevelEnv}) = LowLevelEnv{CBS.State,CBS.Action,CBS.LowLevelEnv}(envs=envs)
-construct_meta_env(envs::Vector{E} where {E <: MultiStageCBS.LowLevelEnv}) = LowLevelEnv{MultiStageCBS.State,MultiStageCBS.Action,MultiStageCBS.LowLevelEnv}(envs=envs)
+construct_meta_env(envs::Vector{E} where {E <: CBS.LowLevelEnv}) = LowLevelEnv{CBS.State,CBS.Action,DefaultPathCost,CBS.LowLevelEnv}(envs=envs)
+construct_meta_env(envs::Vector{E} where {E <: MultiStageCBS.LowLevelEnv}) = LowLevelEnv{MultiStageCBS.State,MultiStageCBS.Action,DefaultPathCost,MultiStageCBS.LowLevelEnv}(envs=envs)
 ################################################################################
 ################################################################################
 ################################################################################

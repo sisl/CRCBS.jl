@@ -1,12 +1,6 @@
 let
-    # verify that State, Action and LowLevelEnv are default constructible
-    MetaAgentCBS.State{DefaultState}()
-    MetaAgentCBS.Action{DefaultAction}()
-    MetaAgentCBS.LowLevelEnv{DefaultState,DefaultAction,DefaultEnvironment}()
-end
-let
     N = 2
-    env = MetaAgentCBS.LowLevelEnv{CBS.State,CBS.Action,CBS.LowLevelEnv}([CBS.LowLevelEnv() for i in 1:N])
+    env = MetaAgentCBS.LowLevelEnv{CBS.State,CBS.Action,DefaultPathCost,CBS.LowLevelEnv}([CBS.LowLevelEnv() for i in 1:N])
     state = MetaAgentCBS.State([CBS.State() for i in 1:N])
     action = MetaAgentCBS.Action([CBS.Action() for i in 1:N])
 
@@ -26,7 +20,7 @@ let
     add_edge!(G,3,3)
     cbs_env = CBS.LowLevelEnv(graph=G)
 
-    env = MetaAgentCBS.LowLevelEnv{CBS.State,CBS.Action,CBS.LowLevelEnv}([cbs_env, cbs_env])
+    env = MetaAgentCBS.LowLevelEnv{CBS.State,CBS.Action,DefaultPathCost,CBS.LowLevelEnv}([cbs_env, cbs_env])
     state = MetaAgentCBS.State([CBS.State(vtx=1), CBS.State(vtx=2)])
     action_count = 0
     for a in get_possible_actions(env, state)

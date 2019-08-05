@@ -463,7 +463,7 @@ end
     A node of a constraint tree. Each node has a set of constraints, a candidate
     solution (set of robot paths), and a cost
 """
-@with_kw mutable struct ConstraintTreeNode{S,A} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
+@with_kw mutable struct ConstraintTreeNode{S,A,C} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
     # # Environment
     # env::E
     # maps agent_id to the set of constraints involving that agent
@@ -475,7 +475,7 @@ end
     # set of paths (one per agent) through graph
     solution        ::LowLevelSolution{S,A}     = LowLevelSolution{S,A}()
     # cost = sum([length(path) for path in solution])
-    cost            ::Int                       = -1
+    cost            ::C                         = -1
     # index of parent node
     parent          ::Int                       = -1
     # indices of two child nodes

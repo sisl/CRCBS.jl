@@ -5,7 +5,7 @@ export
 """
     The internal loop of the A* algorithm.
 """
-function A_star_impl!(env::E, frontier, explored::Set{S}, heuristic::Function) where {S,A,E <: AbstractLowLevelEnv{S,A}}
+function A_star_impl!(env::E, frontier, explored::Set{S}, heuristic::Function) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}}
     while !isempty(frontier)
         (cost_so_far, path, s) = dequeue!(frontier)
         if is_goal(env,s)
@@ -40,25 +40,25 @@ end
     that operates on an Environment and initial state.
 
     args:
-    - env::E <: AbstractLowLevelEnv{S,A}
+    - env::E <: AbstractLowLevelEnv{S,A,C}
     - start_state::S
     - is_goal::Function
     - heuristic::Function (optional)
 
     The following methods must be implemented:
     - is_goal(s::S)
-    - check_termination_criteria(cost::PathCost,path::Path{S,A},state::S)
+    - check_termination_criteria(cost::DefaultPathCost,path::Path{S,A},state::S)
     - get_possible_actions(env::E,s::S)
     - get_next_state(env::E,s::S,a::A,sp::S)
     - get_transition_cost(env::E,s::S,a::A)
     - violates_constraints(env::E,s::S,path::Path{S,A})
 """
-function A_star(env::E where {E <: AbstractLowLevelEnv{S,A}},# the graph
+function A_star(env::E where {E <: AbstractLowLevelEnv{S,A,C}},# the graph
     start_state::S,
-    heuristic::Function = (env,s) -> 0.0) where {S,A}
+    heuristic::Function = (env,s) -> 0.0) where {S,A,C}
 
-    initial_cost = 0
-    frontier = PriorityQueue{Tuple{PathCost, Path{S,A}, S}, PathCost}()
+    initial_cost = C(0) # TODO require default constructible cost
+    frontier = PriorityQueue{Tuple{C, Path{S,A}, S}, C}()
     enqueue!(frontier, (initial_cost, Path{S,A}(s0=start_state), start_state)=>initial_cost)
     explored = Set{S}()
 

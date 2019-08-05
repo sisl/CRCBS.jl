@@ -29,7 +29,7 @@ function construct_distance_array(G,goal)
     end
     return d
 end
-@with_kw struct LowLevelEnv{G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action}
+@with_kw struct LowLevelEnv{G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action,DefaultPathCost}
     graph::G                    = Graph()
     constraints::ConstraintTable = ConstraintTable()
     goal::State                 = State()

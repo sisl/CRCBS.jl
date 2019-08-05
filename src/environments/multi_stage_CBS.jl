@@ -37,7 +37,7 @@ function construct_multi_stage_distance_array(G,goals)
     end
     return Vector{Vector{Float64}}()
 end
-@with_kw struct LowLevelEnv{G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action}
+@with_kw struct LowLevelEnv{G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action,DefaultPathCost}
     graph::G                        = Graph()
     constraints::ConstraintTable    = ConstraintTable()
     goal_sequence::Vector{State}    = Vector{State}()
