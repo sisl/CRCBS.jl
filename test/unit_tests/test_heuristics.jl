@@ -25,13 +25,13 @@ let
     end
 end
 
-let
-    solver = CBS_Solver()
-    G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    env = CBS.LowLevelEnv(graph=G,h=TieBreakerHeuristic(),initial_cost=TieBreakerCost())
-    starts = [CBS.State(1,0),CBS.State(2,0)]
-    goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
-    mapf = initialize_mapf(env,starts,goals)
-    node = CBS.initialize_root_node(mapf)
-    CRCBS.solve!(solver,mapf)
-end
+# let
+#     solver = CBS_Solver()
+#     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
+#     env = CBS.LowLevelEnv(graph=G,h=TieBreakerHeuristic(),initial_cost=TieBreakerCost())
+#     starts = [CBS.State(1,0),CBS.State(2,0)]
+#     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
+#     mapf = initialize_mapf(env,starts,goals)
+#     node = CBS.initialize_root_node(mapf)
+#     CRCBS.solve!(solver,mapf)
+# end

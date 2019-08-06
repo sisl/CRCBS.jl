@@ -43,10 +43,8 @@ export
     initialize_child_search_node,
     get_constraints,
     violates_constraints,
-    get_cost,
     generate_constraints_from_conflict,
 
-    set_solution_path!,
     low_level_search!
 
 """
@@ -57,21 +55,23 @@ function is_valid(path::Path{S,A},start::S,goal::G) where {S,G,A}
         && states_match(get_final_state(path), goal))
 end
 
-"""
-    checks if a solution is valid
-"""
-function is_valid(solution::LowLevelSolution{S,A},starts::Vector{S},goals::Vector{G}) where {S,G,A}
-    for (i,path) in enumerate(solution)
+function is_valid(paths::Vector{P},starts::Vector{S},goals::Vector{G}) where {S,G,P <: Path}
+    for (i,path) in enumerate(paths)
         if !is_valid(path,starts[i],goals[i])
             return false
         end
     end
     return true
 end
-
-"""
-    checks if a solution is valid
-"""
+function is_valid(solution::LowLevelSolution{S,A},starts::Vector{S},goals::Vector{G}) where {S,G,A}
+    is_valid(get_paths(solution),starts,goals)
+    # for (i,path) in enumerate(get_paths(solution))
+    #     if !is_valid(path,starts[i],goals[i])
+    #         return false
+    #     end
+    # end
+    # return true
+end
 function is_valid(solution::LowLevelSolution,mapf::AbstractMAPF)
     is_valid(solution,get_starts(mapf),get_goals(mapf))
 end
@@ -157,8 +157,8 @@ function detect_conflicts!(conflict_table,path1::Path,path2::Path,i::Int,j::Int)
 end
 
 """
-    Populates a `ConflictTable` with all conflicts that occur in a given
-    solution. Conflict checking is performed in a pairwise fashion between
+    Populates a `ConflictTable` with all conflicts that occur in a given vector
+    of paths. Conflict checking is performed in a pairwise fashion between
     all paths.
 
     args:
@@ -167,7 +167,7 @@ end
     - idxs                  (optional) a list of agent ids for which to check
                             collisions against all other agents
 """
-function detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect(1:length(paths)))
+function detect_conflicts!(conflict_table, paths::Vector{P} where {P<:Path}, idxs=collect(1:length(paths)))
     # print("detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     for (i,path1) in enumerate(paths)
         for (j,path2) in enumerate(paths)
@@ -178,6 +178,10 @@ function detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect
         end
     end
     return conflict_table
+end
+
+function detect_conflicts!(conflict_table, solution::LowLevelSolution, idxs=collect(1:length(get_paths(solution))))
+    detect_conflicts!(conflict_table,get_paths(solution),idxs)
 end
 
 """
@@ -333,10 +337,16 @@ end
     - idxs                  (optional) a list of agent ids for which to check
                             collisions against all other agents
 """
-function detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))
+function detect_conflicts(paths::Vector{P} where {P <: Path}, idxs=collect(1:length(paths)))
     # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     conflict_table = ConflictTable()
     detect_conflicts!(conflict_table,paths,idxs)
+end
+function detect_conflicts(solution::LowLevelSolution, idxs=collect(1:length(paths)))
+    # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
+    # conflict_table = ConflictTable()
+    # detect_conflicts!(conflict_table,solution,idxs)
+    detect_conflicts(conflict_table,get_paths(solution),idxs)
 end
 
 """ add detected conflicts to conflict table """
@@ -531,12 +541,6 @@ end
 #     return length(setdiff(constraints1,constraints2)) == 0
 # end
 
-"""
-    Helper function to get the cost of a particular solution
-"""
-function get_cost(paths::LowLevelSolution)
-    return sum([length(p) for p in paths])
-end
 
 """
     Helper function to get the cost of a particular node
@@ -577,14 +581,6 @@ function generate_constraints_from_conflict(conflict::Conflict)
 end
 
 """
-    `set_solution_paths(solution, paths, idxs)`
-"""
-function set_solution_path!(solution::LowLevelSolution, path::Path, idx::Int)
-    solution[idx] = path
-    return solution
-end
-
-"""
     `low_level_search!(
         solver::S where {S<:AbstractMAPFSolver},
         mapf::M where {M<:AbstractMAPF},
@@ -610,7 +606,7 @@ function low_level_search!(
         # TODO FIX get_starts(mapf)[i]. It's a little bit tacky, especially
         # since the definition of MetaAgentCBS.State determines whether this
         # will fail or not (for MetaAgentCBS_Solver).
-        path = path_finder(env, get_start(mapf,env,i), heuristic)
+        path, cost = path_finder(env, get_start(mapf,env,i), heuristic)
         set_solution_path!(node.solution, path, i)
     end
     node.cost = get_cost(node.solution)

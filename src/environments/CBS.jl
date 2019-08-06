@@ -206,7 +206,7 @@ function convert_to_vertex_lists(path::Path{State,Action})
     vtx_list
 end
 function convert_to_vertex_lists(solution::LowLevelSolution{State,Action})
-    return [convert_to_vertex_lists(path) for path in solution]
+    return [convert_to_vertex_lists(path) for path in get_paths(solution)]
 end
 
 end

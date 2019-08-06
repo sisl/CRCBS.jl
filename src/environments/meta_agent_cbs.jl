@@ -60,7 +60,7 @@ function CRCBS.low_level_search!(
         env = construct_meta_env([build_env(mapf, node, j) for j in group])
         start = State([get_start(mapf,j) for j in group])
 
-        path = path_finder(env, start, heuristic)
+        path, cost = path_finder(env, start, heuristic)
         paths = split_path(path)
         for (idx,j) in enumerate(group)
             set_solution_path!(node.solution, paths[idx], j)

@@ -23,6 +23,9 @@ export
     get_final_state,
 
     LowLevelSolution,
+    get_paths,
+    set_solution_path!,
+    get_cost,
     AbstractMAPFSolver,
 
     initialize_mapf,
@@ -201,9 +204,31 @@ end
 
 
 """ Type alias for a list of agent paths """
-const LowLevelSolution{S,A} = Vector{Path{S,A}}
+# const LowLevelSolution{S,A} = Vector{Path{S,A}}
+@with_kw mutable struct LowLevelSolution{S,A}
+    paths::Vector{Path{S,A}} = Vector{Path{S,A}}()
+    costs::Float64          = 0.0
+end
+Base.copy(solution::LowLevelSolution) = LowLevelSolution(copy(solution.paths),copy(solution.costs))
+function LowLevelSolution{S,A}(paths::Vector{Path{S,A}}) where {S,A}
+    LowLevelSolution(paths,0.0)
+end
+get_paths(solution::LowLevelSolution) = solution.paths
 
+"""
+    `set_solution_paths(solution, paths, idxs)`
+"""
+function set_solution_path!(solution::LowLevelSolution, path::Path, idx::Int)
+    solution.paths[idx] = path
+    return solution
+end
 
+"""
+    Helper function to get the cost of a particular solution
+"""
+function get_cost(paths::LowLevelSolution)
+    return sum([length(p) for p in get_paths(paths)])
+end
 # abstract type CostModel end
 #
 # struct MakeSpan <: CostModel end
