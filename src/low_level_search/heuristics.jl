@@ -6,6 +6,7 @@ export
     TieBreakerHeuristic
 
 abstract type LowLevelSearchHeuristic{C} end
+cost_type(h::LowLevelSearchHeuristic{C}) where {C} = C
 
 ################################################################################
 ############################### PerfectHeuristic ###############################
@@ -24,11 +25,11 @@ abstract type LowLevelSearchHeuristic{C} end
 @with_kw struct PerfectHeuristic <: LowLevelSearchHeuristic{Float64}
     dists::Dict{Int,Vector{Float64}} = Dict{Int,Vector{Float64}}()
 end
+get_heuristic_cost(h::PerfectHeuristic,goal_vtx::Int,vtx::Int) = h.dists[goal_vtx][vtx]
 function PerfectHeuristic(graph,starts::Vector{Int},goals::Vector{Int})
     dists = Dict(v => gdistances(graph,v) for v in goals)
     PerfectHeuristic(dists)
 end
-get_heuristic_cost(h::PerfectHeuristic,goal_vtx::Int,vtx::Int) = h.dists[goal_vtx][vtx]
 
 ################################################################################
 ############################### SoftConflictTable ##############################

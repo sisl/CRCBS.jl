@@ -95,8 +95,11 @@ abstract type AbstractPath end
     path_nodes  ::Vector{PathNode{S,A}} = Vector{PathNode{S,A}}()
     cost        ::Int                   = 0
 end
-Path(v::Vector{PathNode{S,A}}) where {S,A} = Path(get_s(get(v,0,PathNode{S,A}())),v,0)
-Base.cat(p::Path{S,A},x::PathNode{S,A},i...) where {S,A} = Path{S,A}(p.s0,cat(p.path_nodes,x,dims=1),p.cost)
+node_type(p::Path{S,A}) where {S,A} = PathNode{S,A}
+# Path(v::Vector{PathNode{S,A}}) where {S,A} = Path(get_s(get(v,0,PathNode{S,A}())),v,0)
+Path(v::Vector{P}) where {P<:PathNode} = Path(get_s(get(v,0,P())),v,0)
+# Base.cat(p::Path{S,A},x::PathNode{S,A},i...) where {S,A} = Path{S,A}(p.s0,cat(p.path_nodes,x,dims=1),p.cost)
+Base.cat(p::Path,x::PathNode,i...) = typeof(p)(p.s0,cat(p.path_nodes,x,dims=1),p.cost)
 Base.get(p::Path,i,default) = get(p.path_nodes,i,default)
 Base.getindex(p::Path,i) = getindex(p.path_nodes,i)
 Base.setindex!(p::Path,x,i) = setindex!(p.path_nodes,x,i)
@@ -106,16 +109,16 @@ Base.push!(p::Path,x) = push!(p.path_nodes,x)
 get_cost(p::Path) = p.cost
 Base.copy(p::Path) = Path(p.s0,copy(p.path_nodes),p.cost)
 
-function get_initial_state(path::Path{S,A}) where {S,A}
+function get_initial_state(path::P where {P<:Path})
     if length(path) > 0
-        return get_s(get(path,1,PathNode{S,A}()))
+        return get_s(get(path,1,node_type(path)()))
     else
         return path.s0
     end
 end
-function get_final_state(path::Path{S,A}) where {S,A}
+function get_final_state(path::P where {P<:Path})
     if length(path) > 0
-        return get_sp(get(path,length(path),PathNode{S,A}()))
+        return get_sp(get(path,length(path),node_type(path)()))
     else
         return path.s0
     end
@@ -127,7 +130,7 @@ end
     If `t` is greater than the length of `path`, the `PathNode` returned
     is (s,wait(s),s) corresponding to waiting at that node of the path
 """
-function get_path_node(path::Path{S,A},t::Int) where {S,A}
+function get_path_node(path::P where {P<:Path},t::Int)
     if t <= length(path)
         return path[t]
     else
@@ -135,7 +138,7 @@ function get_path_node(path::Path{S,A},t::Int) where {S,A}
         if t₀ == 0
             sp = get_initial_state(path)
         else
-            node = get(path,length(path),PathNode{S,A}())
+            node = get(path,length(path),node_type(path)())
             s = get_s(node)
             a = get_a(node)
             sp = get_sp(node)
@@ -157,7 +160,7 @@ end
     If `t` is greater than the length of `path`, the returned action defaults to
     a `wait` action.
 """
-function get_action(path::Path, t::Int)
+function get_action(path::P where {P<:Path}, t::Int)
     get_a(get_path_node(path,t))
 end
 
@@ -171,7 +174,7 @@ end
     - path      the path to be extended
     - the desired length of the new path
 """
-function extend_path!(path::Path,T::Int)
+function extend_path!(path::P where {P<:Path},T::Int)
     while length(path) < T
         s = get_final_state(path)
         a = wait(s)
@@ -190,16 +193,10 @@ end
     - path      the path to be extended
     - the desired length of the new path
 """
-function extend_path(path::Path,T::Int)
+function extend_path(path::P where {P<:Path},T::Int)
     new_path = copy(path)
     extend_path!(new_path,T)
     return new_path
-#     while length(new_path) < T
-#         s = get_final_state(new_path)
-#         a = wait(s)
-#         push!(new_path,PathNode(s,wait(s),get_next_state(s,a)))
-#     end
-#     return new_path
 end
 
 
