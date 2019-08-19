@@ -16,7 +16,7 @@ struct Experiment_parameters
     vs::Vector{Int}
     es::Vector{Tuple{Int,Int}}
     starts::Vector{Int}
-    goals::Vector{Int}
+    goals::Vector{Array{Int64,1}}
     xs::Vector{Int}
     ys::Vector{Int}
 end
@@ -437,7 +437,13 @@ function create_grid_mapf(num_robots::Int64,
     #Choose 2*num_robots unique vertices at random
     startsandgoals = shuffle(vertices(G))[1:2*num_robots]
     starts = startsandgoals[1:num_robots]
-    goals = startsandgoals[num_robots+1:end]
+
+    #only one goal
+    goal = startsandgoals[num_robots+1:end]
+    goals = Vector{Array{Int64,1}}()
+    for elt in goal
+        push!(goals,elt)
+    end
 
     mapf = MAPF(G,starts,goals,lambda,epsilon,t_delay,conflict_threshold_time)
     return mapf
