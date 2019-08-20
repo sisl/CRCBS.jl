@@ -109,19 +109,19 @@ Base.push!(p::Path,x) = push!(p.path_nodes,x)
 get_cost(p::Path) = p.cost
 Base.copy(p::Path) = Path(p.s0,copy(p.path_nodes),p.cost)
 
-function get_initial_state(path::P where {P<:Path})
+function get_initial_state(path::P) where {P<:Path}
     if length(path) > 0
         return get_s(get(path,1,node_type(path)()))
     else
         return path.s0
     end
 end
-function get_final_state(path::P where {P<:Path})
+function get_final_state(path::P)
     if length(path) > 0
         return get_sp(get(path,length(path),node_type(path)()))
     else
         return path.s0
-    end
+    end where {P<:Path}
 end
 
 """
@@ -130,7 +130,7 @@ end
     If `t` is greater than the length of `path`, the `PathNode` returned
     is (s,wait(s),s) corresponding to waiting at that node of the path
 """
-function get_path_node(path::P where {P<:Path},t::Int)
+function get_path_node(path::P,t::Int) where {P<:Path}
     if t <= length(path)
         return path[t]
     else
