@@ -15,8 +15,8 @@ makedocs(
     pages     = Any[
         "Home" => "index.md",
         "Modules" => Any[
-            "modules/submodule.md", # Use default module name in sidebar
-            "Rubber Ducks" => "modules/rubber_ducks.md", # Rename a module in sidebar
+            "modules/CRCBS.md", # Use default module name in sidebar
+            "Intialization" => "modules/submodule.md",
         ],
         "Examples" => Any[
             "Plotting Example" => "examples/plotting_example.md"
@@ -31,7 +31,7 @@ makeplots()
 
 deploydocs(
     repo = "github.com/kylejbrown17/CRCBS.jl",
-    devbranch = "master",
+    devbranch = "develop",
     devurl = "latest",
     deps = makeplots,
 )
