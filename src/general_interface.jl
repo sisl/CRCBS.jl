@@ -116,12 +116,12 @@ function get_initial_state(path::P) where {P<:Path}
         return path.s0
     end
 end
-function get_final_state(path::P)
+function get_final_state(path::P) where {P<:Path}
     if length(path) > 0
         return get_sp(get(path,length(path),node_type(path)()))
     else
         return path.s0
-    end where {P<:Path}
+    end
 end
 
 """
