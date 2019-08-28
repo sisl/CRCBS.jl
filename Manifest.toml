@@ -128,7 +128,7 @@ version = "0.10.3"
 
 [[GraphUtils]]
 deps = ["Documenter", "LightGraphs", "Logging", "MetaGraphs", "Random", "Reexport", "Test"]
-git-tree-sha1 = "8a67d00bf7e4bafa1dc3a3d27e3516dce1788abf"
+git-tree-sha1 = "b966a784e7029401114d502b402cd9ba88160373"
 repo-rev = "master"
 repo-url = "https://github.com/kylejbrown17/GraphUtils.jl.git"
 uuid = "5d4bc1c0-0fb7-11e9-3252-b1aa07358cab"
