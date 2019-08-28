@@ -238,7 +238,7 @@ function convert_to_vertex_lists(path::Path)
     vtx_list
 end
 function convert_to_vertex_lists(solution::LowLevelSolution)
-    return [convert_to_vertex_lists(path) for path in solution]
+    return [convert_to_vertex_lists(path) for path in get_paths(solution)]
 end
 
 end # end module MultiStageCBS
