@@ -35,7 +35,6 @@ let
     LowLevelSolution{DefaultState,DefaultAction}()
 end
 let
-    G = initialize_full_grid_graph()
     G = initialize_regular_grid_graph()
 end
 

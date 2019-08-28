@@ -4,6 +4,7 @@ using LightGraphs, MetaGraphs
 using Parameters
 # Package Under Test
 using CRCBS
+using GraphUtils
 
 # Set logging level
 global_logger(SimpleLogger(stderr, Logging.Debug))
