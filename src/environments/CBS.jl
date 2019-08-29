@@ -179,20 +179,6 @@ function CRCBS.detect_action_conflict(n1::PathNode{State,Action},n2::PathNode{St
     return false
 end
 CRCBS.detect_action_conflict(env::LowLevelEnv,n1::PathNode{State,Action},n2::PathNode{State,Action}) = detect_action_conflict(n1,n2)
-# initialize_root_node
-function CRCBS.initialize_root_node(mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv}
-    ConstraintTreeNode(
-        solution = LowLevelSolution{State,Action}([Path{State,Action}() for a in 1:num_agents(mapf)]),
-        constraints = Dict{Int,ConstraintTable}(
-            i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
-            ),
-        cost = cost_type(mapf.env)(0),
-        id = 1)
-end
-# default_solution
-function CRCBS.default_solution(mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv}
-    return LowLevelSolution{State,Action}(), typemax(Int)
-end
 
 ################################################################################
 ############################### HELPER FUNCTIONS ###############################

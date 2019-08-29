@@ -45,16 +45,17 @@ export
     violates_constraints,
     generate_constraints_from_conflict,
 
-    low_level_search!
+    low_level_search!,
+
+    initialize_root_node
 
 """
     Checks if an individual path satisfies start and end constraints
 """
-function is_valid(path::Path{S,A},start::S,goal::G) where {S,G,A}
+function is_valid(path::P,start::S,goal::G) where {S,G,P<:Path}
     return (states_match(get_initial_state(path), start)
         && states_match(get_final_state(path), goal))
 end
-
 function is_valid(paths::Vector{P},starts::Vector{S},goals::Vector{G}) where {S,G,P <: Path}
     for (i,path) in enumerate(paths)
         if !is_valid(path,starts[i],goals[i])
@@ -63,16 +64,10 @@ function is_valid(paths::Vector{P},starts::Vector{S},goals::Vector{G}) where {S,
     end
     return true
 end
-function is_valid(solution::LowLevelSolution{S,A},starts::Vector{S},goals::Vector{G}) where {S,G,A}
+function is_valid(solution::L,starts::Vector{S},goals::Vector{G}) where {S,G,L<:LowLevelSolution}
     is_valid(get_paths(solution),starts,goals)
-    # for (i,path) in enumerate(get_paths(solution))
-    #     if !is_valid(path,starts[i],goals[i])
-    #         return false
-    #     end
-    # end
-    # return true
 end
-function is_valid(solution::LowLevelSolution,mapf::AbstractMAPF)
+function is_valid(solution::L,mapf::M) where {L<:LowLevelSolution, M<:AbstractMAPF}
     is_valid(solution,get_starts(mapf),get_goals(mapf))
 end
 
@@ -110,12 +105,12 @@ time_of(conflict::Conflict) = conflict.t
 """ Default (invalid) conflict """
 const DefaultConflict = Conflict{DefaultPathNode,DefaultPathNode}
 
-Base.isless(c1::Conflict,c2::Conflict) = (
+Base.isless(c1::C,c2::C) where {C<:Conflict} = (
     [c1.t,c1.agent1_id,c1.agent2_id,c1.conflict_type] < [c2.t,c2.agent1_id,c2.agent2_id,c2.conflict_type]
 )
 
 """ Checks if a conflict is valid """
-is_valid(conflict::Conflict) = ((conflict_type(conflict) != NULL_CONFLICT)
+is_valid(conflict::C) where {C<:Conflict} = ((conflict_type(conflict) != NULL_CONFLICT)
                                 && (agent1_id(conflict) != agent2_id(conflict))
                                 && (agent1_id(conflict) != -1)
                                 && (agent2_id(conflict) != -1))
@@ -129,7 +124,7 @@ is_valid(conflict::Conflict) = ((conflict_type(conflict) != NULL_CONFLICT)
 # end
 
 """ add detected conflicts to conflict table """
-function detect_conflicts!(conflict_table,n1::PathNode,n2::PathNode,i::Int,j::Int,t::Int)
+function detect_conflicts!(conflict_table,n1::P1,n2::P2,i::Int,j::Int,t::Int) where {P1<:PathNode,P2<:PathNode}
     error("detect_conflicts!(conflict_table,n1,n2,i,j,t) not yet implemented \n
         for conflict_table::",typeof(conflict_table),". \n
         Aborting Conflict Checking.")
@@ -139,7 +134,7 @@ end
 """
     detect conflicts between paths
 """
-function detect_conflicts!(conflict_table,path1::Path,path2::Path,i::Int,j::Int)
+function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int) where {P1<:Path,P2<:Path}
     # print("detect_conflicts!(conflict_table,path1::Path,path2::Path,i::Int,j::Int)\n")
     if length(path1) > length(path2)
         path2 = extend_path(path2,length(path1))
@@ -167,7 +162,7 @@ end
     - idxs                  (optional) a list of agent ids for which to check
                             collisions against all other agents
 """
-function detect_conflicts!(conflict_table, paths::Vector{P} where {P<:Path}, idxs=collect(1:length(paths)))
+function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths))) where {P<:Path}
     # print("detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     for (i,path1) in enumerate(paths)
         for (j,path2) in enumerate(paths)
@@ -180,7 +175,7 @@ function detect_conflicts!(conflict_table, paths::Vector{P} where {P<:Path}, idx
     return conflict_table
 end
 
-function detect_conflicts!(conflict_table, solution::LowLevelSolution, idxs=collect(1:length(get_paths(solution))))
+function detect_conflicts!(conflict_table, solution::L, idxs=collect(1:length(get_paths(solution)))) where {L <: LowLevelSolution}
     detect_conflicts!(conflict_table,get_paths(solution),idxs)
 end
 
@@ -188,14 +183,14 @@ end
     Detect a `StateConflict` between two path nodes. Must be overridden for each
     specific path class
 """
-function detect_state_conflict(n1::PathNode,n2::PathNode)
+function detect_state_conflict(n1::P1,n2::P2) where {P1<:PathNode,P2<:PathNode}
     error("detect_state_conflict(n1,n2) Not Implemented for \nn1::",
         typeof(n1),",\nn2::",typeof(n2))
     return false
 end
 
 """ Checks for a `StateConflict` between two `Path`s at time t """
-function detect_state_conflict(path1::Path, path2::Path, t::Int)
+function detect_state_conflict(path1::P1, path2::P2, t::Int) where {P1<:Path,P2<:Path}
     if detect_state_conflict(get_path_node(path1,t),get_path_node(path2,t))
         return true
     end
@@ -206,14 +201,14 @@ end
     Detect an `ActionConflict` between two path nodes. Must be overridden for
     each specific path class
 """
-function detect_action_conflict(n1::PathNode,n2::PathNode)
+function detect_action_conflict(n1::P1,n2::P2) where {P1<:PathNode,P2<:PathNode}
     error("detect_action_conflict(n1,n2) Not Implemented for \nn1::",
         typeof(n1),",\nn2::",typeof(n2))
     return false
 end
 
 """ Checks for an `ActionConflict` between two `Path`s at time t """
-function detect_action_conflict(path1::Path, path2::Path,t::Int)
+function detect_action_conflict(path1::P1, path2::P2,t::Int) where {P1<:Path,P2<:Path}
     if detect_action_conflict(get_path_node(path1,t),get_path_node(path2,t))
         return true
     end
@@ -342,7 +337,7 @@ function detect_conflicts(paths::Vector{P} where {P <: Path}, idxs=collect(1:len
     conflict_table = ConflictTable()
     detect_conflicts!(conflict_table,paths,idxs)
 end
-function detect_conflicts(solution::LowLevelSolution, idxs=collect(1:length(paths)))
+function detect_conflicts(solution::L, idxs=collect(1:length(paths))) where {L<:LowLevelSolution}
     # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     # conflict_table = ConflictTable()
     # detect_conflicts!(conflict_table,solution,idxs)
@@ -601,15 +596,37 @@ function low_level_search!(
     # Only compute a path for the indices specified by idxs
     for i in idxs
         env = build_env(mapf, node, i)
-        # h = s-> heuristic(env,s)
         # Solve!
-        # TODO FIX get_starts(mapf)[i]. It's a little bit tacky, especially
-        # since the definition of MetaAgentCBS.State determines whether this
-        # will fail or not (for MetaAgentCBS_Solver).
         path, cost = path_finder(env, get_start(mapf,env,i), heuristic)
         set_solution_path!(node.solution, path, i)
+        set_path_cost!(node.solution, cost, i)
     end
     node.cost = get_cost(node.solution)
     # TODO check if solution is valid
     return true
+end
+
+"""
+    `initialize_root_node`
+
+    Construct an empty `ConstraintTreeNode` from a `AbstractMAPF` instance
+"""
+function initialize_root_node(mapf::MAPF{E,S,G}) where {S,A,C,G,E<:AbstractLowLevelEnv{S,A,C}}
+    ConstraintTreeNode(
+        # solution = LowLevelSolution{State,Action}([Path{State,Action}() for a in 1:num_agents(mapf)]),
+        solution = LowLevelSolution([Path{S,A}() for a in 1:num_agents(mapf)]),
+        constraints = Dict{Int,ConstraintTable}(
+            i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
+            ),
+        id = 1)
+end
+
+"""
+    `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
+
+    Defines what is returned by the solver in case of failure to find a feasible
+    solution.
+"""
+function default_solution(mapf::MAPF{E,S,G}) where {S,A,C,G,E<:AbstractLowLevelEnv{S,A,C}}
+    return LowLevelSolution{S,A}(), typemax(Int)
 end

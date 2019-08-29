@@ -12,56 +12,30 @@ export
     MetaMAPF
 
 abstract type AbstractMAPF end
-num_agents(mapf::AbstractMAPF) = length(mapf.starts)
-num_goals(mapf::AbstractMAPF) = length(mapf.goals)
-get_starts(mapf::AbstractMAPF) = mapf.starts
-get_goals(mapf::AbstractMAPF) = mapf.goals
-get_start(mapf::AbstractMAPF, i) = get_starts(mapf)[i]
-get_goal(mapf::AbstractMAPF, i) = get_goals(mapf)[i]
-get_start(mapf::AbstractMAPF, env, i) = get_start(mapf,i)
+num_agents(mapf::AbstractMAPF)          = length(mapf.starts)
+num_goals(mapf::AbstractMAPF)           = length(mapf.goals)
+get_starts(mapf::AbstractMAPF)          = mapf.starts
+get_goals(mapf::AbstractMAPF)           = mapf.goals
+get_start(mapf::AbstractMAPF, i)        = get_starts(mapf)[i]
+get_goal(mapf::AbstractMAPF, i)         = get_goals(mapf)[i]
+get_start(mapf::AbstractMAPF, env, i)   = get_start(mapf,i)
 
 """
-    A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
-    a graph `G` whose edges have unit length, as well as a list of start and
-    goal vertices on that graph. Note that this is the _labeled_ case, where
-    each agent has a specific assigned destination.
+    A MAPF is a Multi Agent Path Finding problem. It consists of an environment,
+    `env`, through which a group of agents may navigate, as well as a list of
+    start and goal states in that environment. Note that this is the _labeled_
+    case, where each agent has a specific assigned destination.
+
+    Elements:
+    - env::E - the base environment
+    - starts::Vector{S} - the vector of initial states
+    - starts::Vector{G} - the vector of goals
 """
-struct MAPF{E<:AbstractLowLevelEnv,S,G} <: AbstractMAPF # Multi Agent Path Finding Problem
-    env::E            # <: AbstractGraph
-    starts::Vector{S}   # Vector of initial agent states
-    goals::Vector{G}    # Vector of goal states
+struct MAPF{E,S,G} <: AbstractMAPF # Multi Agent Path Finding Problem
+    env     ::E           # Environment Type
+    starts  ::Vector{S}   # Vector of initial states
+    goals   ::Vector{G}   # Vector of goal states
 end
-
-"""
-    MultiMAPF{S,G}
-
-    The Multi-Stage Multi-Agent Path-Finding problem. Each agent is assigned an
-    arbitrarily long vector of goal states to visit, and the optimal solution is
-    the lowest-cost list of trajectories for which each agent visits its
-    assigned goals in the specified order.
-"""
-struct MultiMAPF{S,G} <: AbstractMAPF
-    graph::G # <: AbstractGraph
-    starts::Vector{S}   # Vector of initial agent states
-    goals::Vector{Vector{S}}    # Vector of goal states
-    # TODO store distance matrices here so they don't need to be regenerated at
-    # each iteration by build_env()
-end
-
-# """
-#     MetaMAPF{S,G}
-#
-#     The MetaAgent Multi-Agent Path-Finding problem. Agents can be combined into
-#     a "meta agent", meaning that low-level search is performed in their joint
-#     state space.
-# """
-# struct MetaMAPF{S,G} <: AbstractMAPF
-#     graph::G # <: AbstractGraph
-#     starts::Vector{S}   # Vector of initial agent states
-#     goals::Vector{S}    # Vector of goal states
-#     # TODO store distance matrices here so they don't need to be regenerated at
-#     # each iteration by build_env()
-# end
 
 struct MetaMAPF{M} <: AbstractMAPF
     mapf::M

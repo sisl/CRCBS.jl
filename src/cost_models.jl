@@ -20,7 +20,6 @@ export
 """
 abstract type HighLevelCostModel{C} end
 cost_type(model::HighLevelCostModel{C}) where {C} = C
-
 struct MakeSpan <: HighLevelCostModel{Float64} end
 struct SumOfDistanceTraveled <: HighLevelCostModel{Float64} end
 struct SumOfTravelTime <: HighLevelCostModel{Float64} end
@@ -55,7 +54,6 @@ cost_type(model::LowLevelCostModel{C}) where {C} = C
 struct TravelDistance <: LowLevelCostModel{Float64} end
 struct TravelTime <: LowLevelCostModel{Float64} end
 get_initial_cost(model::TravelTime) = 0.0
-
 
 """
     CostCache{M <: LowLevelCostModel,T}

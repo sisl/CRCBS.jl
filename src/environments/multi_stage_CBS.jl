@@ -54,7 +54,7 @@ end
 ######################## Low-Level (Independent) Search ########################
 ################################################################################
 # build_env
-function CRCBS.build_env(mapf::MAPF{E,S,G} where {S,G,E <: LowLevelEnv}, node::ConstraintTreeNode, idx::Int)
+function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int)  where {S,G,E <: LowLevelEnv}
     LowLevelEnv(
         graph = mapf.env.graph,
         constraints = get_constraints(node,idx),
@@ -214,17 +214,6 @@ end
 function CRCBS.detect_action_conflict(env::LowLevelEnv,n1::PathNode{State,Action},n2::PathNode{State,Action})
     detect_action_conflict(n1,n2)
 end
-# initialize_root_node
-function CRCBS.initialize_root_node(mapf::MAPF{E,S,G}) where {S,G,E<:LowLevelEnv}
-    ConstraintTreeNode(
-        solution = LowLevelSolution{State,Action}([Path{State,Action}() for a in 1:num_agents(mapf)]),
-        constraints = Dict{Int,ConstraintTable}(
-            i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
-            ),
-        id = 1)
-end
-# default_solution
-CRCBS.default_solution(mapf::MultiMAPF) = LowLevelSolution{State,Action}(), typemax(Int)
 
 ################################################################################
 ############################### HELPER FUNCTIONS ###############################

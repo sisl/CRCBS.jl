@@ -7,9 +7,11 @@ using LinearAlgebra
 using NearestNeighbors
 using JuMP
 
-include("general_interface.jl")
 include("problem_definitions.jl")
+include("general_interface.jl")
+include("cost_models.jl")
 include("common.jl")
+
 include("low_level_search/heuristics.jl")
 include("low_level_search/implicit_graphs.jl")
 
