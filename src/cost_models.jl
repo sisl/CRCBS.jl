@@ -1,4 +1,5 @@
 export
+    # AbstractCostModel,
     HighLevelCostModel,
     MakeSpan,
     SumOfDistanceTraveled,
@@ -7,7 +8,13 @@ export
     LowLevelCostModel,
     TravelDistance,
     TravelTime,
-    CostCache
+    CostCache,
+
+    cost_model,
+    get_initial_cost,
+    get_infeasible_cost,
+    get_cost,
+    accumulate_cost
 
 """
     HighLevelCostModel{C}
@@ -18,8 +25,8 @@ export
     the associated HighLevelCostModel.
     The parameter `C` defines the `cost_type` of the objective.
 """
-abstract type HighLevelCostModel{C} end
-cost_type(model::HighLevelCostModel{C}) where {C} = C
+abstract type HighLevelCostModel{T} <: AbstractCostModel{T} end
+cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
 struct MakeSpan <: HighLevelCostModel{Float64} end
 struct SumOfDistanceTraveled <: HighLevelCostModel{Float64} end
 struct SumOfTravelTime <: HighLevelCostModel{Float64} end
@@ -49,26 +56,38 @@ end
         transition_cost::C)` - defines how cost accumulates as new `PathNode`s
         are added to a Path.
 """
-abstract type LowLevelCostModel{C} end
-cost_type(model::LowLevelCostModel{C}) where {C} = C
-struct TravelDistance <: LowLevelCostModel{Float64} end
+abstract type LowLevelCostModel{T} <: AbstractCostModel{T} end
+
+# """
+#     CostCache{M <: LowLevelCostModel,T}
+#
+#     For storing the incrementally modified cost of a path (rather than
+#     recomputing the cost over the entire path at each time step)
+# """
+# struct CostCache{M <: LowLevelCostModel,T}
+#     cost::T
+# end
+
+"""
+    `cost_model(env::E)`
+
+    Override this method for when the cost model has arguments
+"""
+cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
+accumulate_cost(env::E, cost, transition_cost) where {E<:AbstractLowLevelEnv} = accumulate_cost(cost_model(env), cost, transition_cost)
+get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = cost_type(env)(0)
+get_initial_cost(model::C) where {C<:AbstractCostModel}     = cost_type(model)(0)
+get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = typemax(cost_type(env))
+get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(cost_type(model))
+
+"""
+    `TravelTime <: LowLevelCostModel{Float64}`
+"""
 struct TravelTime <: LowLevelCostModel{Float64} end
-get_initial_cost(model::TravelTime) = 0.0
+accumulate_cost(model::TravelTime, cost, transition_cost) = cost_type(model)(cost + transition_cost)
 
 """
-    CostCache{M <: LowLevelCostModel,T}
-
-    For storing the incrementally modified cost of a path (rather than
-    recomputing the cost over the entire path at each time step)
+    `TravelDistance <: LowLevelCostModel{Float64}`
 """
-struct CostCache{M <: LowLevelCostModel,T}
-    cost::T
-end
-
-function get_cost(model::TravelTime,path::Path)
-    return length(path)
-end
-function accumulate_cost(model::TravelTime, current_cost::C, transition_cost::C) where {C}
-    return current_cost + transition_cost
-end
-function get_transition_cost end
+struct TravelDistance <: LowLevelCostModel{Float64} end
+accumulate_cost(model::TravelDistance, cost, transition_cost) = cost_type(model)(cost + transition_cost)

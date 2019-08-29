@@ -21,22 +21,23 @@ end
     Δt::Int         = 1
 end
 # LowLevelEnv
-@with_kw struct LowLevelEnv{C,H <: LowLevelSearchHeuristic, G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
+@with_kw struct LowLevelEnv{C<:AbstractCostModel,H <: LowLevelSearchHeuristic,G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
     graph::G                    = Graph()
     constraints::ConstraintTable = ConstraintTable()
     goal::State                 = State()
     agent_idx::Int              = -1
     # helpers # TODO parameterize LowLevelEnv by heuristic type as well
     h::H                        = PerfectHeuristic(graph,Vector{Int}(),Vector{Int}())
-    initial_cost::C             = DefaultPathCost(0)
+    cost_model::C               = TravelTime()
 end
+CRCBS.cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
 function CRCBS.initialize_mapf(env::LowLevelEnv{C,PerfectHeuristic,G},starts::Vector{State},goals::Vector{State}) where {C,G}
     h = PerfectHeuristic(env.graph,[s.vtx for s in starts],[s.vtx for s in goals])
-    MAPF(typeof(env)(graph=env.graph,h=h,initial_cost=C(0)), starts, goals)
+    MAPF(typeof(env)(graph=env.graph,h=h), starts, goals)
 end
 function CRCBS.initialize_mapf(env::LowLevelEnv{C,TieBreakerHeuristic,G},starts::Vector{State},goals::Vector{State}) where {C,G}
     h = TieBreakerHeuristic(env.graph,[s.t for s in starts],[s.vtx for s in starts],[s.vtx for s in goals])
-    MAPF(typeof(env)(graph=env.graph,h=h,initial_cost=C(0)), starts, goals)
+    MAPF(typeof(env)(graph=env.graph,h=h), starts, goals)
 end
 # TODO implement a check to be sure that no two agents have the same goal
 ################################################################################
@@ -50,18 +51,19 @@ function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) 
         goal = mapf.goals[idx],
         agent_idx = idx,
         h = mapf.env.h,
-        initial_cost = cost_type(mapf.env)(0)
+        cost_model = mapf.env.cost_model
         )
 end
 # heuristic
-function CRCBS.get_heuristic_cost(env::LowLevelEnv{C,PerfectHeuristic,G},s::State) where {C,G}
-    C(get_heuristic_cost(env.h, env.goal.vtx, s.vtx))
+CRCBS.get_heuristic_cost(env::E,s::State) where {E<:LowLevelEnv} = CRCBS.get_heuristic_cost(env,env.h,s)
+function CRCBS.get_heuristic_cost(env::E,h::PerfectHeuristic,s::State) where {E<:LowLevelEnv}
+    get_heuristic_cost(h, env.goal.vtx, s.vtx)
 end
-function CRCBS.get_heuristic_cost(env::LowLevelEnv{C,SoftConflictTable,G},s::State) where {C,G}
-    C(get_heuristic_cost(env.h, s.vtx, s.t))
+function CRCBS.get_heuristic_cost(env::E,h::SoftConflictTable,s::State) where {E<:LowLevelEnv}
+    get_heuristic_cost(h, s.vtx, s.t)
 end
-function CRCBS.get_heuristic_cost(env::LowLevelEnv{C,TieBreakerHeuristic,G},s::State) where {C,G}
-    C(get_heuristic_cost(env.h,env.goal.vtx,s.vtx,s.t))
+function CRCBS.get_heuristic_cost(env::E,h::TieBreakerHeuristic,s::State) where {E<:LowLevelEnv}
+    get_heuristic_cost(h, env.goal.vtx, s.vtx, s.t)
 end
 
 # states_match
@@ -118,9 +120,15 @@ CRCBS.get_possible_actions(env::LowLevelEnv,s::State) = ActionIter(s.vtx,outneig
 CRCBS.get_next_state(s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
 CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action) = get_next_state(s,a)
 # get_transition_cost
-function CRCBS.get_transition_cost(env::LowLevelEnv{C,H,G},s::State,a::Action,sp::State) where {C,H,G}
-    return C(1)
+function CRCBS.get_transition_cost(env::E,s::State,a::Action,sp::State) where {H,G,E<:LowLevelEnv{TravelTime,H,G}}
+    return cost_type(env)(a.Δt)
 end
+function CRCBS.get_transition_cost(env::E,s::State,a::Action,sp::State) where {H,G,E<:LowLevelEnv{TravelDistance,H,G}}
+    return (s.vtx == sp.vtx) ? cost_type(env)(1) : cost_type(env)(0)
+end
+# function CRCBS.get_transition_cost(env::LowLevelEnv{C,H,G},s::State,a::Action,sp::State) where {C,H,G}
+#     return C(1)
+# end
 # violates_constraints
 function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action, sp::State)
     t = length(path) + 1
@@ -191,7 +199,7 @@ function convert_to_vertex_lists(path::Path{State,Action})
     end
     vtx_list
 end
-function convert_to_vertex_lists(solution::LowLevelSolution{State,Action})
+function convert_to_vertex_lists(solution::L) where {T,C,L<:LowLevelSolution{State,Action,T,C}}
     return [convert_to_vertex_lists(path) for path in get_paths(solution)]
 end
 

@@ -17,7 +17,7 @@ function Action()
     Action(Edge(-1,-1),-1)
 end
 
-struct GraphEnv{G} <: AbstractLowLevelEnv{State,Action,DefaultPathCost}
+struct GraphEnv{G} <: AbstractLowLevelEnv{State,Action,TravelTime}
     g::G
     constraints::Set{Int}
     goal_state::State

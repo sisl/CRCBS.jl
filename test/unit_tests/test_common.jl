@@ -185,7 +185,8 @@ let
     P = PathNode{CommonTests.State,CommonTests.Action}
     State = CommonTests.State
     Action = CommonTests.Action
-    node = ConstraintTreeNode{State,Action,DefaultPathCost}()
+    cm = TravelTime()
+    node = ConstraintTreeNode{State,Action,cost_type(cm),TravelTime}()
     node.constraints[1] = ConstraintTable(a = 1)
     @test get_cost(node) == 0
     get_constraints(node,1)

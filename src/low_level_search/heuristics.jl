@@ -1,6 +1,7 @@
 export
     LowLevelSearchHeuristic,
     PerfectHeuristic,
+    MultiStagePerfectHeuristic,
     SoftConflictTable,
     TieBreakerCost,
     TieBreakerHeuristic
@@ -29,6 +30,37 @@ get_heuristic_cost(h::PerfectHeuristic,goal_vtx::Int,vtx::Int) = h.dists[goal_vt
 function PerfectHeuristic(graph,starts::Vector{Int},goals::Vector{Int})
     dists = Dict(v => gdistances(graph,v) for v in goals)
     PerfectHeuristic(dists)
+end
+
+"""
+    `MultiStagePerfectHeuristic`
+
+    Stores multiple lookup tables corresponding to different stages of a Path-
+    Finding search. Each stage has a different goal.
+"""
+@with_kw struct MultiStagePerfectHeuristic <: LowLevelSearchHeuristic{Float64}
+    dists::Dict{Int,Vector{Vector{Float64}}} = Dict{Int,Vector{Vector{Float64}}}()
+end
+get_heuristic_cost(h::MultiStagePerfectHeuristic,agent_idx::Int,stage::Int,vtx::Int) = h.dists[agent_idx][stage][vtx]
+function construct_multi_stage_distance_array(G,goals)
+    if length(goals) > 0
+        vtxs = copy(goals)
+        dists = Vector{Vector{Float64}}()
+        d = 0
+        g = vtxs[end]
+        while length(vtxs) > 0
+            v = pop!(vtxs)
+            d = gdistances(G,g)[v] + d
+            push!(dists, gdistances(G,v).+ d)
+            g = v
+        end
+        return reverse(dists)
+    end
+    return Vector{Vector{Float64}}()
+end
+function MultiStagePerfectHeuristic(graph,goals::Vector{Vector{Int}})
+    dists = Dict(idx => construct_multi_stage_distance_array(graph,g) for (idx,g) in enumerate(goals))
+    MultiStagePerfectHeuristic(dists)
 end
 
 ################################################################################
@@ -119,6 +151,18 @@ function SoftConflictTable(graph,start_times::Vector{Int},start_vtxs::Vector{Int
     populate_soft_lookup_table!(CAT,graph,D,start_times,start_vtxs,goal_vtxs)
     SoftConflictTable(CAT)
 end
+
+################################################################################
+################################################################################
+################################################################################
+struct CompositeHeuristic{T<:Tuple} <: LowLevelSearchHeuristic{T}
+    heuristics::T
+end
+function construct_composite_heuristic(args...)
+    CompositeHeuristic(Tuple(args))
+end
+cost_type(h::H) where {H<:CompositeHeuristic} = Vector{Float64}
+get_heuristic_cost(m::CompositeHeuristic,args...) = map(h->get_heuristic_cost(h,args),m.heuristics)
 
 ################################################################################
 ############################# TieBreakerHeuristic ##############################

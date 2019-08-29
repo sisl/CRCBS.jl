@@ -1,18 +1,8 @@
 export
-    DefaultState,
-    DefaultAction,
-    DefaultPathCost,
-    AbstractLowLevelEnv,
-    DefaultEnvironment,
-    action_type,
-    state_type,
-    cost_type,
-
     PathNode,
     get_s,
     get_a,
     get_sp,
-    DefaultPathNode,
 
     Path,
     get_path_node,
@@ -27,6 +17,14 @@ export
     set_solution_path!,
     set_path_cost!,
     get_cost,
+
+    AbstractCostModel,
+
+    AbstractLowLevelEnv,
+    action_type,
+    state_type,
+    cost_type,
+
     AbstractMAPFSolver,
 
     initialize_mapf,
@@ -44,7 +42,13 @@ export
     violates_constraints,
     check_termination_criteria,
     solve!,
-    default_solution
+    default_solution,
+
+    DefaultState,
+    DefaultAction,
+    DefaultPathNode,
+    DefaultPathCost,
+    DefaultEnvironment
 
 """
     `PathNode{S,A}`
@@ -172,21 +176,31 @@ function extend_path(path::P,T::Int) where {P<:Path}
     return new_path
 end
 
+"""
+    `AbstractCostModel{T}`
+"""
+abstract type AbstractCostModel{T} end
 
 """
-    `LowLevelSolution{S,A}`
+    `LowLevelSolution{S,A,T,C}`
 
-    Containts a list of agent paths and the associated costs
+    Contains a list of agent paths and the associated costs.
+    Params:
+    - `S` is the state type
+    - `A` is the action type
+    - `T` is the cost type
+    - `C` is the cost model type
+    Elements:
+    - `paths::Vector{Path{S,A}}` is the vector of paths
+    - `costs::Vector{T}` is the vector of costs, one per path
+    - `cost::T` is the total cost for the entire solution
 """
-@with_kw mutable struct LowLevelSolution{S,A}
+@with_kw mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
     paths::Vector{Path{S,A}}    = Vector{Path{S,A}}()
-    costs::Vector{Float64}      = Vector{Float64}()
-    cost::Float64               = 0.0
+    costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(C()),1:length(paths)))
+    cost::T                     = get_initial_cost(C())
 end
-function LowLevelSolution(paths::Vector{P}) where {P<:Path}
-    LowLevelSolution(paths=paths,costs=zeros(length(paths)),cost=0.0)
-end
-Base.copy(solution::L) where {L <: LowLevelSolution} = LowLevelSolution(
+Base.copy(solution::L) where {L <: LowLevelSolution} = L(
     paths=copy(solution.paths),
     costs=copy(solution.costs),
     cost=copy(solution.cost))
@@ -201,6 +215,7 @@ function set_path_cost!(solution::LowLevelSolution, cost::C, idx::Int) where {C}
     solution.costs[idx] = cost
     return solution
 end
+
 
 """
     `AbstractLowLevelEnv{S,A,C}`
@@ -218,7 +233,7 @@ end
 abstract type AbstractLowLevelEnv{S,A,C} end
 action_type(env::E) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}} = A
 state_type(env::E) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}} = S
-cost_type(env::E) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}} = C
+cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}} = T
 
 """ Abstract type for algorithms that solve MAPF instances """
 abstract type AbstractMAPFSolver end
@@ -324,14 +339,6 @@ function check_termination_criteria end
     Compute a solution from a solver and env
 """
 function solve! end
-
-# """
-#     `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
-#
-#     Defines what is returned by the solver in case of failure to find a feasible
-#     solution.
-# """
-# function default_solution end
 
 # Some default types for use later
 struct DefaultState end

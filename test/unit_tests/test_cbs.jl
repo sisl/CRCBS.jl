@@ -68,6 +68,7 @@ let
     constraints = ConstraintTable()
     env = CBS.LowLevelEnv() #graph=graph,constraints=constraints)
 end
+# low level search
 let
     solver = CBS_Solver()
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
@@ -75,6 +76,18 @@ let
     starts = [CBS.State(1,0),CBS.State(2,0)]
     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
     mapf = initialize_mapf(env,starts,goals)
+    default_solution(mapf)
     node = CBS.initialize_root_node(mapf)
+    initialize_child_search_node(node)
+    low_level_search!(solver,mapf,node)
+end
+# high level search
+let
+    solver = CBS_Solver()
+    G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
+    env = CBS.LowLevelEnv(graph=G)
+    starts = [CBS.State(1,0),CBS.State(2,0)]
+    goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
+    mapf = initialize_mapf(env,starts,goals)
     CRCBS.solve!(solver,mapf)
 end

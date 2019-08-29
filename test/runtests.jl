@@ -69,7 +69,4 @@ end
     @time @testset "CRCBS.HeuristicTests" begin
         include(joinpath(testdir, "unit_tests/test_heuristics.jl"))
     end
-    # @time @testset "CRCBS.DemoTests" begin
-    #     include(joinpath(testdir, "unit_tests/test_demo.jl"))
-    # end
 end

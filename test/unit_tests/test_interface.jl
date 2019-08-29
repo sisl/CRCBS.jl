@@ -32,7 +32,9 @@ let
     get_final_state(p)
 end
 let
-    LowLevelSolution{DefaultState,DefaultAction}()
+    cost_model = TravelTime()
+    solution = LowLevelSolution{DefaultState,DefaultAction,cost_type(cost_model),TravelTime}()
+    copy(solution)
 end
 let
     G = initialize_regular_grid_graph()

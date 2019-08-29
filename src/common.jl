@@ -468,7 +468,7 @@ end
     A node of a constraint tree. Each node has a set of constraints, a candidate
     solution (set of robot paths), and a cost
 """
-@with_kw mutable struct ConstraintTreeNode{S,A,C} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
+@with_kw mutable struct ConstraintTreeNode{S,A,T,C<:AbstractCostModel{T}} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
     # # Environment
     # env::E
     # maps agent_id to the set of constraints involving that agent
@@ -478,9 +478,9 @@ end
     # maintains a list of all conflicts
     conflict_table  ::ConflictTable             = ConflictTable()
     # set of paths (one per agent) through graph
-    solution        ::LowLevelSolution{S,A}     = LowLevelSolution{S,A}()
+    solution        ::LowLevelSolution{S,A,T,C} = LowLevelSolution{S,A,T,C}()
     # cost = sum([length(path) for path in solution])
-    cost            ::C                         = DefaultPathCost(-1)
+    cost            ::T                         = get_initial_cost(C())
     # index of parent node
     parent          ::Int                       = -1
     # indices of two child nodes
@@ -488,9 +488,9 @@ end
     # unique id
     id              ::Int                       = -1
 end
-action_type(node::N) where {S,A,C,N <: ConstraintTreeNode{S,A,C}} = A
-state_type(node::N) where {S,A,C,N <: ConstraintTreeNode{S,A,C}} = S
-cost_type(node::N) where {S,A,C,N <: ConstraintTreeNode{S,A,C}} = C
+action_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = A
+state_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = S
+cost_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = T
 
 """
     `initialize_child_search_node(parent_node::ConstraintTreeNode)`
@@ -498,8 +498,8 @@ cost_type(node::N) where {S,A,C,N <: ConstraintTreeNode{S,A,C}} = C
     Initialize a new `ConstraintTreeNode` with the same `solution` and
     `constraints` as the parent node
 """
-function initialize_child_search_node(parent_node::ConstraintTreeNode)
-    ConstraintTreeNode(
+function initialize_child_search_node(parent_node::N) where {N<:ConstraintTreeNode}
+    N(
         solution = copy(parent_node.solution),
         constraints = copy(parent_node.constraints),
         groups = copy(parent_node.groups),
@@ -511,14 +511,14 @@ end
 """
     retrieve constraints corresponding to this node and this path
 """
-function get_constraints(node::ConstraintTreeNode, path_id::Int)
+function get_constraints(node::N, path_id::Int) where {N<:ConstraintTreeNode}
     return get(node.constraints, path_id, ConstraintTable(a = path_id))
 end
 
 """
     adds a `StateConstraint` to a ConstraintTreeNode
 """
-function add_constraint!(node::ConstraintTreeNode,constraint::CBSConstraint) #,mapf::MAPF)
+function add_constraint!(node::N,constraint::CBSConstraint) where {N<:ConstraintTreeNode}
     # Constraint is not legal if it prevents an agent from reaching its goal
     # if !(states_match(get_s(constraint.v), mapf.goals[get_agent_id(constraint)])
     #     || states_match(get_sp(constraint.v), mapf.goals[get_agent_id(constraint)]))
@@ -536,12 +536,11 @@ end
 #     return length(setdiff(constraints1,constraints2)) == 0
 # end
 
-
 """
     Helper function to get the cost of a particular node
 """
-function get_cost(node::N) where {S,A,C,N <: ConstraintTreeNode{S,A,C}}
-    return C(get_cost(node.solution))
+function get_cost(node::N) where {N <: ConstraintTreeNode}
+    return get_cost(node.solution)
 end
 
 """
@@ -587,12 +586,9 @@ end
     function for cost-to-go is user-defined and environment-specific
 """
 function low_level_search!(
-    solver::S where {S<:AbstractMAPFSolver},
-    mapf::M where {M<:AbstractMAPF},
-    node::ConstraintTreeNode,
-    idxs::Vector{Int}=collect(1:num_agents(mapf));
-    heuristic=get_heuristic_cost,
-    path_finder=A_star)
+    solver::S, mapf::M, node::N, idxs::Vector{Int}=collect(1:num_agents(mapf));
+    heuristic=get_heuristic_cost, path_finder=A_star
+    ) where {S<:AbstractMAPFSolver,M<:AbstractMAPF,N<:ConstraintTreeNode}
     # Only compute a path for the indices specified by idxs
     for i in idxs
         env = build_env(mapf, node, i)
@@ -611,10 +607,10 @@ end
 
     Construct an empty `ConstraintTreeNode` from a `AbstractMAPF` instance
 """
-function initialize_root_node(mapf::MAPF{E,S,G}) where {S,A,C,G,E<:AbstractLowLevelEnv{S,A,C}}
-    ConstraintTreeNode(
+function initialize_root_node(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+    ConstraintTreeNode{S,A,T,C}(
         # solution = LowLevelSolution{State,Action}([Path{State,Action}() for a in 1:num_agents(mapf)]),
-        solution = LowLevelSolution([Path{S,A}() for a in 1:num_agents(mapf)]),
+        solution = LowLevelSolution{S,A,T,C}(paths=[Path{S,A}() for a in 1:num_agents(mapf)]),
         constraints = Dict{Int,ConstraintTable}(
             i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
             ),
@@ -627,6 +623,6 @@ end
     Defines what is returned by the solver in case of failure to find a feasible
     solution.
 """
-function default_solution(mapf::MAPF{E,S,G}) where {S,A,C,G,E<:AbstractLowLevelEnv{S,A,C}}
-    return LowLevelSolution{S,A}(), typemax(Int)
+function default_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+    return LowLevelSolution{S,A,T,C}(), typemax(T)
 end

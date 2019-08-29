@@ -1,3 +1,21 @@
+module heuristicsTests
+
+using Parameters
+using CRCBS
+
+@with_kw struct State
+    v::Int = -1
+end
+@with_kw struct Action
+    v::Int = -1
+end
+struct GraphEnv <: AbstractLowLevelEnv{State,Action,TravelTime}
+    G
+end
+get_heuristic_cost(env::GraphEnv,s::State) = get_heuristic_cost()
+
+end #module
+
 let
     PerfectHeuristic()
     SoftConflictTable()
@@ -23,6 +41,14 @@ let
         h2 = SoftConflictTable(G,start_times,starts,goals)
         h = TieBreakerHeuristic(h1,h2)
     end
+    # let
+    #     env = GraphEnv(G)
+    #     h1 = PerfectHeuristic(G,starts,goals)
+    #     h2 = SoftConflictTable(G,start_times,starts,goals)
+    #     h = CompositeHeuristic(h1,h2)
+    #     @test get_heuristic_cost(h1,goals[1],starts[1]) == gdistances(G,starts[1])[goals[1]]
+    #     @test get_heuristic_cost(h2,starts[1],1) >= 1.0
+    # end
 end
 
 # let
