@@ -59,7 +59,7 @@ function A_star(env::E,start_state::S,heuristic::Function=(env,s)->C(0)) where {
     # initial_cost = C(0) # TODO require default constructible cost
     initial_cost = get_initial_cost(env)
     frontier = PriorityQueue{Tuple{T, Path{S,A,T}, S}, T}()
-    enqueue!(frontier, (initial_cost, Path{S,A,T}(s0=start_state), start_state)=>initial_cost)
+    enqueue!(frontier, (initial_cost, Path{S,A,T}(s0=start_state,cost=initial_cost), start_state)=>initial_cost)
     explored = Set{S}()
     A_star_impl!(env,frontier,explored,heuristic)
 end
