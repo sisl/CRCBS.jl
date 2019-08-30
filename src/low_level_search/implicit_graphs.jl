@@ -22,9 +22,8 @@ function A_star_impl!(env::E, frontier, explored::Set{S}, heuristic::Function) w
             end
             if !(sp in explored)
                 new_path = cat(path, PathNode(s, a, sp))
-                # path_cost = cost_so_far + get_transition_cost(env,s,a,sp)
-                path_cost = accumulate_cost(env, cost_so_far, get_transition_cost(env,s,a,sp))
-                enqueue!(frontier, (path_cost, new_path, sp) => path_cost + heuristic(env,sp))
+                new_path.cost = accumulate_cost(env, cost_so_far, get_transition_cost(env,s,a,sp))
+                enqueue!(frontier, (new_path.cost, new_path, sp) => new_path.cost + heuristic(env,sp))
             end
         end
         push!(explored,s)

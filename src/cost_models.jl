@@ -93,6 +93,29 @@ struct NullCost <: LowLevelCostModel{Float64} end
 get_transition_cost(env::E,s,a,sp) where {S,A,E<:AbstractLowLevelEnv{S,A,NullCost}} = 0.0
 
 """
+    `MetaCost`
+
+    This will be used in maintaining separate costs for individual agents that have
+    been combined into a MetaAgent.
+"""
+struct MetaCost{T}
+    independent_costs::Vector{T}
+    total_costs::T
+end
+Base.isless(m1::MetaCost,m2::MetaCost) = m1.total_costs < m2.total_costs
+
+"""
+    `MetaAgentCost`
+"""
+struct MetaAgentCost{T} <: LowLevelCostModel{MetaCost{T}} 
+    num_agents::Int
+end
+# function accumulate_cost(model::MetaAgentCost{T}, cost::MetaCost{T}, transition_cost::MetaCost{T}) where {T}
+#     new_cost = deepcopy(cost)
+#     return cost_type(model)(cost + transition_cost)
+# end
+
+"""
     `CompositeCost{T}`
 """
 struct CompositeCost{T<:Tuple} <: LowLevelCostModel{Float64}

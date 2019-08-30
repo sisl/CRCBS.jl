@@ -16,7 +16,7 @@ end
 end
 
 @with_kw struct LowLevelEnv{S,A,C,E<:AbstractLowLevelEnv{S,A,C}} <: AbstractLowLevelEnv{State{S},Action{A},C}
-    envs::Vector{E}             = Vector{CBS.LowLevelEnv}()
+    envs::Vector{E}             = Vector{E}()
 end
 construct_meta_env(envs::Vector{E}) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}} = LowLevelEnv{S,A,C,E}(envs=envs)
 ################################################################################
@@ -49,11 +49,11 @@ end
 
 function CRCBS.low_level_search!(
     solver::MetaAgentCBS_Solver,
-    mapf::M where {M<:AbstractMAPF},
-    node::ConstraintTreeNode,
+    mapf::M,
+    node::N,
     idxs::Vector{Int}=collect(1:num_agents(mapf));
     heuristic=get_heuristic_cost,
-    path_finder=A_star)
+    path_finder=A_star) where {M<:AbstractMAPF,N<:ConstraintTreeNode}
     # Only compute a path for the indices specified by idxs
     for i in idxs
         group = node.groups[i]
@@ -72,7 +72,7 @@ function CRCBS.low_level_search!(
     return true
 end
 
-function CRCBS.get_heuristic_cost(env::LowLevelEnv,state::S) where {S <: State}
+function CRCBS.get_heuristic_cost(env::E,state::S) where {E<:LowLevelEnv,S <: State}
     c = 0
     for (e,s) in zip(env.envs, state.states)
         c += get_heuristic_cost(e,s)
@@ -87,7 +87,7 @@ function CRCBS.states_match(s1::State,s2::State)
     end
     return true
 end
-function CRCBS.is_goal(env::LowLevelEnv,state::State)
+function CRCBS.is_goal(env::E,state::State) where {E<:LowLevelEnv}
     for (e,s) in zip(env.envs, state.states)
         if !is_goal(e,s)
             return false
@@ -125,7 +125,7 @@ function Base.iterate(iter::ActionIter,iter_state::ActionIterState)
     end
     return nothing
 end
-function CRCBS.get_possible_actions(env::LowLevelEnv,s::State)
+function CRCBS.get_possible_actions(env::E,s::State) where {E<:LowLevelEnv}
     return ActionIter([collect(get_possible_actions(env_,s_)) for (env_,s_) in zip(env.envs, s.states)])
     # return Base.Iterators.product([get_possible_actions(env_,s_) for (env_,s_) in zip(env.envs, s)]...)
 end
@@ -133,13 +133,13 @@ Base.length(iter::ActionIter) = product([length(a) for a in iter.action_lists])
 CRCBS.get_next_state(s::State,a::Action) = State(
     [get_next_state(s_,a_) for (s_,a_) in zip(s.states,a.actions)]
     )
-CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action) = State(
+CRCBS.get_next_state(env::E,s::State,a::Action) where {E<:LowLevelEnv} = State(
     [get_next_state(e_,s_,a_) for (e_,s_,a_) in zip(env.envs,s.states,a.actions)]
     )
-CRCBS.get_transition_cost(env::LowLevelEnv,s::State,a::Action,sp::State) = sum(
+CRCBS.get_transition_cost(env::E,s::State,a::Action,sp::State) where {E<:LowLevelEnv} = sum(
     [get_transition_cost(e_,s_,a_,sp_) for (e_,s_,a_,sp_) in zip(env.envs,s.states,a.actions,sp.states)]
 )
-function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action, sp::State)
+function CRCBS.violates_constraints(env::E, path, s::State, a::Action, sp::State) where {E<:LowLevelEnv}
     for (i, (e_,s_,a_,sp_)) in enumerate(zip(env.envs,s.states,a.actions,sp.states))
         if violates_constraints(e_,path,s_,a_,sp_)
             return true
@@ -157,6 +157,6 @@ function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action,
     end
     return false
 end
-CRCBS.check_termination_criteria(env::LowLevelEnv,cost,path,s) = false
+CRCBS.check_termination_criteria(env::E,cost,path,s) where {E<:LowLevelEnv} = false
 
 end
