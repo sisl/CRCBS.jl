@@ -58,16 +58,6 @@ end
 """
 abstract type LowLevelCostModel{T} <: AbstractCostModel{T} end
 
-# """
-#     CostCache{M <: LowLevelCostModel,T}
-#
-#     For storing the incrementally modified cost of a path (rather than
-#     recomputing the cost over the entire path at each time step)
-# """
-# struct CostCache{M <: LowLevelCostModel,T}
-#     cost::T
-# end
-
 """
     `cost_model(env::E)`
 
@@ -75,6 +65,12 @@ abstract type LowLevelCostModel{T} <: AbstractCostModel{T} end
 """
 cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
 accumulate_cost(env::E, cost, transition_cost) where {E<:AbstractLowLevelEnv} = accumulate_cost(cost_model(env), cost, transition_cost)
+function accumulate_cost(model::C, cost, transition_cost) where {C<:AbstractCostModel}
+    return cost_type(model)(cost + transition_cost)
+end
+function get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv}
+    return get_transition_cost(env,cost_model(env),s,a,sp)
+end
 get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = cost_type(env)(0)
 get_initial_cost(model::C) where {C<:AbstractCostModel}     = cost_type(model)(0)
 get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = typemax(cost_type(env))
@@ -84,10 +80,26 @@ get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(cost_type(
     `TravelTime <: LowLevelCostModel{Float64}`
 """
 struct TravelTime <: LowLevelCostModel{Float64} end
-accumulate_cost(model::TravelTime, cost, transition_cost) = cost_type(model)(cost + transition_cost)
 
 """
     `TravelDistance <: LowLevelCostModel{Float64}`
 """
 struct TravelDistance <: LowLevelCostModel{Float64} end
-accumulate_cost(model::TravelDistance, cost, transition_cost) = cost_type(model)(cost + transition_cost)
+
+"""
+    `NullCost`
+"""
+struct NullCost <: LowLevelCostModel{Float64} end
+get_transition_cost(env::E,s,a,sp) where {S,A,E<:AbstractLowLevelEnv{S,A,NullCost}} = 0.0
+
+"""
+    `CompositeCost{T}`
+"""
+struct CompositeCost{T<:Tuple} <: LowLevelCostModel{Float64}
+    cost_models::T
+end
+construct_composite_cost(args...) = CompositeCost(Tuple(args))
+function get_transition_cost(env::E,s,a,sp) where {S,A,C<:CompositeCost,E<:AbstractLowLevelEnv{S,A,C}}
+    m = cost_model(env)
+    Vector{Float64}(map(c->get_transition_cost(env,c,s,a,sp), m.cost_models))
+end

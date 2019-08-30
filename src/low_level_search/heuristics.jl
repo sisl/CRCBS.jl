@@ -36,7 +36,9 @@ end
     `MultiStagePerfectHeuristic`
 
     Stores multiple lookup tables corresponding to different stages of a Path-
-    Finding search. Each stage has a different goal.
+    Finding search. Each stage has a different goal. The heuristic value at a
+    particular stage must reflect not just the distance to the next goal but the
+    length of the path through all remaining goals.
 """
 @with_kw struct MultiStagePerfectHeuristic <: LowLevelSearchHeuristic{Float64}
     dists::Dict{Int,Vector{Vector{Float64}}} = Dict{Int,Vector{Vector{Float64}}}()

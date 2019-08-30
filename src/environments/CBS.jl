@@ -21,7 +21,7 @@ end
     Δt::Int         = 1
 end
 # LowLevelEnv
-@with_kw struct LowLevelEnv{C<:AbstractCostModel,H <: LowLevelSearchHeuristic,G <: AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
+@with_kw struct LowLevelEnv{C<:AbstractCostModel,H<:LowLevelSearchHeuristic,G<:AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
     graph::G                    = Graph()
     constraints::ConstraintTable = ConstraintTable()
     goal::State                 = State()
@@ -120,15 +120,12 @@ CRCBS.get_possible_actions(env::LowLevelEnv,s::State) = ActionIter(s.vtx,outneig
 CRCBS.get_next_state(s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
 CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action) = get_next_state(s,a)
 # get_transition_cost
-function CRCBS.get_transition_cost(env::E,s::State,a::Action,sp::State) where {H,G,E<:LowLevelEnv{TravelTime,H,G}}
-    return cost_type(env)(a.Δt)
+function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
+    return cost_type(c)(a.Δt)
 end
-function CRCBS.get_transition_cost(env::E,s::State,a::Action,sp::State) where {H,G,E<:LowLevelEnv{TravelDistance,H,G}}
+function CRCBS.get_transition_cost(env::E,c::TravelDistance,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
     return (s.vtx == sp.vtx) ? cost_type(env)(1) : cost_type(env)(0)
 end
-# function CRCBS.get_transition_cost(env::LowLevelEnv{C,H,G},s::State,a::Action,sp::State) where {C,H,G}
-#     return C(1)
-# end
 # violates_constraints
 function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action, sp::State)
     t = length(path) + 1

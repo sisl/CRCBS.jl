@@ -139,8 +139,8 @@ function CRCBS.get_next_state(env::E,s::State,a::Action) where {E<:LowLevelEnv}
     return State(a.e.dst, stage, s.t+a.Δt)
 end
 # get_transition_cost
-function CRCBS.get_transition_cost(env::E,s::State,a::Action,sp::State) where {G,E<:LowLevelEnv{TravelTime,G}}
-    cost_type(env)(a.Δt)
+function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
+    cost_type(c)(a.Δt)
 end
 # violates_constraints
 function CRCBS.violates_constraints(env::E, path, s::State, a::Action, sp::State) where {E<:LowLevelEnv}

@@ -343,7 +343,7 @@ function solve! end
 # Some default types for use later
 struct DefaultState end
 struct DefaultAction end
-const DefaultPathCost = Float64
+struct DefaultPathCost <: AbstractCostModel{Float64} end
 wait(DefaultState) = DefaultAction()
 get_next_state(s::DefaultState,a::DefaultAction) = DefaultState()
 get_next_state(env,s::DefaultState,a::DefaultAction) = DefaultState()

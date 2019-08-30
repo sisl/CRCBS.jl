@@ -64,6 +64,7 @@ function CRCBS.low_level_search!(
         paths = split_path(path)
         for (idx,j) in enumerate(group)
             set_solution_path!(node.solution, paths[idx], j)
+            set_path_cost!(node.solution, cost/j, j)
         end
     end
     node.cost = get_cost(node.solution)
