@@ -65,19 +65,19 @@ get_a(p::P) where {P<:PathNode} = p.a
 get_sp(p::P) where {P<:PathNode} = p.sp
 
 """
-    `Path{S,A}`
+    `Path{S,A,C}`
 
     Encodes a motion plan as a sequence of `PathNode{S,A}`s
 """
 abstract type AbstractPath end
-@with_kw mutable struct Path{S,A} <: AbstractPath
+@with_kw mutable struct Path{S,A,C} <: AbstractPath
     s0          ::S                     = S()
     path_nodes  ::Vector{PathNode{S,A}} = Vector{PathNode{S,A}}()
-    cost        ::Int                   = 0
+    cost        ::C                     = C(0)
 end
-node_type(p::Path{S,A}) where {S,A}         = PathNode{S,A}
+node_type(p::Path{S,A,C}) where {S,A,C}     = PathNode{S,A}
 Path(v::Vector{P}) where {P<:PathNode}      = Path(get_s(get(v,0,P())),v,0)
-Base.cat(p::P,x::N,i...) where {P<:Path,N<:PathNode} = typeof(p)(p.s0,cat(p.path_nodes,x,dims=1),p.cost)
+Base.cat(p::P,x::N,i...) where {P<:Path,N<:PathNode} = P(p.s0,cat(p.path_nodes,x,dims=1),p.cost)
 Base.get(p::P,i,default) where {P<:Path}    = get(p.path_nodes,i,default)
 Base.getindex(p::P,i) where {P<:Path}       = getindex(p.path_nodes,i)
 Base.setindex!(p::P,x,i) where {P<:Path}    = setindex!(p.path_nodes,x,i)
@@ -191,12 +191,12 @@ abstract type AbstractCostModel{T} end
     - `T` is the cost type
     - `C` is the cost model type
     Elements:
-    - `paths::Vector{Path{S,A}}` is the vector of paths
+    - `paths::Vector{Path{S,A,T}}` is the vector of paths
     - `costs::Vector{T}` is the vector of costs, one per path
     - `cost::T` is the total cost for the entire solution
 """
 @with_kw mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
-    paths::Vector{Path{S,A}}    = Vector{Path{S,A}}()
+    paths::Vector{Path{S,A,T}}    = Vector{Path{S,A,T}}()
     costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(C()),1:length(paths)))
     cost::T                     = get_initial_cost(C())
 end
@@ -207,11 +207,11 @@ Base.copy(solution::L) where {L <: LowLevelSolution} = L(
 get_paths(solution::L) where {L <: LowLevelSolution} = solution.paths
 get_costs(solution::L) where {L <: LowLevelSolution} = solution.costs
 get_cost(solution::L) where {L <: LowLevelSolution} = sum([length(p) for p in get_paths(solution)])
-function set_solution_path!(solution::LowLevelSolution, path::Path, idx::Int)
+function set_solution_path!(solution::L, path::P, idx::Int) where {L<:LowLevelSolution, P<:Path}
     solution.paths[idx] = path
     return solution
 end
-function set_path_cost!(solution::LowLevelSolution, cost::C, idx::Int) where {C}
+function set_path_cost!(solution::L, cost::C, idx::Int) where {L<:LowLevelSolution,C}
     solution.costs[idx] = cost
     return solution
 end
@@ -303,7 +303,7 @@ function get_next_state end
 function get_transition_cost end
 
 """
-    `get_path_cost(env::E <: AbstractLowLevelEnv{S,A,C},path::Path{S,A})`
+    `get_path_cost(env::E <: AbstractLowLevelEnv{S,A,C},path::Path{S,A,C})`
 
     get the cost associated with a search path so far
 """
@@ -318,7 +318,7 @@ function get_heuristic_cost end
 
 """
     `violates_constraints(env::E <: AbstractLowLevelEnv{S,A,C},
-        path::Path{S,A},s::S,a::A,sp::S)`
+        path::Path{S,A,C},s::S,a::A,sp::S)`
 
     returns `true` if taking action `a` from state `s` violates any constraints
     associated with `env`
@@ -327,7 +327,7 @@ function violates_constraints end
 
 """
     `check_termination_criteria(env::E <: AbstractLowLevelEnv{S,A,C}, cost,
-        path::Path{S,A}, s::S)`
+        path::Path{S,A,C}, s::S)`
 
     returns true if any termination criterion is satisfied
 """

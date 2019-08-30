@@ -7,7 +7,7 @@ let
     @test typeof(get_sp(p)) == DefaultState
 end
 let
-    p = Path{DefaultState,DefaultAction}()
+    p = Path{DefaultState,DefaultAction,Float64}()
     # @test get_cost(p) == 0
     @test length(p.path_nodes) == 0
     push!(p,PathNode{DefaultState,DefaultAction}())

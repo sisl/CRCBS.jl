@@ -40,7 +40,7 @@ let
     env = MultiStageCBS.LowLevelEnv(graph=G)
 
     paths = [
-        Path{S,A}()
+        Path{S,A,Float64}()
     ]
 end
 let

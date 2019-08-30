@@ -28,9 +28,9 @@ construct_meta_env(envs::Vector{E}) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}
 
     Helper for breaking a meta-agent path into a set of single-agent paths
 """
-function split_path(path::Path{State{S},Action{A}}) where {S,A}
+function split_path(path::Path{State{S},Action{A},C}) where {S,A,C}
     N = length(get_s(get_path_node(path, 1)).states)
-    paths = [Path{S,A}() for i in 1:N]
+    paths = [Path{S,A,C}() for i in 1:N]
     for t in 1:length(path)
         path_node = get_path_node(path, t)
         for i in 1:N

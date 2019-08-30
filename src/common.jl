@@ -610,7 +610,7 @@ end
 function initialize_root_node(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     ConstraintTreeNode{S,A,T,C}(
         # solution = LowLevelSolution{State,Action}([Path{State,Action}() for a in 1:num_agents(mapf)]),
-        solution = LowLevelSolution{S,A,T,C}(paths=[Path{S,A}() for a in 1:num_agents(mapf)]),
+        solution = LowLevelSolution{S,A,T,C}(paths=[Path{S,A,T}() for a in 1:num_agents(mapf)]),
         constraints = Dict{Int,ConstraintTable}(
             i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
             ),
