@@ -617,12 +617,12 @@ function initialize_root_node(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostM
         id = 1)
 end
 
-"""
-    `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
-
-    Defines what is returned by the solver in case of failure to find a feasible
-    solution.
-"""
-function default_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    return LowLevelSolution{S,A,T,C}(), typemax(T)
-end
+# """
+#     `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
+#
+#     Defines what is returned by the solver in case of failure to find a feasible
+#     solution.
+# """
+# function default_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+#     return LowLevelSolution{S,A,T,C}(), typemax(T)
+# end

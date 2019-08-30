@@ -45,6 +45,9 @@ end
     @time @testset "CRCBS.InterfaceTests" begin
         include(joinpath(testdir, "unit_tests/test_interface.jl"))
     end
+    @time @testset "CRCBS.CostModelTests" begin
+        include(joinpath(testdir, "unit_tests/test_cost_models.jl"))
+    end
     @time @testset "CRCBS.CommonTests" begin
         include(joinpath(testdir, "unit_tests/test_common.jl"))
     end
