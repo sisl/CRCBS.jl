@@ -7,7 +7,7 @@ export
     TieBreakerHeuristic
 
 abstract type LowLevelSearchHeuristic{C} end
-cost_type(h::LowLevelSearchHeuristic{C}) where {C} = C
+get_cost_type(h::LowLevelSearchHeuristic{C}) where {C} = C
 
 ################################################################################
 ############################### PerfectHeuristic ###############################
@@ -163,7 +163,7 @@ end
 function construct_composite_heuristic(args...)
     CompositeHeuristic(Tuple(args))
 end
-cost_type(h::H) where {H<:CompositeHeuristic} = Vector{Float64}
+get_cost_type(h::H) where {H<:CompositeHeuristic} = Vector{Float64}
 get_heuristic_cost(m::CompositeHeuristic,args...) = map(h->get_heuristic_cost(h,args),m.heuristics)
 
 ################################################################################

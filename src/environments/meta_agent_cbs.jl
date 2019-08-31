@@ -15,10 +15,19 @@ end
     actions::Vector{A} = Vector{A}()
 end
 
-@with_kw struct LowLevelEnv{S,A,C,E<:AbstractLowLevelEnv{S,A,C}} <: AbstractLowLevelEnv{State{S},Action{A},C}
+@with_kw struct LowLevelEnv{S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} <: AbstractLowLevelEnv{State{S},Action{A},MetaCostModel{T,C}}
     envs::Vector{E}             = Vector{E}()
+    cost_model::MetaCostModel{T,C} = MetaCostModel(
+        FullCostModel(SumCost(),TravelTime()),length(envs))
 end
-construct_meta_env(envs::Vector{E}) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}} = LowLevelEnv{S,A,C,E}(envs=envs)
+function construct_meta_env(envs::Vector{E}) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
+    LowLevelEnv{S,A,T,C,E}(envs=envs)
+end
+function construct_meta_env(envs::Vector{E},c_model::C) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
+    model = MetaCostModel(c_model,length(envs))
+    LowLevelEnv{S,A,T,C,E}(envs=envs,cost_model=model)
+end
+CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
 ################################################################################
 ################################################################################
 ################################################################################
@@ -28,7 +37,7 @@ construct_meta_env(envs::Vector{E}) where {S,A,C,E <: AbstractLowLevelEnv{S,A,C}
 
     Helper for breaking a meta-agent path into a set of single-agent paths
 """
-function split_path(path::Path{State{S},Action{A},C}) where {S,A,C}
+function split_path(path::Path{State{S},Action{A},MetaCost{C}}) where {S,A,C}
     N = length(get_s(get_path_node(path, 1)).states)
     paths = [Path{S,A,C}() for i in 1:N]
     for t in 1:length(path)
@@ -57,14 +66,17 @@ function CRCBS.low_level_search!(
     # Only compute a path for the indices specified by idxs
     for i in idxs
         group = node.groups[i]
-        env = construct_meta_env([build_env(mapf, node, j) for j in group])
+        env = construct_meta_env(
+            [build_env(mapf, node, j) for j in group],
+            get_cost_model(mapf.env)
+            )
         start = State([get_start(mapf,j) for j in group])
 
         path, cost = path_finder(env, start, heuristic)
         paths = split_path(path)
         for (idx,j) in enumerate(group)
             set_solution_path!(node.solution, paths[idx], j)
-            set_path_cost!(node.solution, cost/j, j)
+            set_path_cost!(node.solution, cost.independent_costs[idx], j)
         end
     end
     node.cost = get_cost(node.solution)
@@ -73,11 +85,7 @@ function CRCBS.low_level_search!(
 end
 
 function CRCBS.get_heuristic_cost(env::E,state::S) where {E<:LowLevelEnv,S <: State}
-    c = 0
-    for (e,s) in zip(env.envs, state.states)
-        c += get_heuristic_cost(e,s)
-    end
-    return c
+    c = [get_heuristic_cost(e,s) for (e,s) in zip(env.envs, state.states)]
 end
 function CRCBS.states_match(s1::State,s2::State)
     for (state1, state2) in zip(s1.states,s2.states)
@@ -127,7 +135,6 @@ function Base.iterate(iter::ActionIter,iter_state::ActionIterState)
 end
 function CRCBS.get_possible_actions(env::E,s::State) where {E<:LowLevelEnv}
     return ActionIter([collect(get_possible_actions(env_,s_)) for (env_,s_) in zip(env.envs, s.states)])
-    # return Base.Iterators.product([get_possible_actions(env_,s_) for (env_,s_) in zip(env.envs, s)]...)
 end
 Base.length(iter::ActionIter) = product([length(a) for a in iter.action_lists])
 CRCBS.get_next_state(s::State,a::Action) = State(
@@ -136,9 +143,9 @@ CRCBS.get_next_state(s::State,a::Action) = State(
 CRCBS.get_next_state(env::E,s::State,a::Action) where {E<:LowLevelEnv} = State(
     [get_next_state(e_,s_,a_) for (e_,s_,a_) in zip(env.envs,s.states,a.actions)]
     )
-CRCBS.get_transition_cost(env::E,s::State,a::Action,sp::State) where {E<:LowLevelEnv} = sum(
-    [get_transition_cost(e_,s_,a_,sp_) for (e_,s_,a_,sp_) in zip(env.envs,s.states,a.actions,sp.states)]
-)
+CRCBS.get_transition_cost(env::E,s::State,a::Action,sp::State) where {E<:LowLevelEnv} = [
+    get_transition_cost(e_,s_,a_,sp_) for (e_,s_,a_,sp_) in zip(env.envs,s.states,a.actions,sp.states)
+]
 function CRCBS.violates_constraints(env::E, path, s::State, a::Action, sp::State) where {E<:LowLevelEnv}
     for (i, (e_,s_,a_,sp_)) in enumerate(zip(env.envs,s.states,a.actions,sp.states))
         if violates_constraints(e_,path,s_,a_,sp_)

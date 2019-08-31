@@ -11,6 +11,9 @@ export
     get_heuristic_cost,
     violates_constraints,
     check_termination_criteria,
+
+    get_initial_solution,
+    get_infeasible_solution,
     default_solution,
 
     DefaultState,
@@ -111,6 +114,20 @@ function violates_constraints end
 """
 function check_termination_criteria end
 
+function get_initial_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+    LowLevelSolution{S,A,T,C}(
+        paths = Vector{Path{S,A,T}}(map(a->Path{S,A,T}(),1:num_agents(mapf))),
+        costs = Vector{T}(map(a->get_infeasible_cost(mapf.env),1:num_agents(mapf))),
+        cost = get_infeasible_cost(mapf.env)
+    )
+end
+function get_infeasible_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+    LowLevelSolution{S,A,T,C}(
+        paths = Vector{Path{S,A,T}}(map(a->Path{S,A,T}(),1:num_agents(mapf))),
+        costs = Vector{T}(map(a->get_initial_cost(mapf.env),1:num_agents(mapf))),
+        cost = get_initial_cost(mapf.env)
+    )
+end
 """
     `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
 
@@ -118,7 +135,7 @@ function check_termination_criteria end
     solution.
 """
 function default_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    return LowLevelSolution{S,A,T,C}(), get_infeasible_cost(mapf.env)
+    return get_infeasible_solution(mapf), get_infeasible_cost(mapf.env)
 end
 
 # Some default types for use later

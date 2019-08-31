@@ -2,6 +2,7 @@ let
     N = 2
     envs = [CBS.LowLevelEnv() for i in 1:N]
     env = MetaAgentCBS.construct_meta_env(envs)
+    env = MetaAgentCBS.construct_meta_env(envs, get_cost_model(envs[1]))
     state = MetaAgentCBS.State([CBS.State() for i in 1:N])
     action = MetaAgentCBS.Action([CBS.Action() for i in 1:N])
 
@@ -28,6 +29,13 @@ let
         action_count += 1
     end
     @test action_count == 9
+end
+let
+    N = 2
+    envs = [CBS.LowLevelEnv() for i in 1:N]
+    env = MetaAgentCBS.construct_meta_env(envs, get_cost_model(envs[1]))
+    get_cost_model(env)
+    get_initial_cost(env)
 end
 let
     solver = MetaAgentCBS_Solver(1)

@@ -36,14 +36,20 @@ let
         SumOfTravelDistance()
     end
     let
-        model1 = MetaCostModel(MakeSpan(),num_agents)
-        new_cost1 = accumulate_cost(model1,cost,transition_cost)
-        @test new_cost1.total_cost == 5.0
+        model = MetaCostModel(MakeSpan(),num_agents)
+        new_cost = accumulate_cost(model,cost,transition_cost)
+        @test new_cost.total_cost == 5.0
     end
     let
-        model2 = MetaCostModel(SumOfTravelTime(),num_agents)
-        new_cost2 = accumulate_cost(model2,cost,transition_cost)
-        @test new_cost2.total_cost == 11.0
+        model = MetaCostModel(SumOfTravelTime(),num_agents)
+        new_cost = accumulate_cost(model,cost,transition_cost)
+        @test new_cost.total_cost == 11.0
+    end
+    let
+        model = FullCostModel(max,MetaCostModel(SumOfTravelTime(),num_agents))
+        get_cost_model(model)
+        new_cost = accumulate_cost(model,cost,transition_cost)
+        @test new_cost.total_cost == 11.0
     end
     # @test MetaCost{Float64}([1.0],0.0) < MetaCost{Float64}([0.0],1.0)
 end

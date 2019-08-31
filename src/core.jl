@@ -146,7 +146,7 @@ export
     `AbstractCostModel{T}`
 """
 abstract type AbstractCostModel{T} end
-cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
+get_cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
 
 export
     LowLevelSolution,
@@ -170,7 +170,7 @@ export
     - `cost::T` is the total cost for the entire solution
 """
 @with_kw mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
-    paths::Vector{Path{S,A,T}}    = Vector{Path{S,A,T}}()
+    paths::Vector{Path{S,A,T}}  = Vector{Path{S,A,T}}()
     costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(C()),1:length(paths)))
     cost::T                     = get_initial_cost(C())
 end
@@ -194,8 +194,8 @@ export
     AbstractLowLevelEnv,
     action_type,
     state_type,
-    cost_model,
-    cost_type
+    get_cost_model,
+    get_cost_type
 """
     `AbstractLowLevelEnv{S,A,C}`
 
@@ -213,8 +213,9 @@ abstract type AbstractLowLevelEnv{S,A,C} end
 action_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = A
 state_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = S
 """ Override this method for when the cost model has arguments """
-cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
-cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
+get_cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
+get_cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
+
 
 export
     AbstractMAPFSolver

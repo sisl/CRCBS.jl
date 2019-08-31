@@ -68,6 +68,9 @@ let
     constraints = ConstraintTable()
     env = CBS.LowLevelEnv() #graph=graph,constraints=constraints)
 end
+let
+    env = CBS.LowLevelEnv(cost_model=SumOfTravelTime())
+end
 # low level search
 let
     solver = CBS_Solver()

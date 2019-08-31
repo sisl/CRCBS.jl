@@ -26,10 +26,10 @@ end
     constraints::ConstraintTable    = ConstraintTable()
     goal_sequence::Vector{State}    = Vector{State}()
     agent_idx::Int                  = -1
-    cost_model::C                   = TravelTime()
+    cost_model::C                   = SumOfTravelTime()
     heuristic::H                    = MultiStagePerfectHeuristic(graph,Vector{Vector{Int}}())
 end
-CRCBS.cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
+CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
 function CRCBS.initialize_mapf(env::E,starts::Vector{State},goals::Vector{Vector{State}}) where {E<:LowLevelEnv}
     h = MultiStagePerfectHeuristic(env.graph,map(g->map(s->s.vtx,g),goals))
     MAPF(E(graph=env.graph,cost_model=env.cost_model,heuristic=h), starts, goals)
@@ -140,7 +140,7 @@ function CRCBS.get_next_state(env::E,s::State,a::Action) where {E<:LowLevelEnv}
 end
 # get_transition_cost
 function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
-    cost_type(c)(a.Δt)
+    get_cost_type(c)(a.Δt)
 end
 # violates_constraints
 function CRCBS.violates_constraints(env::E, path, s::State, a::Action, sp::State) where {E<:LowLevelEnv}

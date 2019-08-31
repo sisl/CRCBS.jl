@@ -490,7 +490,7 @@ end
 end
 action_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = A
 state_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = S
-cost_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = T
+get_cost_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = T
 
 """
     `initialize_child_search_node(parent_node::ConstraintTreeNode)`
@@ -501,6 +501,7 @@ cost_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = T
 function initialize_child_search_node(parent_node::N) where {N<:ConstraintTreeNode}
     N(
         solution = copy(parent_node.solution),
+        cost = copy(get_cost(parent_node.solution)),
         constraints = copy(parent_node.constraints),
         groups = copy(parent_node.groups),
         conflict_table = copy(parent_node.conflict_table),
@@ -610,7 +611,13 @@ end
 function initialize_root_node(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     ConstraintTreeNode{S,A,T,C}(
         # solution = LowLevelSolution{State,Action}([Path{State,Action}() for a in 1:num_agents(mapf)]),
-        solution = LowLevelSolution{S,A,T,C}(paths=[Path{S,A,T}() for a in 1:num_agents(mapf)]),
+        solution = get_initial_solution(mapf),
+        cost = get_initial_cost(mapf.env),
+        # LowLevelSolution{S,A,T,C}(
+        #     paths=map(a->Path{S,A,T}(), 1:num_agents(mapf)),
+        #     costs=initial_costs,
+        #     cost=combine_costs(get_cost_model(mapf.env),initial_costs)
+        #     ),
         constraints = Dict{Int,ConstraintTable}(
             i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
             ),

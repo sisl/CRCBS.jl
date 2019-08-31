@@ -28,7 +28,7 @@ struct CBS_Solver <: AbstractMAPFSolver end
 
 function CRCBS.solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_finder=A_star)
     # priority queue that stores nodes in order of their cost
-    priority_queue = PriorityQueue{ConstraintTreeNode,cost_type(mapf.env)}()
+    priority_queue = PriorityQueue{ConstraintTreeNode,get_cost_type(mapf.env)}()
 
     root_node = initialize_root_node(mapf)
     low_level_search!(solver,mapf,root_node;path_finder=path_finder)

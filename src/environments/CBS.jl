@@ -28,9 +28,9 @@ end
     agent_idx::Int              = -1
     # helpers # TODO parameterize LowLevelEnv by heuristic type as well
     h::H                        = PerfectHeuristic(graph,Vector{Int}(),Vector{Int}())
-    cost_model::C               = TravelTime()
+    cost_model::C               = SumOfTravelTime()
 end
-CRCBS.cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
+CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
 function CRCBS.initialize_mapf(env::LowLevelEnv{C,PerfectHeuristic,G},starts::Vector{State},goals::Vector{State}) where {C,G}
     h = PerfectHeuristic(env.graph,[s.vtx for s in starts],[s.vtx for s in goals])
     MAPF(typeof(env)(graph=env.graph,h=h), starts, goals)
@@ -121,10 +121,10 @@ CRCBS.get_next_state(s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
 CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action) = get_next_state(s,a)
 # get_transition_cost
 function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
-    return cost_type(c)(a.Δt)
+    return get_cost_type(c)(a.Δt)
 end
 function CRCBS.get_transition_cost(env::E,c::TravelDistance,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
-    return (s.vtx == sp.vtx) ? cost_type(env)(1) : cost_type(env)(0)
+    return (s.vtx == sp.vtx) ? get_cost_type(env)(1) : get_cost_type(env)(0)
 end
 # violates_constraints
 function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action, sp::State)

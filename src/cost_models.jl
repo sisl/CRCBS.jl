@@ -10,6 +10,9 @@ export
     SumCost,
 
     FullCostModel,
+    get_combiner_function,
+    get_cost_model,
+    get_cost_type,
 
     LowLevelCostModel,
     TravelTime,
@@ -88,17 +91,18 @@ struct FullCostModel{F,T,M<:AbstractCostModel{T}} <: AbstractCostModel{T}
     f::F        # the combiner function
     model::M    # the low level cost model
 end
-cost_model(m::C) where {C<:FullCostModel} = m.model
-cost_type(m::FullCostModel{F,T,M}) where {F,T,M} = T
+get_combiner_function(m::C) where {C<:FullCostModel} = m.f
+get_cost_model(m::C) where {C<:FullCostModel} = m.model
+get_cost_type(m::FullCostModel{F,T,M}) where {F,T,M} = T
 
 MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(MaxCost(),model)
 SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(SumCost(),model)
 SumOfTravelTime(model::TravelTime=TravelTime()) = FullCostModel(SumCost(), model)
 
-get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(cost_model(env))
-get_initial_cost(model::C) where {C<:AbstractCostModel}     = cost_type(model)(0)
-get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(cost_model(env))
-get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(cost_type(model))
+get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(get_cost_model(env))
+get_initial_cost(model::C) where {C<:AbstractCostModel}     = get_cost_type(model)(0)
+get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(get_cost_model(env))
+get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(get_cost_type(model))
 
 """
     `accumulate_cost(model,cost,transition_cost)`
@@ -126,11 +130,12 @@ function add_heuristic_cost end
 """
 function combine_costs end
 
-get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,cost_model(env),s,a,sp)
+get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,get_cost_model(env),s,a,sp)
+get_transition_cost(env::E,model::F,s,a,sp) where {E<:AbstractLowLevelEnv,F<:FullCostModel} = get_transition_cost(env,get_cost_model(model),s,a,sp)
 get_transition_cost(env::E,s,a,sp) where {S,A,E<:AbstractLowLevelEnv{S,A,NullCost}} = 0.0
 
-accumulate_cost(env::E, cost, transition_cost) where {E<:AbstractLowLevelEnv} = accumulate_cost(cost_model(env), cost, transition_cost)
-accumulate_cost(model::M, c, c2) where {M<:FullCostModel} = accumulate_cost(cost_model(model),c,c2)
+accumulate_cost(env::E, cost, transition_cost) where {E<:AbstractLowLevelEnv} = accumulate_cost(get_cost_model(env), cost, transition_cost)
+accumulate_cost(model::M, c, c2) where {M<:FullCostModel} = accumulate_cost(get_cost_model(model),c,c2)
 
 accumulate_cost(model::TravelTime,      cost,transition_cost) = cost+transition_cost
 accumulate_cost(model::TravelDistance,  cost,transition_cost) = cost+transition_cost
@@ -138,6 +143,9 @@ accumulate_cost(model::FinalTime,       cost,transition_cost) = cost+transition_
 accumulate_cost(model::NullCost,        cost,transition_cost) = cost
 
 combine_costs(m::C, costs::Vector{T}) where {T,C<:FullCostModel} = m.f(costs)
+
+add_heuristic_cost(m::C, cost, h_cost) where {C<:AbstractCostModel} = cost + h_cost
+add_heuristic_cost(env::E, cost, h_cost) where {E<:AbstractLowLevelEnv} = add_heuristic_cost(get_cost_model(env),cost,h_cost)
 
 """
     `MetaCost`
@@ -164,6 +172,14 @@ struct MetaCostModel{T,M<:AbstractCostModel{T}} <: AbstractCostModel{MetaCost{T}
     model::M
     num_agents::Int
 end
+combine_costs(m::C, costs::Vector{T}) where {T,C<:MetaCostModel} = combine_costs(m.model, costs)
+function add_heuristic_cost(m::C, cost, h_cost) where {C<:MetaCostModel}
+    costs = map(i->add_heuristic_cost(
+        m.model,
+        cost.independent_costs[i],
+        h_cost[i]),1:m.num_agents)
+    MetaCost(costs, combine_costs(m, costs))
+end
 function accumulate_cost(model::M, cost::MetaCost{T}, transition_cost::Vector{T}) where {T,M<:MetaCostModel}
     new_costs = Vector{T}()
     for (i,(c1,c2)) in enumerate(zip(
@@ -178,6 +194,14 @@ end
 function accumulate_cost(model::M, cost::MetaCost{T}, transition_cost::MetaCost{T}) where {T,M<:MetaCostModel}
     accumulate_cost(model, cost, transition_cost.independent_costs)
 end
+function get_initial_cost(model::C) where {C<:MetaCostModel}
+    costs = map(a->get_initial_cost(model.model),1:model.num_agents)
+    MetaCost(costs,combine_costs(model,costs))
+end
+function get_infeasible_cost(model::C) where {C<:MetaCostModel}
+    costs = map(a->get_infeasible_cost(model.model),1:model.num_agents)
+    MetaCost(costs,combine_costs(model,costs))
+end
 
 """
     `CompositeCost{T}`
@@ -190,25 +214,25 @@ function construct_composite_cost_model(args...)
     for m in models
         @assert typeof(m) <: AbstractCostModel
     end
-    cost_types = map(m->cost_type(m),models)
+    cost_types = map(m->get_cost_type(m),models)
     CompositeCostModel{typeof(models),Tuple{cost_types...}}(models)
 end
 function get_transition_cost(env::E,model::C,s,a,sp) where {S,A,C<:CompositeCostModel,E<:AbstractLowLevelEnv{S,A,C}}
-    cost_type(model)(map(c->get_transition_cost(env,m,s,a,sp), model.cost_models)...)
+    get_cost_type(model)(map(c->get_transition_cost(env,m,s,a,sp), model.cost_models))
 end
 function accumulate_cost(model::C, cost::T, transition_cost::T) where {T,M,C<:CompositeCostModel{M,T}}
     new_cost = map(x->accumulate_cost(x[1],x[2],x[3]),
     zip(model.cost_models, cost, transition_cost))
-    cost_type(model)(new_cost)
+    get_cost_type(model)(new_cost)
 end
 function combine_costs(model::C, costs::Vector{T}) where {T,M,C<:CompositeCostModel{M,T}}
     combined_costs = map(
         i->combine_costs(model.cost_models[i], map(c->c[i], costs)), 1:length(model.cost_models))
-    cost_type(model)(combine_costs)
+    get_cost_type(model)(combine_costs)
 end
 function get_initial_cost(model::M) where {M<:CompositeCostModel}
-    cost_type(model)(map(m->get_initial_cost(m),model.cost_models))
+    get_cost_type(model)(map(m->get_initial_cost(m),model.cost_models))
 end
 function get_infeasible_cost(model::M) where {M<:CompositeCostModel}
-    cost_type(model)(map(m->get_infeasible_cost(m),model.cost_models))
+    get_cost_type(model)(map(m->get_infeasible_cost(m),model.cost_models))
 end

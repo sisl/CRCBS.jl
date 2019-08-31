@@ -33,7 +33,7 @@ let
 end
 let
     cost_model = TravelTime()
-    solution = LowLevelSolution{DefaultState,DefaultAction,cost_type(cost_model),TravelTime}()
+    solution = LowLevelSolution{DefaultState,DefaultAction,get_cost_type(cost_model),TravelTime}()
     copy(solution)
 end
 let
