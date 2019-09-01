@@ -27,13 +27,10 @@ end
     goal::State                 = State()
     agent_idx::Int              = -1
     # helpers # TODO parameterize LowLevelEnv by heuristic type as well
-    h::H                        = PerfectHeuristic(graph,Vector{Int}(),Vector{Int}())
+    heuristic::H                = NullHeuristic() #PerfectHeuristic(graph,Vector{Int}(),Vector{Int}())
     cost_model::C               = SumOfTravelTime()
 end
 CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
-function CRCBS.initialize_mapf(env::E,starts::Vector{State},goals::Vector{State}) where {E<:LowLevelEnv}
-    MAPF(typeof(env)(graph=env.graph,h=env.h,cost_model=env.cost_model), starts, goals)
-end
 # TODO implement a check to be sure that no two agents have the same goal
 ################################################################################
 ######################## Low-Level (Independent) Search ########################
@@ -45,12 +42,12 @@ function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) 
         constraints = get_constraints(node,idx),
         goal = mapf.goals[idx],
         agent_idx = idx,
-        h = mapf.env.h,
+        heuristic = mapf.env.heuristic,
         cost_model = mapf.env.cost_model
         )
 end
 # heuristic
-CRCBS.get_heuristic_cost(env::E,s::State) where {E<:LowLevelEnv} = CRCBS.get_heuristic_cost(env,env.h,s)
+CRCBS.get_heuristic_cost(env::E,s::State) where {E<:LowLevelEnv} = CRCBS.get_heuristic_cost(env,env.heuristic,s)
 function CRCBS.get_heuristic_cost(env::E,h::PerfectHeuristic,s::State) where {E<:LowLevelEnv}
     get_heuristic_cost(h, env.goal.vtx, s.vtx)
 end

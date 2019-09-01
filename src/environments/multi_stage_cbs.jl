@@ -27,13 +27,9 @@ end
     goal_sequence::Vector{State}    = Vector{State}()
     agent_idx::Int                  = -1
     cost_model::C                   = SumOfTravelTime()
-    heuristic::H                    = MultiStagePerfectHeuristic(graph,Vector{Vector{Int}}())
+    heuristic::H                    = NullHeuristic() # MultiStagePerfectHeuristic(graph,Vector{Vector{Int}}())
 end
 CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
-function CRCBS.initialize_mapf(env::E,starts::Vector{State},goals::Vector{Vector{State}}) where {E<:LowLevelEnv}
-    h = MultiStagePerfectHeuristic(env.graph,map(g->map(s->s.vtx,g),goals))
-    MAPF(E(graph=env.graph,cost_model=env.cost_model,heuristic=h), starts, goals)
-end
 ################################################################################
 ######################## Low-Level (Independent) Search ########################
 ################################################################################

@@ -1,5 +1,4 @@
 export
-    initialize_mapf,
     build_env,
     states_match,
     is_goal,
@@ -24,10 +23,6 @@ export
 
 # Other methods to override that are implemented as defaults in common.jl:
 # - detect_conflicts!(conflict_table,n1::PathNode,n2::PathNode,i::Int,j::Int,t::Int)
-
-"""
-"""
-function initialize_mapf end
 
 """
     `build_env(mapf::AbstractMAPF, node::ConstraintTreeNode, idx::Int)`

@@ -5,10 +5,6 @@ let
     env = MultiStageCBS.LowLevelEnv()
 
     a = CRCBS.wait(s)
-    # sp = get_next_state(s,a)
-    # sp = get_next_state(env,s,a)
-    # @test states_match(s,sp)
-    # @test is_goal(env,s)
 end
 let
     s = MultiStageCBS.State()
@@ -67,10 +63,6 @@ let
     add_edge!(graph,1,3)
     constraints = ConstraintTable()
     env = MultiStageCBS.LowLevelEnv() #graph=graph,constraints=constraints)
-    # s = State(1)
-    # for a in get_possible_actions(env,s)
-    #     @test typeof(a) == Action
-    # end
 end
 let
     # solver = MultiStageCBS.CBS_Solver()
@@ -86,8 +78,31 @@ let
         [MultiStageCBS.State(vtx=100),MultiStageCBS.State(vtx=175)],
         [MultiStageCBS.State(vtx=85)],
         [MultiStageCBS.State(vtx=91),MultiStageCBS.State(vtx=1)]    ]
-    env = MultiStageCBS.LowLevelEnv(graph=G)
-    mapf = initialize_mapf(env,starts,goals)
-    node = initialize_root_node(mapf)
-    solution, cost = CRCBS.solve!(solver,mapf);
+    let
+        heuristic = MultiStagePerfectHeuristic(
+            G, map(g->map(s->s.vtx, g), goals)
+        )
+        env = MultiStageCBS.LowLevelEnv(graph=G,heuristic=heuristic)
+        mapf = MAPF(env,starts,goals)
+        # mapf = initialize_mapf(env,starts,goals)
+        node = initialize_root_node(mapf)
+        solution, cost = CRCBS.solve!(solver,mapf);
+    end
+    let
+        env = MultiStageCBS.LowLevelEnv(
+            graph=G,
+            cost_model = construct_composite_cost_model(
+                FullCostModel(sum,NullCost()),
+                FullCostModel(sum,TravelTime())
+                ),
+            heuristic = construct_composite_heuristic(
+                NullHeuristic(),
+                MultiStagePerfectHeuristic(G, map(g->map(s->s.vtx, g), goals))
+                )
+            )
+        mapf = MAPF(env,starts,goals)
+        # mapf = initialize_mapf(env,starts,goals)
+        node = initialize_root_node(mapf)
+        solution, cost = CRCBS.solve!(solver,mapf);
+    end
 end
