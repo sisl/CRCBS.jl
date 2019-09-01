@@ -1,13 +1,22 @@
 export
     LowLevelSearchHeuristic,
+    NullHeuristic,
     PerfectHeuristic,
     MultiStagePerfectHeuristic,
     SoftConflictTable,
-    TieBreakerCost,
-    TieBreakerHeuristic
+    CompositeHeuristic,
+        construct_composite_heuristic
 
-abstract type LowLevelSearchHeuristic{C} end
-get_cost_type(h::LowLevelSearchHeuristic{C}) where {C} = C
+abstract type LowLevelSearchHeuristic{C} <: AbstractCostModel{C} end
+################################################################################
+############################### PerfectHeuristic ###############################
+################################################################################
+"""
+    `NullHeuristic`
+"""
+struct NullHeuristic <: LowLevelSearchHeuristic{Float64} end
+get_heuristic_cost(h::NullHeuristic,args...) = 0.0
+get_heuristic_cost(env::E,h::NullHeuristic,args...) where {E<:AbstractLowLevelEnv} = get_heuristic_cost(h,args...)
 
 ################################################################################
 ############################### PerfectHeuristic ###############################
@@ -157,46 +166,56 @@ end
 ################################################################################
 ################################################################################
 ################################################################################
-struct CompositeHeuristic{T<:Tuple} <: LowLevelSearchHeuristic{T}
-    heuristics::T
+struct CompositeHeuristic{M<:Tuple,T<:Tuple} <: LowLevelSearchHeuristic{T}
+    cost_models::M
 end
 function construct_composite_heuristic(args...)
-    CompositeHeuristic(Tuple(args))
+    models = Tuple(args)
+    for m in models
+        @assert typeof(m) <: LowLevelSearchHeuristic
+    end
+    cost_types = map(m->get_cost_type(m),models)
+    CompositeHeuristic{typeof(models),Tuple{cost_types...}}(models)
 end
-get_cost_type(h::H) where {H<:CompositeHeuristic} = Vector{Float64}
-get_heuristic_cost(m::CompositeHeuristic,args...) = map(h->get_heuristic_cost(h,args),m.heuristics)
+# get_cost_type(h::H) where {T,M,H<:CompositeHeuristic{T,M}} = T
+function get_heuristic_cost(model::H,args...) where {T,M,H<:CompositeHeuristic{M,T}}
+    T(map(h->get_heuristic_cost(h,args...), model.cost_models))
+end
+function get_heuristic_cost(env::E,model::H,args...) where {E<:AbstractLowLevelEnv,T,M,H<:CompositeHeuristic{M,T}}
+    T(map(m->get_heuristic_cost(env,m,args...), model.cost_models))
+end
 
-################################################################################
-############################# TieBreakerHeuristic ##############################
-################################################################################
-"""
-    TieBreakerCost
-"""
-@with_kw struct TieBreakerCost
-    c1::Float64 = 0.0
-    c2::Float64 = 0.0
-end
-function TieBreakerCost(c::R where {R <: Real})
-    TieBreakerCost(c1=c)
-end
-Base.isless(cost1::TieBreakerCost,cost2::TieBreakerCost) = [cost1.c1,cost1.c2] < [cost2.c1,cost2.c2]
-Base.:+(c1::TieBreakerCost, c2::TieBreakerCost) = TieBreakerCost(c1.c1+c2.c1,c1.c2+c2.c2)
-"""
-    TieBreakerHeuristic{H1,H2}
-"""
-@with_kw struct TieBreakerHeuristic <: LowLevelSearchHeuristic{TieBreakerCost}
-    h1::PerfectHeuristic = PerfectHeuristic()
-    h2::SoftConflictTable = SoftConflictTable()
-end
-function TieBreakerHeuristic(graph,start_times::Vector{Int},starts::Vector{Int},goals::Vector{Int})
-    TieBreakerHeuristic(
-        PerfectHeuristic(graph,starts,goals),
-        SoftConflictTable(graph,start_times,starts,goals)
-    )
-end
-function get_heuristic_cost(h::TieBreakerHeuristic,goal_vtx::Int,vtx::Int,t::Int)
-    TieBreakerCost(
-        get_heuristic_cost(h.h1, goal_vtx, vtx),
-        get_heuristic_cost(h.h2, vtx, t)
-        )
-end
+# ################################################################################
+# ############################# TieBreakerHeuristic ##############################
+# ################################################################################
+# """
+#     TieBreakerCost
+# """
+# @with_kw struct TieBreakerCost
+#     c1::Float64 = 0.0
+#     c2::Float64 = 0.0
+# end
+# function TieBreakerCost(c::R where {R <: Real})
+#     TieBreakerCost(c1=c)
+# end
+# Base.isless(cost1::TieBreakerCost,cost2::TieBreakerCost) = [cost1.c1,cost1.c2] < [cost2.c1,cost2.c2]
+# Base.:+(c1::TieBreakerCost, c2::TieBreakerCost) = TieBreakerCost(c1.c1+c2.c1,c1.c2+c2.c2)
+# """
+#     TieBreakerHeuristic{H1,H2}
+# """
+# @with_kw struct TieBreakerHeuristic <: LowLevelSearchHeuristic{TieBreakerCost}
+#     h1::PerfectHeuristic = PerfectHeuristic()
+#     h2::SoftConflictTable = SoftConflictTable()
+# end
+# function TieBreakerHeuristic(graph,start_times::Vector{Int},starts::Vector{Int},goals::Vector{Int})
+#     TieBreakerHeuristic(
+#         PerfectHeuristic(graph,starts,goals),
+#         SoftConflictTable(graph,start_times,starts,goals)
+#     )
+# end
+# function get_heuristic_cost(h::TieBreakerHeuristic,goal_vtx::Int,vtx::Int,t::Int)
+#     TieBreakerCost(
+#         get_heuristic_cost(h.h1, goal_vtx, vtx),
+#         get_heuristic_cost(h.h2, vtx, t)
+#         )
+# end

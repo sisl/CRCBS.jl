@@ -21,7 +21,7 @@ end
     Δt::Int         = 1
 end
 # LowLevelEnv
-@with_kw struct LowLevelEnv{C<:AbstractCostModel,H<:LowLevelSearchHeuristic,G<:AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
+@with_kw struct LowLevelEnv{C<:AbstractCostModel,H<:AbstractCostModel,G<:AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
     graph::G                    = Graph()
     constraints::ConstraintTable = ConstraintTable()
     goal::State                 = State()
@@ -31,13 +31,8 @@ end
     cost_model::C               = SumOfTravelTime()
 end
 CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
-function CRCBS.initialize_mapf(env::LowLevelEnv{C,PerfectHeuristic,G},starts::Vector{State},goals::Vector{State}) where {C,G}
-    h = PerfectHeuristic(env.graph,[s.vtx for s in starts],[s.vtx for s in goals])
-    MAPF(typeof(env)(graph=env.graph,h=h), starts, goals)
-end
-function CRCBS.initialize_mapf(env::LowLevelEnv{C,TieBreakerHeuristic,G},starts::Vector{State},goals::Vector{State}) where {C,G}
-    h = TieBreakerHeuristic(env.graph,[s.t for s in starts],[s.vtx for s in starts],[s.vtx for s in goals])
-    MAPF(typeof(env)(graph=env.graph,h=h), starts, goals)
+function CRCBS.initialize_mapf(env::E,starts::Vector{State},goals::Vector{State}) where {E<:LowLevelEnv}
+    MAPF(typeof(env)(graph=env.graph,h=env.h,cost_model=env.cost_model), starts, goals)
 end
 # TODO implement a check to be sure that no two agents have the same goal
 ################################################################################
@@ -61,9 +56,6 @@ function CRCBS.get_heuristic_cost(env::E,h::PerfectHeuristic,s::State) where {E<
 end
 function CRCBS.get_heuristic_cost(env::E,h::SoftConflictTable,s::State) where {E<:LowLevelEnv}
     get_heuristic_cost(h, s.vtx, s.t)
-end
-function CRCBS.get_heuristic_cost(env::E,h::TieBreakerHeuristic,s::State) where {E<:LowLevelEnv}
-    get_heuristic_cost(h, env.goal.vtx, s.vtx, s.t)
 end
 
 # states_match

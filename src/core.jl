@@ -36,7 +36,7 @@ abstract type AbstractPath end
 @with_kw mutable struct Path{S,A,C} <: AbstractPath
     s0          ::S                     = S()
     path_nodes  ::Vector{PathNode{S,A}} = Vector{PathNode{S,A}}()
-    cost        ::C                     = C(0)
+    cost        ::C                     = typemax(C)
 end
 node_type(p::Path{S,A,C}) where {S,A,C}     = PathNode{S,A}
 Path(v::Vector{P}) where {P<:PathNode}      = Path(get_s(get(v,0,P())),v,0)
@@ -151,7 +151,7 @@ get_cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
 export
     LowLevelSolution,
     get_paths,
-    get_costs,
+    get_path_costs,
     get_cost,
     set_solution_path!,
     set_path_cost!
@@ -171,16 +171,20 @@ export
 """
 @with_kw mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
     paths::Vector{Path{S,A,T}}  = Vector{Path{S,A,T}}()
-    costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(C()),1:length(paths)))
+    costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(C()),1:length(paths))) # TODO C() is a problem
     cost::T                     = get_initial_cost(C())
+    cost_model::C               = C()
 end
 Base.copy(solution::L) where {L <: LowLevelSolution} = L(
     paths=copy(solution.paths),
     costs=copy(solution.costs),
-    cost=copy(solution.cost))
-get_paths(solution::L) where {L <: LowLevelSolution} = solution.paths
-get_costs(solution::L) where {L <: LowLevelSolution} = solution.costs
-get_cost(solution::L) where {L <: LowLevelSolution} = sum([length(p) for p in get_paths(solution)])
+    cost=deepcopy(solution.cost),
+    cost_model=deepcopy(solution.cost_model)
+    )
+get_paths(solution::L) where {L <: LowLevelSolution}        = solution.paths
+get_path_costs(solution::L) where {L <: LowLevelSolution}   = solution.costs
+get_cost(solution::L) where {L <: LowLevelSolution}         = solution.cost
+get_cost_model(solution::L) where {L <: LowLevelSolution}   = solution.cost_model
 function set_solution_path!(solution::L, path::P, idx::Int) where {L<:LowLevelSolution, P<:Path}
     solution.paths[idx] = path
     return solution
@@ -216,8 +220,46 @@ state_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = S
 get_cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
 get_cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
 
-
 export
     AbstractMAPFSolver
 """ Abstract type for algorithms that solve MAPF instances """
 abstract type AbstractMAPFSolver end
+
+################################################################################
+################################## Utilities ###################################
+################################################################################
+# export
+#     get_initial_solution,
+#     get_infeasible_solution,
+#     default_solution
+# """
+#     `get_initial_solution`
+# """
+# function get_initial_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+#     LowLevelSolution{S,A,T,C}(
+#         paths = Vector{Path{S,A,T}}(map(a->Path{S,A,T}(),1:num_agents(mapf))),
+#         costs = Vector{T}(map(a->get_infeasible_cost(mapf.env),1:num_agents(mapf))),
+#         cost = get_infeasible_cost(mapf.env),
+#         cost_model = get_cost_model(mapf.env)
+#     )
+# end
+# """
+#     `get_infeasible_solution`
+# """
+# function get_infeasible_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+#     LowLevelSolution{S,A,T,C}(
+#         paths = Vector{Path{S,A,T}}(map(a->Path{S,A,T}(),1:num_agents(mapf))),
+#         costs = Vector{T}(map(a->get_initial_cost(mapf.env),1:num_agents(mapf))),
+#         cost = get_initial_cost(mapf.env),
+#         cost_model = get_cost_model(mapf.env)
+#     )
+# end
+# """
+#     `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
+#
+#     Defines what is returned by the solver in case of failure to find a feasible
+#     solution.
+# """
+# function default_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+#     return get_infeasible_solution(mapf), get_infeasible_cost(mapf.env)
+# end

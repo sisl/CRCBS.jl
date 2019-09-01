@@ -48,6 +48,9 @@ end
     @time @testset "CRCBS.CostModelTests" begin
         include(joinpath(testdir, "unit_tests/test_cost_models.jl"))
     end
+    @time @testset "CRCBS.HeuristicTests" begin
+        include(joinpath(testdir, "unit_tests/test_heuristics.jl"))
+    end
     @time @testset "CRCBS.CommonTests" begin
         include(joinpath(testdir, "unit_tests/test_common.jl"))
     end
@@ -68,8 +71,5 @@ end
     end
     @time @testset "CRCBS.FlowProblemsTests" begin
         include(joinpath(testdir, "unit_tests/test_flow_problems.jl"))
-    end
-    @time @testset "CRCBS.HeuristicTests" begin
-        include(joinpath(testdir, "unit_tests/test_heuristics.jl"))
     end
 end

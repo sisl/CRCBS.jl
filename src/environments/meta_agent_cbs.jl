@@ -79,6 +79,7 @@ function CRCBS.low_level_search!(
             set_path_cost!(node.solution, cost.independent_costs[idx], j)
         end
     end
+    node.solution.cost = aggregate_costs(get_cost_model(mapf.env),get_path_costs(node.solution))
     node.cost = get_cost(node.solution)
     # TODO check if solution is valid
     return true

@@ -71,26 +71,65 @@ end
 let
     env = CBS.LowLevelEnv(cost_model=SumOfTravelTime())
 end
-# low level search
+# solve!
 let
     solver = CBS_Solver()
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    env = CBS.LowLevelEnv(graph=G)
     starts = [CBS.State(1,0),CBS.State(2,0)]
     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
-    mapf = initialize_mapf(env,starts,goals)
-    default_solution(mapf)
-    node = CBS.initialize_root_node(mapf)
-    initialize_child_search_node(node)
-    low_level_search!(solver,mapf,node)
+    # low_level_search
+    let
+        heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
+        env = CBS.LowLevelEnv(graph=G,h=heuristic)
+        mapf = initialize_mapf(env,starts,goals)
+        default_solution(mapf)
+        node = CBS.initialize_root_node(mapf)
+        initialize_child_search_node(node)
+        low_level_search!(solver,mapf,node)
+        # high_level_search
+        solution, cost = CRCBS.solve!(solver,mapf)
+    end
+    # with CompositeCost and CompositeHeuristic
+    let
+        cost_model = construct_composite_cost_model(
+            FullCostModel(sum,NullCost()),
+            FullCostModel(sum,TravelTime())
+        )
+        heuristic = construct_composite_heuristic(
+            NullHeuristic(),
+            PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
+        )
+        env = CBS.LowLevelEnv(graph=G,cost_model=cost_model,h=heuristic)
+        mapf = initialize_mapf(env,starts,goals)
+        solution, cost = CRCBS.solve!(solver,mapf)
+    end
 end
 # high level search
-let
-    solver = CBS_Solver()
-    G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    env = CBS.LowLevelEnv(graph=G)
-    starts = [CBS.State(1,0),CBS.State(2,0)]
-    goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
-    mapf = initialize_mapf(env,starts,goals)
-    CRCBS.solve!(solver,mapf)
-end
+# let
+#     solver = CBS_Solver()
+#     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
+#     starts = [CBS.State(1,0),CBS.State(2,0)]
+#     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
+#     heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
+#     env = CBS.LowLevelEnv(graph=G,h=heuristic)
+#     get_heuristic_cost(env.h, 6, 1)
+#     # mapf = initialize_mapf(env,starts,goals)
+#     # solution, cost = CRCBS.solve!(solver,mapf)
+# end
+# let
+#     solver = CBS_Solver()
+#     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
+#     starts = [CBS.State(1,0),CBS.State(2,0)]
+#     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
+#     cost_model = construct_composite_cost_model(
+#         FullCostModel(sum,NullCost()),
+#         FullCostModel(sum,TravelTime())
+#     )
+#     heuristic = construct_composite_heuristic(
+#         NullHeuristic(),
+#         PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
+#     )
+#     env = CBS.LowLevelEnv(graph=G,cost_model=cost_model,h=heuristic)
+#     mapf = initialize_mapf(env,starts,goals)
+#     solution, cost = CRCBS.solve!(solver,mapf)
+# end

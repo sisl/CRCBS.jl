@@ -1,5 +1,5 @@
 export
-    is_valid,
+    # is_valid,
 
     ConflictType,
         NULL_CONFLICT,
@@ -39,37 +39,13 @@ export
     add_constraint!,
 
     ConstraintTreeNode,
-    # initialize_root_node,
+    initialize_root_node,
     initialize_child_search_node,
     get_constraints,
     violates_constraints,
     generate_constraints_from_conflict,
 
-    low_level_search!,
-
-    initialize_root_node
-
-"""
-    Checks if an individual path satisfies start and end constraints
-"""
-function is_valid(path::P,start::S,goal::G) where {S,G,P<:Path}
-    return (states_match(get_initial_state(path), start)
-        && states_match(get_final_state(path), goal))
-end
-function is_valid(paths::Vector{P},starts::Vector{S},goals::Vector{G}) where {S,G,P <: Path}
-    for (i,path) in enumerate(paths)
-        if !is_valid(path,starts[i],goals[i])
-            return false
-        end
-    end
-    return true
-end
-function is_valid(solution::L,starts::Vector{S},goals::Vector{G}) where {S,G,L<:LowLevelSolution}
-    is_valid(get_paths(solution),starts,goals)
-end
-function is_valid(solution::L,mapf::M) where {L<:LowLevelSolution, M<:AbstractMAPF}
-    is_valid(solution,get_starts(mapf),get_goals(mapf))
-end
+    low_level_search!
 
 ################################################################################
 ################################## Conflicts ###################################
@@ -90,18 +66,18 @@ end
     node2           ::P2            = P2()
     t               ::Int           = typemax(Int)
 end
-conflict_type(conflict::Conflict) = conflict.conflict_type
-agent1_id(conflict::Conflict) = conflict.agent1_id
-agent2_id(conflict::Conflict) = conflict.agent2_id
-node1(conflict::Conflict) = conflict.node1
-node2(conflict::Conflict) = conflict.node2
-state1(conflict::Conflict) = get_s(node1(conflict))
-state2(conflict::Conflict) = get_s(node2(conflict))
-action1(conflict::Conflict) = get_a(node1(conflict))
-action2(conflict::Conflict) = get_a(node2(conflict))
-next_state1(conflict::Conflict) = get_sp(node1(conflict))
-next_state2(conflict::Conflict) = get_sp(node2(conflict))
-time_of(conflict::Conflict) = conflict.t
+conflict_type(conflict::Conflict)   = conflict.conflict_type
+agent1_id(conflict::Conflict)       = conflict.agent1_id
+agent2_id(conflict::Conflict)       = conflict.agent2_id
+node1(conflict::Conflict)           = conflict.node1
+node2(conflict::Conflict)           = conflict.node2
+state1(conflict::Conflict)          = get_s(node1(conflict))
+state2(conflict::Conflict)          = get_s(node2(conflict))
+action1(conflict::Conflict)         = get_a(node1(conflict))
+action2(conflict::Conflict)         = get_a(node2(conflict))
+next_state1(conflict::Conflict)     = get_sp(node1(conflict))
+next_state2(conflict::Conflict)     = get_sp(node2(conflict))
+time_of(conflict::Conflict)         = conflict.t
 """ Default (invalid) conflict """
 const DefaultConflict = Conflict{DefaultPathNode,DefaultPathNode}
 
@@ -463,7 +439,6 @@ function add_constraint!(constraint_dict::ConstraintTable,constraint::ActionCons
     end
 end
 
-
 """
     A node of a constraint tree. Each node has a set of constraints, a candidate
     solution (set of robot paths), and a cost
@@ -493,6 +468,21 @@ state_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = S
 get_cost_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = T
 
 """
+    `initialize_root_node`
+
+    Construct an empty `ConstraintTreeNode` from a `AbstractMAPF` instance
+"""
+function initialize_root_node(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+    ConstraintTreeNode{S,A,T,C}(
+        solution    = get_initial_solution(mapf),
+        cost        = get_initial_cost(mapf.env),
+        constraints = Dict{Int,ConstraintTable}(
+            i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
+            ),
+        id = 1)
+end
+
+"""
     `initialize_child_search_node(parent_node::ConstraintTreeNode)`
 
     Initialize a new `ConstraintTreeNode` with the same `solution` and
@@ -501,7 +491,7 @@ get_cost_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = T
 function initialize_child_search_node(parent_node::N) where {N<:ConstraintTreeNode}
     N(
         solution = copy(parent_node.solution),
-        cost = copy(get_cost(parent_node.solution)),
+        cost = deepcopy(get_cost(parent_node.solution)),
         constraints = copy(parent_node.constraints),
         groups = copy(parent_node.groups),
         conflict_table = copy(parent_node.conflict_table),
@@ -598,38 +588,8 @@ function low_level_search!(
         set_solution_path!(node.solution, path, i)
         set_path_cost!(node.solution, cost, i)
     end
+    node.solution.cost = aggregate_costs(get_cost_model(mapf.env),get_path_costs(node.solution))
     node.cost = get_cost(node.solution)
     # TODO check if solution is valid
     return true
 end
-
-"""
-    `initialize_root_node`
-
-    Construct an empty `ConstraintTreeNode` from a `AbstractMAPF` instance
-"""
-function initialize_root_node(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    ConstraintTreeNode{S,A,T,C}(
-        # solution = LowLevelSolution{State,Action}([Path{State,Action}() for a in 1:num_agents(mapf)]),
-        solution = get_initial_solution(mapf),
-        cost = get_initial_cost(mapf.env),
-        # LowLevelSolution{S,A,T,C}(
-        #     paths=map(a->Path{S,A,T}(), 1:num_agents(mapf)),
-        #     costs=initial_costs,
-        #     cost=combine_costs(get_cost_model(mapf.env),initial_costs)
-        #     ),
-        constraints = Dict{Int,ConstraintTable}(
-            i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
-            ),
-        id = 1)
-end
-
-# """
-#     `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
-#
-#     Defines what is returned by the solver in case of failure to find a feasible
-#     solution.
-# """
-# function default_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-#     return LowLevelSolution{S,A,T,C}(), typemax(T)
-# end
