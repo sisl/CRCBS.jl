@@ -2,8 +2,10 @@ export
     LowLevelSearchHeuristic,
     NullHeuristic,
     PerfectHeuristic,
-    DeadlineHeuristic,
+    # DeadlineHeuristic,
     MultiStagePerfectHeuristic,
+    HardConflictTable,
+        set_path!,
     SoftConflictTable,
     CompositeHeuristic,
         construct_composite_heuristic
@@ -78,46 +80,85 @@ end
 ################################################################################
 ################################ Deadline Cost #################################
 ################################################################################
-"""
-    `DeadlineHeuristic`
-
-    The deadline heuristic is a "slack" cost. It adds zero cost until the cost +
-    cost_to_go for a given path exceeds some maximum value (i.e. a deadline):
-
-        `cost_deadline = max( 0, (t+Δt) - t_max)`
-
-    where `t` is the current cost, `Δt` is the cost to go, and `t_max` is the
-    deadline.
-"""
-@with_kw struct DeadlineHeuristic{H<:LowLevelSearchHeuristic} <: LowLevelSearchHeuristic{Float64}
-    t_max   ::Float64           = 0.0             # one deadline per agent
-    h       ::H                 = NullHeuristic()
-end
-function get_heuristic_cost(h::D,t::Float64,args...) where {D<:DeadlineHeuristic}
-    Δt = get_heuristic_cost(h.h, args...)
-    max(0.0, (t + Δt) - h.t_max)
-end
+# """
+#     `DeadlineHeuristic`
+#
+#     The deadline heuristic is a "slack" cost. It adds zero cost until the cost +
+#     cost_to_go for a given path exceeds some maximum value (i.e. a deadline):
+#
+#         `cost_deadline = max( 0, (t+Δt) - t_max)`
+#
+#     where `t` is the current cost, `Δt` is the cost to go, and `t_max` is the
+#     deadline.
+# """
+# @with_kw struct DeadlineHeuristic{H<:LowLevelSearchHeuristic} <: LowLevelSearchHeuristic{Float64}
+#     t_max   ::Float64           = 0.0             # one deadline per agent
+#     h       ::H                 = NullHeuristic()
+# end
+# function get_heuristic_cost(h::D,t::Float64,args...) where {D<:DeadlineHeuristic}
+#     Δt = get_heuristic_cost(h.h, args...)
+#     max(0.0, (t + Δt) - h.t_max)
+# end
 
 ################################################################################
 ############################### HardConflictTable ##############################
 ################################################################################
-# """
-#     `HardConflictTable`
-#
-#     Stores a lookup table of planned paths for all agents, to be used as a tie-
-#     breaking heuristic for planning a new path through the graph.
-#     When agent `i` queries the table, `table.paths[i]` (the existing path plan
-#     for agent `i`) must be subtracted so that the agent does not try to avoid
-#     conflicts with itself.
-# """
-# @with_kw struct HardConflictTable{M<:AbstractMatrix} <: LowLevelSearchHeuristic{Float64}
-#     paths   ::Vector{Vector{Int}}   = Vector{Vector{Int}}()
-#     CAT     ::M                     = zeros(2,2) # global table
-# end
-# function get_heuristic_cost(h::HardConflictTable,vtx::Int,t::Int,agent_idx::Int)
-#     h_cost = h.CAT[vtx,t]
-#
-# end
+"""
+    `HardConflictTable`
+
+    Stores a lookup table of planned paths for all agents, to be used as a tie-
+    breaking heuristic for planning a new path through the graph.
+    When agent `i` queries the table, `table.paths[i]` (the existing path plan
+    for agent `i`) must be subtracted so that the agent does not try to avoid
+    conflicts with itself.
+"""
+@with_kw struct HardConflictTable{V<:AbstractVector,M<:AbstractMatrix} <: LowLevelSearchHeuristic{Float64}
+    paths   ::Vector{V} = Vector{SparseVector{Int,Int}}()
+    CAT     ::M         = SparseMatrixCSC(zeros(2,2)) # global table
+end
+get_time_horizon(h::H) where {H<:HardConflictTable} = size(h.CAT,2)
+get_planned_vtx(h::H,agent_idx::Int,t::Int) where {H<:HardConflictTable} = h.paths[agent_idx][t]
+function reset_path!(h::H,path_idx::Int) where {V,M,H<:HardConflictTable{V,M}}
+    # first remove the old path from the lookup table
+    for (t,vtx) in enumerate(h.paths[path_idx])
+        if vtx > 0
+            h.CAT[vtx,t] = h.CAT[vtx,t] - 1
+        end
+    end
+    # initialize an empty new path
+    h.paths[path_idx] = V(zeros(Int,get_time_horizon(h)))
+    return h
+end
+function set_path!(h::H,path_idx::Int,start_time::Int,path::Vector{Int}) where {V,M,H<:HardConflictTable{V,M}}
+    reset_path!(h,path_idx)
+    # now add new path vtxs to new path and lookup table
+    for (i,vtx) in enumerate(path)
+        t = start_time+i-1
+        h.paths[path_idx][t] = vtx
+        h.CAT[vtx,t] = h.CAT[vtx,t] + 1
+    end
+    h
+end
+function get_heuristic_cost(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
+    h_cost = h.CAT[vtx,t]
+    if get_planned_vtx(h,agent_idx,t) == vtx # conflict with own trajectory
+        return h_cost - 1
+    end
+    return h_cost
+end
+"""
+    `construct_empty_lookup_table(G,T::Int)`
+
+    Returns an empty lookup table.
+"""
+construct_empty_lookup_table(V::Int,T::Int) = SparseMatrixCSC(zeros(V,T))
+construct_empty_lookup_table(graph::G,T::Int) where {G<:AbstractGraph} = construct_empty_lookup_table(nv(graph),T)
+function HardConflictTable(graph::G,T::Int,num_agents::Int) where {G<:AbstractGraph}
+    HardConflictTable(
+        paths = map(i->SparseVector(zeros(Int,T)),1:num_agents),
+        CAT = construct_empty_lookup_table(graph,T)
+        )
+end
 
 ################################################################################
 ############################### SoftConflictTable ##############################
@@ -129,8 +170,9 @@ end
     CBS paradigm.
 """
 @with_kw struct SoftConflictTable{M<:AbstractMatrix} <: LowLevelSearchHeuristic{Float64}
-    CAT::M = zeros(2,2) # global table
+    CAT::M = SparseMatrixCSC(zeros(2,2)) # global table
 end
+get_time_horizon(h::SoftConflictTable) = size(h.CAT,2)
 get_heuristic_cost(h::SoftConflictTable,vtx::Int,t::Int) = h.CAT[vtx,t]
 """
     `get_fat_path(G,D,start_vtx,goal_vtx)`
@@ -158,16 +200,6 @@ function get_fat_path(G,D,start_vtx::Int,goal_vtx::Int)
     fat_path
 end
 """
-    `construct_soft_conflict_lookup_table(G,T::Int)`
-
-    Returns a soft lookup table to encode possible paths for each agent through
-    a graph G. The table is to be used a a tie-breaker heuristic in A* search
-    within the CBS paradigm.
-"""
-function construct_soft_conflict_lookup_table(G,T::Int)
-    CAT = SparseMatrixCSC(zeros(nv(G),T))
-end
-"""
     `add_fat_path_to_table(CAT,fat_path)`
 """
 function add_fat_path_to_table!(CAT,t0,fat_path)
@@ -189,20 +221,20 @@ function populate_soft_lookup_table!(CAT,G,D,start_times,start_vtxs,goal_vtxs)
     CAT
 end
 """
-    `construct_soft_conflict_lookup_table(graph,T::Int)`
+    `construct_empty_lookup_table(graph,T::Int)`
 
     Returns a soft lookup table to encode possible paths for each agent through
     `graph`. The argument `T` defines the time horizon of the lookup table.
 """
 function SoftConflictTable(graph,T::Int)
-    SoftConflictTable(construct_soft_conflict_lookup_table(graph,T))
+    SoftConflictTable(construct_empty_lookup_table(graph,T))
 end
 """
     `construct_and_populate_soft_lookup_table!`
 """
 function SoftConflictTable(graph,start_times::Vector{Int},start_vtxs::Vector{Int},goal_vtxs::Vector{Int};
         T = Int(round(maximum(start_times) + nv(graph))))
-    CAT = construct_soft_conflict_lookup_table(graph,T)
+    CAT = construct_empty_lookup_table(graph,T)
     D = get_dist_matrix(graph)
     populate_soft_lookup_table!(CAT,graph,D,start_times,start_vtxs,goal_vtxs)
     SoftConflictTable(CAT)

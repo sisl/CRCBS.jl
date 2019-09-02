@@ -48,18 +48,40 @@ let
     end
 end
 # DeadlineHeuristic
+# let
+#     G = Graph(3)
+#     for v in 1:nv(G)-1
+#         add_edge!(G,v,v+1)
+#     end
+#     starts = [1]
+#     goals = [nv(G)]
+#     h1 = PerfectHeuristic(G,starts,goals)
+#     h = DeadlineHeuristic(t_max=ne(G)+1.0, h=h1)
+#     @test get_heuristic_cost(h, 0.0, goals[1], starts[1]) == 0.0
+#     @test get_heuristic_cost(h, 1.0, goals[1], starts[1]) == 0.0
+#     @test get_heuristic_cost(h, 2.0, goals[1], starts[1]) == 1.0
+# end
+# HardConflictTable
 let
-    G = Graph(3)
+    G = Graph(5)
     for v in 1:nv(G)-1
         add_edge!(G,v,v+1)
     end
-    starts = [1]
-    goals = [nv(G)]
-    h1 = PerfectHeuristic(G,starts,goals)
-    h = DeadlineHeuristic(t_max=ne(G)+1.0, h=h1)
-    @test get_heuristic_cost(h, 0.0, goals[1], starts[1]) == 0.0
-    @test get_heuristic_cost(h, 1.0, goals[1], starts[1]) == 0.0
-    @test get_heuristic_cost(h, 2.0, goals[1], starts[1]) == 1.0
+    T = 10
+    num_agents = 2
+    h = HardConflictTable(G,T,num_agents)
+    set_path!(h,num_agents,2,[1,2])
+    # Agent 1 has a cost of 1 whenever it conflicts with agent 2's path
+    @test get_heuristic_cost(h,1,1,2) == 1.0
+    @test get_heuristic_cost(h,1,2,3) == 1.0
+    @test get_heuristic_cost(h,1,2,1) == 0.0
+    @test get_heuristic_cost(h,1,3,4) == 0.0
+    # Agent 2 should have zero cost even when it conflicts with its own path
+    @test get_heuristic_cost(h,2,1,2) == 0.0
+    # Now that agent 2's path has been updated, the cost should be zero for a
+    # vtx no longer on the path
+    set_path!(h,num_agents,3,[1,2])
+    @test get_heuristic_cost(h,1,1,2) == 0.0
 end
 # Full CompositeCost and CompositeHeuristic for TaskGraphs route planner
 let
@@ -70,6 +92,8 @@ let
     start_times = [0]
     starts = [1]
     goals = [nv(G)]
+    T = 10
+    num_agents = 1
     cost_model = construct_composite_cost_model(
         DeadlineCost(ne(G)+1.0),
         TravelTime(),
@@ -77,8 +101,7 @@ let
     )
     heuristic_model = construct_composite_heuristic(
         PerfectHeuristic(G,starts,goals),
-        # HardConflictTable(G,paths),
+        HardConflictTable(G,T,num_agents),
         PerfectHeuristic(G,starts,goals),
-        # SoftConflictTable(G,start_times,starts,goals)
     )
 end
