@@ -199,6 +199,7 @@ export
     action_type,
     state_type,
     get_cost_model,
+    get_heuristic_model,
     get_cost_type
 """
     `AbstractLowLevelEnv{S,A,C}`
@@ -218,7 +219,9 @@ action_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = A
 state_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = S
 """ Override this method for when the cost model has arguments """
 get_cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
+function get_heuristic_model end
 get_cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
+
 
 export
     AbstractMAPFSolver

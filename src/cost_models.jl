@@ -1,9 +1,10 @@
 export
-    # AbstractCostModel,
-    HighLevelCostModel,
-    MakeSpan,
-    SumOfTravelDistance,
-    SumOfTravelTime,
+    get_initial_cost,
+    get_infeasible_cost,
+    # get_transition_cost,
+    accumulate_cost,
+    add_heuristic_cost,
+    aggregate_costs,
 
     AggregationFunction,
     MaxCost,
@@ -14,59 +15,63 @@ export
     get_cost_model,
     get_cost_type,
 
-    LowLevelCostModel,
-    TravelTime,
-    TravelDistance,
-    FinalTime,
-    NullCost,
     MetaCostModel,
     MetaCost,
     CompositeCostModel,
     construct_composite_cost_model,
 
-    accumulate_cost,
-    add_heuristic_cost,
-    aggregate_costs,
+    LowLevelCostModel,
 
-    get_initial_cost,
-    get_infeasible_cost
+    TravelTime,
+    TravelDistance,
+    FinalTime,
+    NullCost,
+    DeadlineCost,
+
+    MakeSpan,
+    SumOfTravelDistance,
+    SumOfTravelTime
+
+
+get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(get_cost_model(env))
+get_initial_cost(model::C) where {C<:AbstractCostModel}     = get_cost_type(model)(0)
+
+get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(get_cost_model(env))
+get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(get_cost_type(model))
+
+get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,get_cost_model(env),s,a,sp)
 
 """
-    `HighLevelCostModel{C}`
+    `accumulate_cost(model,cost,transition_cost)`
 
-    The high level cost model defines the objective to be optimized by the
-    solver at the high level. An optimal solver will return a solution (if a
-    feasible solution exists) of minimal cost under the objective specified by
-    the associated HighLevelCostModel.
-    The parameter `C` defines the `cost_type` of the objective.
+    Defines the way that a `transition_cost` updates the `current_cost` of a
+    `Path`.
 """
-abstract type HighLevelCostModel{T} <: AbstractCostModel{T} end
+function accumulate_cost end
+accumulate_cost(env::E, cost, transition_cost) where {E<:AbstractLowLevelEnv} = accumulate_cost(get_cost_model(env), cost, transition_cost)
 
 """
-    `LowLevelCostModel{C}`
+    `add_heuristic_cost(cost_model,heuristic_model,cost,h_cost)`
 
-    The low level cost model defines the objective to be optimized by the
-    solver at the low level. An optimal low level solver will return a path if a
-    feasible path exists) of minimal cost under the objective specified by the
-    associated LowLevelCostModel.
-    The parameter `C` defines the `cost_type` of the objective. The following
-    functions must be implemented for a `LowLevelCostModel` to be used:
-    * `get_initial_cost(model::LowLevelCostModel, env::LowLevelEnv)` - returns
-    the initial_cost for a path
-    * `get_transition_cost(model::LowLevelCostModel{C},path::Path,s::S,a::A,
-        sp::S) where {S,A,C}` - defines the cost associated with taking action
-        `a` from state `s` to arrive in state `sp` according to the objective
-        defined by `model` given that `s` is the "tip" of `path`.
-    * `accumulate_cost(model::LowLevelCostModel{C}, current_cost::C,
-        transition_cost::C)` - defines how cost accumulates as new `PathNode`s
-        are added to a Path.
+    Defines how costs from multiple distinct paths are combined. For example,
+    the `SumOfTravelTime` objective requires that we sum the costs of individual
+    travel times. On the other hand, `MakeSpan` means that we take the maximum
+    completion time of all paths.
 """
-abstract type LowLevelCostModel{T} <: AbstractCostModel{T} end
+function add_heuristic_cost end
+add_heuristic_cost(m::C, cost, h_cost) where {C<:AbstractCostModel} = cost + h_cost
+add_heuristic_cost(m::C, h::H, cost, h_cost) where {C<:AbstractCostModel,H<:AbstractCostModel} = cost + h_cost
+add_heuristic_cost(env::E, cost, h_cost) where {E<:AbstractLowLevelEnv} = add_heuristic_cost(get_cost_model(env),cost,h_cost)
 
-struct TravelTime       <: LowLevelCostModel{Float64} end
-struct TravelDistance   <: LowLevelCostModel{Float64} end
-struct FinalTime        <: LowLevelCostModel{Float64} end
-struct NullCost         <: LowLevelCostModel{Float64} end
+"""
+    `aggregate_costs(m::C, costs::Vector{T}) where {T,C<:AbstractCostModel{T}}`
+
+    Defines how costs from multiple distinct paths are combined. For example,
+    the `SumOfTravelTime` objective requires that we sum the costs of individual
+    travel times. On the other hand, `MakeSpan` means that we take the maximum
+    completion time of all paths.
+"""
+function aggregate_costs end
 
 abstract type AggregationFunction end
 struct MaxCost <: AggregationFunction end
@@ -93,59 +98,49 @@ struct FullCostModel{F,T,M<:AbstractCostModel{T}} <: AbstractCostModel{T}
 end
 get_aggregation_function(m::C) where {C<:FullCostModel} = m.f
 get_cost_model(m::C) where {C<:FullCostModel} = m.model
-# get_cost_type(m::FullCostModel{F,T,M}) where {F,T,M} = T
-
-MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(MaxCost(),model)
-SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(SumCost(),model)
-SumOfTravelTime(model::TravelTime=TravelTime()) = FullCostModel(SumCost(), model)
-
-get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(get_cost_model(env))
-get_initial_cost(model::C) where {C<:AbstractCostModel}     = get_cost_type(model)(0)
-get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(get_cost_model(env))
-get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(get_cost_type(model))
-
-"""
-    `accumulate_cost(model,cost,transition_cost)`
-
-    Defines the way that a `transition_cost` updates the `current_cost` of a
-    `Path`.
-"""
-function accumulate_cost end
-"""
-    `add_heuristic_cost(cost_model,heuristic_model,cost,h_cost)`
-
-    Defines how costs from multiple distinct paths are combined. For example,
-    the `SumOfTravelTime` objective requires that we sum the costs of individual
-    travel times. On the other hand, `MakeSpan` means that we take the maximum
-    completion time of all paths.
-"""
-function add_heuristic_cost end
-"""
-    `aggregate_costs(m_hi_level::H, m_lo_level::C, costs::Vector{T}) where {T,H<:HighLevelCostModel,C<:AbstractCostModel{T}}`
-
-    Defines how costs from multiple distinct paths are combined. For example,
-    the `SumOfTravelTime` objective requires that we sum the costs of individual
-    travel times. On the other hand, `MakeSpan` means that we take the maximum
-    completion time of all paths.
-"""
-function aggregate_costs end
-
-get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,get_cost_model(env),s,a,sp)
-get_transition_cost(env::E,model::F,s,a,sp) where {E<:AbstractLowLevelEnv,F<:FullCostModel} = get_transition_cost(env,get_cost_model(model),s,a,sp)
-get_transition_cost(env::E,model::F,s,a,sp) where {E<:AbstractLowLevelEnv,F<:NullCost} = 0.0
-
-accumulate_cost(env::E, cost, transition_cost) where {E<:AbstractLowLevelEnv} = accumulate_cost(get_cost_model(env), cost, transition_cost)
-accumulate_cost(model::M, c, c2) where {M<:FullCostModel} = accumulate_cost(get_cost_model(model),c,c2)
-
-accumulate_cost(model::TravelTime,      cost,transition_cost) = cost+transition_cost
-accumulate_cost(model::TravelDistance,  cost,transition_cost) = cost+transition_cost
-accumulate_cost(model::FinalTime,       cost,transition_cost) = cost+transition_cost
-accumulate_cost(model::NullCost,        cost,transition_cost) = cost
-
 aggregate_costs(m::C, costs::Vector{T}) where {T,C<:FullCostModel} = m.f(costs)
+accumulate_cost(model::M, c, c2) where {M<:FullCostModel} = accumulate_cost(get_cost_model(model),c,c2)
+get_transition_cost(env::E,model::F,s,a,sp) where {E<:AbstractLowLevelEnv,F<:FullCostModel} = get_transition_cost(env,get_cost_model(model),s,a,sp)
 
-add_heuristic_cost(m::C, cost, h_cost) where {C<:AbstractCostModel} = cost + h_cost
-add_heuristic_cost(env::E, cost, h_cost) where {E<:AbstractLowLevelEnv} = add_heuristic_cost(get_cost_model(env),cost,h_cost)
+"""
+    `CompositeCost{T}`
+"""
+struct CompositeCostModel{M<:Tuple,T<:Tuple} <: AbstractCostModel{T}
+    cost_models::M
+end
+function construct_composite_cost_model(args...)
+    models = Tuple(args)
+    for m in models
+        @assert typeof(m) <: AbstractCostModel
+    end
+    cost_types = map(m->get_cost_type(m),models)
+    CompositeCostModel{typeof(models),Tuple{cost_types...}}(models)
+end
+function get_transition_cost(env::E,model::C,s,a,sp) where {S,A,C<:CompositeCostModel,E<:AbstractLowLevelEnv{S,A,C}}
+    get_cost_type(model)(map(m->get_transition_cost(env,m,s,a,sp), model.cost_models))
+end
+function accumulate_cost(model::C, cost::T, transition_cost::T) where {T,M,C<:CompositeCostModel{M,T}}
+    new_cost = map(x->accumulate_cost(x[1],x[2],x[3]),
+    zip(model.cost_models, cost, transition_cost))
+    T(new_cost)
+end
+function aggregate_costs(model::C, costs::Vector{T}) where {T,M,C<:CompositeCostModel{M,T}}
+    aggregated_costs = map(
+        i->aggregate_costs(model.cost_models[i], map(c->c[i], costs)), 1:length(model.cost_models))
+    T(aggregated_costs)
+end
+function get_initial_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
+    T(map(m->get_initial_cost(m),model.cost_models))
+end
+function get_infeasible_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
+    T(map(m->get_infeasible_cost(m),model.cost_models))
+end
+function add_heuristic_cost(model::C, cost::T, h_cost) where {T,M,C<:CompositeCostModel{M,T}}
+    T(map(
+        i->add_heuristic_cost(model.cost_models[i], cost[i], h_cost[i]),
+        1:length(cost)
+        ))
+end
 
 """
     `MetaCost`
@@ -203,42 +198,61 @@ function get_infeasible_cost(model::C) where {C<:MetaCostModel}
     MetaCost(costs,aggregate_costs(model,costs))
 end
 
+################################################################################
+############################## Atomic Cost Models ##############################
+################################################################################
+
 """
-    `CompositeCost{T}`
+    `LowLevelCostModel{C}`
+
+    The low level cost model defines the objective to be optimized by the
+    solver at the low level. An optimal low level solver will return a path if a
+    feasible path exists) of minimal cost under the objective specified by the
+    associated LowLevelCostModel.
+    The parameter `C` defines the `cost_type` of the objective. The following
+    functions must be implemented for a `LowLevelCostModel` to be used:
+    * `get_initial_cost(model::LowLevelCostModel, env::LowLevelEnv)` - returns
+    the initial_cost for a path
+    * `get_transition_cost(model::LowLevelCostModel{C},path::Path,s::S,a::A,
+        sp::S) where {S,A,C}` - defines the cost associated with taking action
+        `a` from state `s` to arrive in state `sp` according to the objective
+        defined by `model` given that `s` is the "tip" of `path`.
+    * `accumulate_cost(model::LowLevelCostModel{C}, current_cost::C,
+        transition_cost::C)` - defines how cost accumulates as new `PathNode`s
+        are added to a Path.
 """
-struct CompositeCostModel{M<:Tuple,T<:Tuple} <: AbstractCostModel{T}
-    cost_models::M
+abstract type LowLevelCostModel{T} <: AbstractCostModel{T} end
+
+struct TravelTime       <: LowLevelCostModel{Float64} end
+accumulate_cost(model::TravelTime,      cost,transition_cost) = cost+transition_cost
+
+struct TravelDistance   <: LowLevelCostModel{Float64} end
+accumulate_cost(model::TravelDistance,  cost,transition_cost) = cost+transition_cost
+
+struct FinalTime        <: LowLevelCostModel{Float64} end
+accumulate_cost(model::FinalTime,       cost,transition_cost) = cost+transition_cost
+
+struct NullCost         <: LowLevelCostModel{Float64} end
+get_transition_cost(env::E,model::F,s,a,sp) where {E<:AbstractLowLevelEnv,F<:NullCost} = 0.0
+accumulate_cost(model::NullCost,        cost,transition_cost) = cost
+
+"""
+    `DeadlineCost`
+
+    cost: `c = t - t_max`
+    add_heuristic_cost: `c = max(0.0, t - t_max + Δt)`
+"""
+struct DeadlineCost     <: LowLevelCostModel{Float64}
+    t_max::Float64 # deadline
+    m::TravelTime
 end
-function construct_composite_cost_model(args...)
-    models = Tuple(args)
-    for m in models
-        @assert typeof(m) <: AbstractCostModel
-    end
-    cost_types = map(m->get_cost_type(m),models)
-    CompositeCostModel{typeof(models),Tuple{cost_types...}}(models)
-end
-function get_transition_cost(env::E,model::C,s,a,sp) where {S,A,C<:CompositeCostModel,E<:AbstractLowLevelEnv{S,A,C}}
-    get_cost_type(model)(map(m->get_transition_cost(env,m,s,a,sp), model.cost_models))
-end
-function accumulate_cost(model::C, cost::T, transition_cost::T) where {T,M,C<:CompositeCostModel{M,T}}
-    new_cost = map(x->accumulate_cost(x[1],x[2],x[3]),
-    zip(model.cost_models, cost, transition_cost))
-    T(new_cost)
-end
-function aggregate_costs(model::C, costs::Vector{T}) where {T,M,C<:CompositeCostModel{M,T}}
-    aggregated_costs = map(
-        i->aggregate_costs(model.cost_models[i], map(c->c[i], costs)), 1:length(model.cost_models))
-    T(aggregated_costs)
-end
-function get_initial_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
-    T(map(m->get_initial_cost(m),model.cost_models))
-end
-function get_infeasible_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
-    T(map(m->get_infeasible_cost(m),model.cost_models))
-end
-function add_heuristic_cost(model::C, cost::T, h_cost) where {T,M,C<:CompositeCostModel{M,T}}
-    T(map(
-        i->add_heuristic_cost(model.cost_models[i], cost[i], h_cost[i]),
-        1:length(cost)
-        ))
-end
+DeadlineCost(t_max::Float64) = DeadlineCost(t_max,TravelTime())
+get_initial_cost(m::DeadlineCost) = - get_cost_type(m)(m.t_max)
+get_transition_cost(env::E,model::M,args...) where {E<:AbstractLowLevelEnv,M<:DeadlineCost} = get_transition_cost(env,model.m,args...)
+accumulate_cost(model::DeadlineCost,cost,transition_cost) = accumulate_cost(model.m,cost,transition_cost)
+add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost) # assumes heuristic is PerfectHeuristic
+FullDeadlineCost(model::DeadlineCost) = FullCostModel(costs->max(0.0, maximum(costs)),model)
+
+MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(MaxCost(),model)
+SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(SumCost(),model)
+SumOfTravelTime(model::TravelTime=TravelTime()) = FullCostModel(SumCost(), model)

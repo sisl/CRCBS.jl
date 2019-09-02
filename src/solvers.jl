@@ -53,6 +53,7 @@ function CRCBS.solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_
                 low_level_search!(solver, mapf, new_node,[get_agent_id(constraint)]; path_finder=path_finder)
                 detect_conflicts!(new_node.conflict_table,new_node.solution,[get_agent_id(constraint)]) # update conflicts related to this agent
                 if is_valid(new_node.solution, mapf)
+                    # TODO update env (i.e. update heuristic, etc.)
                     enqueue!(priority_queue, new_node => new_node.cost)
                 end
             end

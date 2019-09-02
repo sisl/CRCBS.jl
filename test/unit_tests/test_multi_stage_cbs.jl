@@ -84,7 +84,6 @@ let
         )
         env = MultiStageCBS.LowLevelEnv(graph=G,heuristic=heuristic)
         mapf = MAPF(env,starts,goals)
-        # mapf = initialize_mapf(env,starts,goals)
         node = initialize_root_node(mapf)
         solution, cost = CRCBS.solve!(solver,mapf);
     end
@@ -101,7 +100,6 @@ let
                 )
             )
         mapf = MAPF(env,starts,goals)
-        # mapf = initialize_mapf(env,starts,goals)
         node = initialize_root_node(mapf)
         solution, cost = CRCBS.solve!(solver,mapf);
     end

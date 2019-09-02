@@ -2,6 +2,7 @@ export
     LowLevelSearchHeuristic,
     NullHeuristic,
     PerfectHeuristic,
+    DeadlineHeuristic,
     MultiStagePerfectHeuristic,
     SoftConflictTable,
     CompositeHeuristic,
@@ -75,6 +76,50 @@ function MultiStagePerfectHeuristic(graph,goals::Vector{Vector{Int}})
 end
 
 ################################################################################
+################################ Deadline Cost #################################
+################################################################################
+"""
+    `DeadlineHeuristic`
+
+    The deadline heuristic is a "slack" cost. It adds zero cost until the cost +
+    cost_to_go for a given path exceeds some maximum value (i.e. a deadline):
+
+        `cost_deadline = max( 0, (t+Δt) - t_max)`
+
+    where `t` is the current cost, `Δt` is the cost to go, and `t_max` is the
+    deadline.
+"""
+@with_kw struct DeadlineHeuristic{H<:LowLevelSearchHeuristic} <: LowLevelSearchHeuristic{Float64}
+    t_max   ::Float64           = 0.0             # one deadline per agent
+    h       ::H                 = NullHeuristic()
+end
+function get_heuristic_cost(h::D,t::Float64,args...) where {D<:DeadlineHeuristic}
+    Δt = get_heuristic_cost(h.h, args...)
+    max(0.0, (t + Δt) - h.t_max)
+end
+
+################################################################################
+############################### HardConflictTable ##############################
+################################################################################
+# """
+#     `HardConflictTable`
+#
+#     Stores a lookup table of planned paths for all agents, to be used as a tie-
+#     breaking heuristic for planning a new path through the graph.
+#     When agent `i` queries the table, `table.paths[i]` (the existing path plan
+#     for agent `i`) must be subtracted so that the agent does not try to avoid
+#     conflicts with itself.
+# """
+# @with_kw struct HardConflictTable{M<:AbstractMatrix} <: LowLevelSearchHeuristic{Float64}
+#     paths   ::Vector{Vector{Int}}   = Vector{Vector{Int}}()
+#     CAT     ::M                     = zeros(2,2) # global table
+# end
+# function get_heuristic_cost(h::HardConflictTable,vtx::Int,t::Int,agent_idx::Int)
+#     h_cost = h.CAT[vtx,t]
+#
+# end
+
+################################################################################
 ############################### SoftConflictTable ##############################
 ################################################################################
 """
@@ -83,8 +128,8 @@ end
     The `SoftConflictTable` is a tie-breaker heuristic in A* search  within the
     CBS paradigm.
 """
-@with_kw struct SoftConflictTable <: LowLevelSearchHeuristic{Float64}
-    CAT::Matrix{Float64} = zeros(2,2) # global table
+@with_kw struct SoftConflictTable{M<:AbstractMatrix} <: LowLevelSearchHeuristic{Float64}
+    CAT::M = zeros(2,2) # global table
 end
 get_heuristic_cost(h::SoftConflictTable,vtx::Int,t::Int) = h.CAT[vtx,t]
 """
@@ -120,7 +165,7 @@ end
     within the CBS paradigm.
 """
 function construct_soft_conflict_lookup_table(G,T::Int)
-    CAT = zeros(nv(G),T)
+    CAT = SparseMatrixCSC(zeros(nv(G),T))
 end
 """
     `add_fat_path_to_table(CAT,fat_path)`

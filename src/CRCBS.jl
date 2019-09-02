@@ -3,7 +3,7 @@ module CRCBS
 using Parameters
 using DataStructures
 using LightGraphs, MetaGraphs, GraphUtils
-using LinearAlgebra
+using LinearAlgebra, SparseArrays
 using NearestNeighbors
 using JuMP
 

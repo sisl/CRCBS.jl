@@ -44,7 +44,6 @@ let
     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
     heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
     env = CBS.LowLevelEnv(graph=G,heuristic=heuristic)
-    # mapf = initialize_mapf(env,starts,goals)
     mapf = MAPF(env,starts,goals)
 
     solution, cost = CRCBS.solve!(solver,mapf)
@@ -58,7 +57,6 @@ let
         G, map(g->map(s->s.vtx, g), goals)
     )
     env = MultiStageCBS.LowLevelEnv(graph=G,heuristic=heuristic)
-    # mapf = initialize_mapf(env,starts,goals)
     mapf = MAPF(env,starts,goals)
 
     solution, cost = CRCBS.solve!(solver,mapf)

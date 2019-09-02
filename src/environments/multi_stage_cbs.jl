@@ -30,6 +30,7 @@ end
     heuristic::H                    = NullHeuristic() # MultiStagePerfectHeuristic(graph,Vector{Vector{Int}}())
 end
 CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
+CRCBS.get_heuristic_model(env::E) where {E<:LowLevelEnv} = env.heuristic
 ################################################################################
 ######################## Low-Level (Independent) Search ########################
 ################################################################################
@@ -40,12 +41,12 @@ function CRCBS.build_env(mapf::MAPF{E,S,G}, node::N, idx::Int)  where {S,G,E <: 
         constraints = get_constraints(node,idx),
         goal_sequence = mapf.goals[idx],
         agent_idx = idx,
-        cost_model = mapf.env.cost_model,
-        heuristic = mapf.env.heuristic
+        cost_model = get_cost_model(mapf.env),
+        heuristic = get_heuristic_model(mapf.env)
         )
 end
 # heuristic
-CRCBS.get_heuristic_cost(env::E,s::State) where {E<:LowLevelEnv} = CRCBS.get_heuristic_cost(env,env.heuristic,s)
+CRCBS.get_heuristic_cost(env::E,s::State) where {E<:LowLevelEnv} = CRCBS.get_heuristic_cost(env,get_heuristic_model(env),s)
 function CRCBS.get_heuristic_cost(env::E,h::MultiStagePerfectHeuristic,s::State) where {E<:LowLevelEnv}
     get_heuristic_cost(h, env.agent_idx, s.stage, s.vtx)
 end

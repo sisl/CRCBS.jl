@@ -22,6 +22,16 @@ let
     new_cost = accumulate_cost(model,cost,transition_cost)
     @test new_cost == cost
 end
+# DeadlineCost
+let
+    t_max = 10.0
+    model = DeadlineCost(t_max)
+    cost = get_initial_cost(model)
+    transition_cost = 1.0
+    new_cost = accumulate_cost(model, cost, transition_cost)
+    h_cost = 8.0
+    @test add_heuristic_cost(model, new_cost, h_cost) == 0.0
+end
 # MetaCost
 let
     t0 = 0.0
