@@ -43,8 +43,8 @@ function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) 
         constraints = get_constraints(node,idx),
         goal = mapf.goals[idx],
         agent_idx = idx,
-        heuristic = get_heuristic_model(mapf.env),
-        cost_model = get_cost_model(mapf.env)
+        heuristic = get_heuristic_model(mapf.env),  # TODO update the heuristic model
+        cost_model = get_cost_model(mapf.env)       # TODO update the cost model
         )
 end
 # heuristic

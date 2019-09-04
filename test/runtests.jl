@@ -51,25 +51,25 @@ end
     @time @testset "CRCBS.HeuristicTests" begin
         include(joinpath(testdir, "unit_tests/test_heuristics.jl"))
     end
-    # @time @testset "CRCBS.CommonTests" begin
-    #     include(joinpath(testdir, "unit_tests/test_common.jl"))
-    # end
-    # @time @testset "CRCBS.UtilsTests" begin
-    #     include(joinpath(testdir, "unit_tests/test_utils.jl"))
-    # end
-    # @time @testset "CRCBS.ImplicitGraphsTests" begin
-    #     include(joinpath(testdir, "unit_tests/test_implicit_graph.jl"))
-    # end
-    # @time @testset "CRCBS.CBSTests" begin
-    #     include(joinpath(testdir, "unit_tests/test_cbs.jl"))
-    # end
-    # @time @testset "CRCBS.MultiStageCBSTests" begin
-    #     include(joinpath(testdir, "unit_tests/test_multi_stage_cbs.jl"))
-    # end
-    # @time @testset "CRCBS.MetaAgentCBSTests" begin
-    #     include(joinpath(testdir, "unit_tests/test_meta_agent_cbs.jl"))
-    # end
-    # @time @testset "CRCBS.FlowProblemsTests" begin
-    #     include(joinpath(testdir, "unit_tests/test_flow_problems.jl"))
-    # end
+    @time @testset "CRCBS.CommonTests" begin
+        include(joinpath(testdir, "unit_tests/test_common.jl"))
+    end
+    @time @testset "CRCBS.UtilsTests" begin
+        include(joinpath(testdir, "unit_tests/test_utils.jl"))
+    end
+    @time @testset "CRCBS.ImplicitGraphsTests" begin
+        include(joinpath(testdir, "unit_tests/test_implicit_graph.jl"))
+    end
+    @time @testset "CRCBS.CBSTests" begin
+        include(joinpath(testdir, "unit_tests/test_cbs.jl"))
+    end
+    @time @testset "CRCBS.MultiStageCBSTests" begin
+        include(joinpath(testdir, "unit_tests/test_multi_stage_cbs.jl"))
+    end
+    @time @testset "CRCBS.MetaAgentCBSTests" begin
+        include(joinpath(testdir, "unit_tests/test_meta_agent_cbs.jl"))
+    end
+    @time @testset "CRCBS.FlowProblemsTests" begin
+        include(joinpath(testdir, "unit_tests/test_flow_problems.jl"))
+    end
 end
