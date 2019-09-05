@@ -28,6 +28,27 @@ let
         @test a.e.dst ∈ [1,2,3]
     end
 end
+# test conflict detection
+let
+    path1 = Path{CBS.State,CBS.Action,Float64}()
+    push!(path1,PathNode(
+        CBS.State(1,0),
+        CBS.Action(Edge(1,2),0),
+        CBS.State(2,1)
+    ))
+    # push!(path1,PathNode(
+    #     CBS.State(2,1),
+    #     CBS.Action(Edge(2,3),1),
+    #     CBS.State(3,2)
+    # ))
+    path2 = Path{CBS.State,CBS.Action,Float64}()
+    push!(path2,PathNode(
+        CBS.State(2,1),
+        CBS.Action(Edge(2,3),1),
+        CBS.State(3,2)
+    ))
+    detect_conflicts([path1,path2])
+end
 let
     # TEST CONSTRAINTS
     S = CBS.State
