@@ -27,10 +27,17 @@ let
     t_max = 10.0
     model = DeadlineCost(t_max)
     cost = get_initial_cost(model)
+    @test cost == 0.0
     transition_cost = 1.0
     new_cost = accumulate_cost(model, cost, transition_cost)
+    @test new_cost == 1.0
     h_cost = 8.0
-    @test add_heuristic_cost(model, new_cost, h_cost) == 0.0
+    @test add_heuristic_cost(model, cost, h_cost) == 0.0
+    h_cost = 11.0
+    @test add_heuristic_cost(model, cost, h_cost) == 1.0
+    set_deadline!(model,0.0)
+    @test add_heuristic_cost(model, cost, h_cost) == cost + h_cost
+    # set_deadline!(model,t_max,t_max-4)
 end
 # MetaCost
 let
@@ -74,7 +81,7 @@ let
 end
 let
     cost_model = construct_composite_cost_model(
-        FullDeadlineCost(DeadlineCost(10,TravelTime())),
+        FullDeadlineCost(DeadlineCost(10)),
         FullCostModel(sum,NullCost()),
         SumOfTravelTime()
     )

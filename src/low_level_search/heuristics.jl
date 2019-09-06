@@ -12,7 +12,29 @@ export
 
 abstract type LowLevelSearchHeuristic{C} <: AbstractCostModel{C} end
 ################################################################################
-############################### PerfectHeuristic ###############################
+############################## CompositeHeuristic ##############################
+################################################################################
+struct CompositeHeuristic{M<:Tuple,T<:Tuple} <: LowLevelSearchHeuristic{T}
+    cost_models::M
+end
+function construct_composite_heuristic(args...)
+    models = Tuple(args)
+    for m in models
+        @assert typeof(m) <: LowLevelSearchHeuristic
+    end
+    cost_types = map(m->get_cost_type(m),models)
+    CompositeHeuristic{typeof(models),Tuple{cost_types...}}(models)
+end
+# get_cost_type(h::H) where {T,M,H<:CompositeHeuristic{T,M}} = T
+function get_heuristic_cost(model::H,args...) where {T,M,H<:CompositeHeuristic{M,T}}
+    T(map(h->get_heuristic_cost(h,args...), model.cost_models))
+end
+function get_heuristic_cost(env::E,model::H,args...) where {E<:AbstractLowLevelEnv,T,M,H<:CompositeHeuristic{M,T}}
+    T(map(m->get_heuristic_cost(env,m,args...), model.cost_models))
+end
+
+################################################################################
+################################ NullHeuristic #################################
 ################################################################################
 """
     `NullHeuristic`
@@ -78,29 +100,6 @@ function MultiStagePerfectHeuristic(graph,goals::Vector{Vector{Int}})
 end
 
 ################################################################################
-################################ Deadline Cost #################################
-################################################################################
-# """
-#     `DeadlineHeuristic`
-#
-#     The deadline heuristic is a "slack" cost. It adds zero cost until the cost +
-#     cost_to_go for a given path exceeds some maximum value (i.e. a deadline):
-#
-#         `cost_deadline = max( 0, (t+Δt) - t_max)`
-#
-#     where `t` is the current cost, `Δt` is the cost to go, and `t_max` is the
-#     deadline.
-# """
-# @with_kw struct DeadlineHeuristic{H<:LowLevelSearchHeuristic} <: LowLevelSearchHeuristic{Float64}
-#     t_max   ::Float64           = 0.0             # one deadline per agent
-#     h       ::H                 = NullHeuristic()
-# end
-# function get_heuristic_cost(h::D,t::Float64,args...) where {D<:DeadlineHeuristic}
-#     Δt = get_heuristic_cost(h.h, args...)
-#     max(0.0, (t + Δt) - h.t_max)
-# end
-
-################################################################################
 ############################### HardConflictTable ##############################
 ################################################################################
 """
@@ -130,6 +129,7 @@ function reset_path!(h::H,path_idx::Int) where {V,M,H<:HardConflictTable{V,M}}
     return h
 end
 function set_path!(h::H,path_idx::Int,path::Vector{Int},start_time::Int=1) where {V,M,H<:HardConflictTable{V,M}}
+    # println("Updating Heuristic model with path ", path, " for agent ",path_idx)
     reset_path!(h,path_idx)
     # now add new path vtxs to new path and lookup table
     for (i,vtx) in enumerate(path)
@@ -138,6 +138,12 @@ function set_path!(h::H,path_idx::Int,path::Vector{Int},start_time::Int=1) where
         h.CAT[vtx,t] = h.CAT[vtx,t] + 1
     end
     h
+end
+set_path!(h::H,args...) where {H<:LowLevelSearchHeuristic} = nothing
+function set_path!(h::H,args...) where {H<:CompositeHeuristic}
+    for m in h.cost_models
+        set_path!(m,args...)
+    end
 end
 function get_heuristic_cost(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
     h_cost = h.CAT[vtx,t]
@@ -239,60 +245,3 @@ function SoftConflictTable(graph,start_times::Vector{Int},start_vtxs::Vector{Int
     populate_soft_lookup_table!(CAT,graph,D,start_times,start_vtxs,goal_vtxs)
     SoftConflictTable(CAT)
 end
-
-################################################################################
-################################################################################
-################################################################################
-struct CompositeHeuristic{M<:Tuple,T<:Tuple} <: LowLevelSearchHeuristic{T}
-    cost_models::M
-end
-function construct_composite_heuristic(args...)
-    models = Tuple(args)
-    for m in models
-        @assert typeof(m) <: LowLevelSearchHeuristic
-    end
-    cost_types = map(m->get_cost_type(m),models)
-    CompositeHeuristic{typeof(models),Tuple{cost_types...}}(models)
-end
-# get_cost_type(h::H) where {T,M,H<:CompositeHeuristic{T,M}} = T
-function get_heuristic_cost(model::H,args...) where {T,M,H<:CompositeHeuristic{M,T}}
-    T(map(h->get_heuristic_cost(h,args...), model.cost_models))
-end
-function get_heuristic_cost(env::E,model::H,args...) where {E<:AbstractLowLevelEnv,T,M,H<:CompositeHeuristic{M,T}}
-    T(map(m->get_heuristic_cost(env,m,args...), model.cost_models))
-end
-
-# ################################################################################
-# ############################# TieBreakerHeuristic ##############################
-# ################################################################################
-# """
-#     TieBreakerCost
-# """
-# @with_kw struct TieBreakerCost
-#     c1::Float64 = 0.0
-#     c2::Float64 = 0.0
-# end
-# function TieBreakerCost(c::R where {R <: Real})
-#     TieBreakerCost(c1=c)
-# end
-# Base.isless(cost1::TieBreakerCost,cost2::TieBreakerCost) = [cost1.c1,cost1.c2] < [cost2.c1,cost2.c2]
-# Base.:+(c1::TieBreakerCost, c2::TieBreakerCost) = TieBreakerCost(c1.c1+c2.c1,c1.c2+c2.c2)
-# """
-#     TieBreakerHeuristic{H1,H2}
-# """
-# @with_kw struct TieBreakerHeuristic <: LowLevelSearchHeuristic{TieBreakerCost}
-#     h1::PerfectHeuristic = PerfectHeuristic()
-#     h2::SoftConflictTable = SoftConflictTable()
-# end
-# function TieBreakerHeuristic(graph,start_times::Vector{Int},starts::Vector{Int},goals::Vector{Int})
-#     TieBreakerHeuristic(
-#         PerfectHeuristic(graph,starts,goals),
-#         SoftConflictTable(graph,start_times,starts,goals)
-#     )
-# end
-# function get_heuristic_cost(h::TieBreakerHeuristic,goal_vtx::Int,vtx::Int,t::Int)
-#     TieBreakerCost(
-#         get_heuristic_cost(h.h1, goal_vtx, vtx),
-#         get_heuristic_cost(h.h2, vtx, t)
-#         )
-# end

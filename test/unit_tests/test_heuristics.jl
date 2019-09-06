@@ -92,10 +92,10 @@ let
     start_times = [0]
     starts = [1]
     goals = [nv(G)]
-    T = 10
+    deadline = 10
     num_agents = 1
     cost_model = construct_composite_cost_model(
-        FullDeadlineCost(DeadlineCost(ne(G)+1.0)),
+        FullDeadlineCost(DeadlineCost(deadline)),
         FullCostModel(sum,NullCost()),
         SumOfTravelTime()
     )

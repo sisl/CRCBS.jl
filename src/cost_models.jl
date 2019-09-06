@@ -27,6 +27,7 @@ export
     FinalTime,
     NullCost,
     DeadlineCost,
+        set_deadline!,
 
     FullDeadlineCost,
     MakeSpan,
@@ -96,14 +97,15 @@ struct SumCost <: AggregationFunction end
     level search (when individual paths are being compared against each other).
 """
 struct FullCostModel{F,T,M<:AbstractCostModel{T}} <: AbstractCostModel{T}
-    f::F        # the combiner function
+    f::F        # the aggregation function
     model::M    # the low level cost model
 end
 get_aggregation_function(m::C) where {C<:FullCostModel} = m.f
 get_cost_model(m::C) where {C<:FullCostModel} = m.model
 aggregate_costs(m::C, costs::Vector{T}) where {T,C<:FullCostModel} = m.f(costs)
-accumulate_cost(model::M, c, c2) where {M<:FullCostModel} = accumulate_cost(get_cost_model(model),c,c2)
-get_transition_cost(env::E,model::F,s,a,sp) where {E<:AbstractLowLevelEnv,F<:FullCostModel} = get_transition_cost(env,get_cost_model(model),s,a,sp)
+accumulate_cost(model::M, c, c2) where {M<:FullCostModel} = accumulate_cost(model.model,c,c2)
+get_initial_cost(model::F) where {F<:FullCostModel} = get_initial_cost(model.model)
+get_transition_cost(env::E,model::F,s,a,sp) where {E<:AbstractLowLevelEnv,F<:FullCostModel} = get_transition_cost(env,model.model,s,a,sp)
 
 """
     `CompositeCost{T}`
@@ -242,18 +244,38 @@ accumulate_cost(model::NullCost,        cost,transition_cost) = cost
 """
     `DeadlineCost`
 
-    cost: `c = t - t_max`
-    add_heuristic_cost: `c = max(0.0, t - t_max + Δt)`
+    `DeadlineCost` is identical to `TravelTime`, except for the behavior of
+    `add_heuristic_cost`.
+
+    add_heuristic_cost: `c = max(0.0, t + Δt - deadline)`
 """
-struct DeadlineCost     <: LowLevelCostModel{Float64}
-    t_max::Float64 # deadline
+mutable struct DeadlineCost     <: LowLevelCostModel{Float64}
+    deadline::Float64 # deadline
+    # stage_deadline::Float64
     m::TravelTime
 end
-DeadlineCost(t_max::Float64) = DeadlineCost(t_max,TravelTime())
-get_initial_cost(m::DeadlineCost) = - get_cost_type(m)(m.t_max)
+# DeadlineCost(deadline::R) where {R<:Real} = DeadlineCost(deadline,deadline,TravelTime())
+DeadlineCost(deadline::R) where {R<:Real} = DeadlineCost(deadline,TravelTime())
+# function set_deadline!(m::DeadlineCost,t_max,t_stage=t_max)
+function set_deadline!(m::DeadlineCost,t_max)
+    m.deadline = t_max
+    # m.stage_deadline = t_stage
+    return m
+end
+set_deadline!(m::C,args...) where {C<:AbstractCostModel} = nothing
+set_deadline!(m::C,args...) where {C<:FullCostModel} = set_deadline!(m.model,args...)
+set_deadline!(m::C,args...) where {C<:MetaCostModel} = set_deadline!(m.model,args...)
+function set_deadline!(m::C,args...) where {C<:CompositeCostModel}
+    for model in m.cost_models
+        set_deadline!(model,args...)
+    end
+end
+# get_initial_cost(m::DeadlineCost) = - get_cost_type(m)(m.deadline)
+get_initial_cost(m::DeadlineCost) = get_initial_cost(m.m)
 get_transition_cost(env::E,model::M,args...) where {E<:AbstractLowLevelEnv,M<:DeadlineCost} = get_transition_cost(env,model.m,args...)
 accumulate_cost(model::DeadlineCost,cost,transition_cost) = accumulate_cost(model.m,cost,transition_cost)
-add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost) # assumes heuristic is PerfectHeuristic
+# add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost + m.deadline - m.stage_deadline) # assumes heuristic is PerfectHeuristic
+add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost - m.deadline) # assumes heuristic is PerfectHeuristic
 FullDeadlineCost(model::DeadlineCost) = FullCostModel(costs->max(0.0, maximum(costs)),model)
 
 MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(MaxCost(),model)

@@ -126,8 +126,9 @@ let
         solution, cost = CRCBS.solve!(solver,mapf)
     end
     let
+        deadline = ne(G)+1.0
         cost_model = construct_composite_cost_model(
-            FullDeadlineCost(DeadlineCost(ne(G)+1.0)),
+            FullDeadlineCost(DeadlineCost(deadline)),
             FullCostModel(sum,NullCost()),
             SumOfTravelTime()
         )
