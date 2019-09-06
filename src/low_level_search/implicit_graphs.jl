@@ -8,6 +8,7 @@ export
 function A_star_impl!(env::E, frontier, explored::Set{S}, heuristic::Function) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
     while !isempty(frontier)
         (cost_so_far, path, s) = dequeue!(frontier)
+        # @show cost_so_far, path
         if is_goal(env,s)
             return path, cost_so_far # TODO return the cost as well
         elseif check_termination_criteria(env,cost_so_far,path,s)
@@ -24,6 +25,9 @@ function A_star_impl!(env::E, frontier, explored::Set{S}, heuristic::Function) w
                 new_path = cat(path, PathNode(s, a, sp))
                 new_path.cost = accumulate_cost(env, cost_so_far, get_transition_cost(env,s,a,sp))
                 # enqueue!(frontier, (new_path.cost, new_path, sp) => new_path.cost + heuristic(env,sp))
+                @show new_path.cost
+                @show heuristic(env,sp)
+                @show add_heuristic_cost(env, new_path.cost, heuristic(env,sp))
                 enqueue!(frontier, (new_path.cost, new_path, sp) => add_heuristic_cost(env, new_path.cost, heuristic(env,sp)))
             end
         end

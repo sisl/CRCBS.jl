@@ -102,9 +102,11 @@ struct FullCostModel{F,T,M<:AbstractCostModel{T}} <: AbstractCostModel{T}
 end
 get_aggregation_function(m::C) where {C<:FullCostModel} = m.f
 get_cost_model(m::C) where {C<:FullCostModel} = m.model
-aggregate_costs(m::C, costs::Vector{T}) where {T,C<:FullCostModel} = m.f(costs)
-accumulate_cost(model::M, c, c2) where {M<:FullCostModel} = accumulate_cost(model.model,c,c2)
-get_initial_cost(model::F) where {F<:FullCostModel} = get_initial_cost(model.model)
+aggregate_costs(m::C, costs::Vector{T}) where {T,C<:FullCostModel}  = m.f(costs)
+accumulate_cost(model::M, c, c2) where {M<:FullCostModel}           = accumulate_cost(model.model,c,c2)
+get_initial_cost(model::F) where {F<:FullCostModel}                 = get_initial_cost(model.model)
+get_infeasible_cost(model::F) where {F<:FullCostModel}              = get_infeasible_cost(model.model)
+add_heuristic_cost(model::F,cost,h_cost) where {F<:FullCostModel}   = add_heuristic_cost(model.model,cost,h_cost)
 get_transition_cost(env::E,model::F,s,a,sp) where {E<:AbstractLowLevelEnv,F<:FullCostModel} = get_transition_cost(env,model.model,s,a,sp)
 
 """
@@ -275,7 +277,10 @@ get_initial_cost(m::DeadlineCost) = get_initial_cost(m.m)
 get_transition_cost(env::E,model::M,args...) where {E<:AbstractLowLevelEnv,M<:DeadlineCost} = get_transition_cost(env,model.m,args...)
 accumulate_cost(model::DeadlineCost,cost,transition_cost) = accumulate_cost(model.m,cost,transition_cost)
 # add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost + m.deadline - m.stage_deadline) # assumes heuristic is PerfectHeuristic
-add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost - m.deadline) # assumes heuristic is PerfectHeuristic
+function add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost}
+    println("add_heuristic_cost(m::DeadlineCost...)")
+    max(0.0, cost + h_cost - m.deadline) # assumes heuristic is PerfectHeuristic
+end
 FullDeadlineCost(model::DeadlineCost) = FullCostModel(costs->max(0.0, maximum(costs)),model)
 
 MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(MaxCost(),model)
