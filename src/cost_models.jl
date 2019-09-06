@@ -277,12 +277,191 @@ get_initial_cost(m::DeadlineCost) = get_initial_cost(m.m)
 get_transition_cost(env::E,model::M,args...) where {E<:AbstractLowLevelEnv,M<:DeadlineCost} = get_transition_cost(env,model.m,args...)
 accumulate_cost(model::DeadlineCost,cost,transition_cost) = accumulate_cost(model.m,cost,transition_cost)
 # add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost + m.deadline - m.stage_deadline) # assumes heuristic is PerfectHeuristic
-function add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost}
-    println("add_heuristic_cost(m::DeadlineCost...)")
-    max(0.0, cost + h_cost - m.deadline) # assumes heuristic is PerfectHeuristic
-end
+add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost - m.deadline) # assumes heuristic is PerfectHeuristic
 FullDeadlineCost(model::DeadlineCost) = FullCostModel(costs->max(0.0, maximum(costs)),model)
 
 MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(MaxCost(),model)
 SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(SumCost(),model)
 SumOfTravelTime(model::TravelTime=TravelTime()) = FullCostModel(SumCost(), model)
+
+################################################################################
+############################# HardConflictHeuristic ############################
+################################################################################
+export
+    HardConflictTable,
+    get_time_horizon,
+    get_planned_vtx,
+    set_path!,
+    reset_path!,
+    get_conflict_value,
+    construct_empty_lookup_table
+
+"""
+    `HardConflictTable`
+
+    Stores a lookup table of planned paths for all agents.
+    When agent `i` queries the table, `table.paths[i]` (the existing path plan
+    for agent `i`) must be subtracted so that the agent does not try to avoid
+    conflicts with itself.
+"""
+@with_kw struct HardConflictTable{V<:AbstractVector,M<:AbstractMatrix}
+    paths   ::Vector{V} = Vector{SparseVector{Int,Int}}()
+    CAT     ::M         = SparseMatrixCSC(zeros(2,2)) # global table
+end
+get_time_horizon(h::T) where {T<:HardConflictTable} = size(h.CAT,2)
+get_planned_vtx(h::T,agent_idx::Int,t::Int) where {T<:HardConflictTable} = h.paths[agent_idx][t]
+function reset_path!(h::T,path_idx::Int) where {V,M,T<:HardConflictTable{V,M}}
+    # first remove the old path from the lookup table
+    for (t,vtx) in enumerate(h.paths[path_idx])
+        if vtx > 0
+            h.CAT[vtx,t] = h.CAT[vtx,t] - 1
+        end
+    end
+    # initialize an empty new path
+    h.paths[path_idx] = V(zeros(Int,get_time_horizon(h)))
+    return h
+end
+function set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::Int=1) where {V,M,T<:HardConflictTable{V,M}}
+    # println("Updating Heuristic model with path ", path, " for agent ",path_idx)
+    reset_path!(h,path_idx)
+    # now add new path vtxs to new path and lookup table
+    for (i,vtx) in enumerate(path)
+        t = start_time+i-1
+        h.paths[path_idx][t] = vtx
+        h.CAT[vtx,t] = h.CAT[vtx,t] + 1
+    end
+    h
+end
+function get_conflict_value(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
+    c = h.CAT[vtx,t]
+    if get_planned_vtx(h,agent_idx,t) == vtx # conflict with own trajectory
+        c = c - 1
+    end
+    return c
+end
+"""
+    `construct_empty_lookup_table(G,T::Int)`
+
+    Returns an empty lookup table.
+"""
+construct_empty_lookup_table(V::Int,T::Int) = SparseMatrixCSC(zeros(V,T))
+construct_empty_lookup_table(graph::G,T::Int) where {G<:AbstractGraph} = construct_empty_lookup_table(nv(graph),T)
+function HardConflictTable(graph::G,T::Int,num_agents::Int) where {G<:AbstractGraph}
+    HardConflictTable(
+        paths = map(i->SparseVector(zeros(Int,T)),1:num_agents),
+        CAT = construct_empty_lookup_table(graph,T)
+        )
+end
+
+################################################################################
+############################### SoftConflictHeuristic ##############################
+################################################################################
+export
+    SoftConflictTable,
+    get_fat_path,
+    add_fat_path_to_table!,
+    populate_soft_lookup_table!
+
+"""
+    `SoftConflictTable`
+"""
+@with_kw struct SoftConflictTable{M<:AbstractMatrix}
+    CAT::M = SparseMatrixCSC(zeros(2,2)) # global table
+end
+get_time_horizon(h::SoftConflictTable) = size(h.CAT,2)
+get_conflict_value(h::SoftConflictTable,vtx::Int,t::Int) = h.CAT[vtx,t]
+get_conflict_value(h::SoftConflictTable,agent_idx::Int,vtx::Int,t::Int) = h.CAT[vtx,t]
+"""
+    `get_fat_path(G,D,start_vtx,goal_vtx)`
+
+    returns a fat path through `G` from `start_vtx` to `goal_vtx`. Each set
+    of vertices in the fat path contains all vertices with distance d1 from
+    start_vtx and distance d2 to goal_vtx, where d1+d2 == the length of the
+    shortest path(s) from `start_vtx` to `goal_vtx`
+
+    G is a graph, D is the distance matrix
+"""
+function get_fat_path(G,D,start_vtx::Int,goal_vtx::Int)
+    fat_path = Vector{Set{Int}}([Set{Int}(start_vtx)])
+    for i in 1:D[start_vtx,goal_vtx]
+        next_set = Set{Int}()
+        for src_vtx in fat_path[end]
+            for dst_vtx in outneighbors(G,src_vtx)
+                if D[dst_vtx,goal_vtx] <= D[src_vtx,goal_vtx] - 1
+                    push!(next_set, dst_vtx)
+                end
+            end
+        end
+        push!(fat_path, next_set)
+    end
+    fat_path
+end
+"""
+    `add_fat_path_to_table(CAT,fat_path)`
+"""
+function add_fat_path_to_table!(CAT,t0,fat_path)
+    for t in 1:length(fat_path)
+        idxs = collect(fat_path[t])
+        if t+t0 > 0
+            CAT[idxs,t+t0] .+= 1.0/length(idxs)
+        end
+    end
+end
+"""
+    `populate_soft_lookup_table!(CAT,start_times,start_vtxs,goal_vtxs)`
+"""
+function populate_soft_lookup_table!(CAT,G,D,start_times,start_vtxs,goal_vtxs)
+    path_list = [t=>get_fat_path(G,D,s,g) for (s,t,g) in zip(start_vtxs,start_times,goal_vtxs)]
+    for (t0,fat_path) in path_list
+        add_fat_path_to_table!(CAT,t0,fat_path)
+    end
+    CAT
+end
+"""
+    `construct_empty_lookup_table(graph,T::Int)`
+
+    Returns a soft lookup table to encode possible paths for each agent through
+    `graph`. The argument `T` defines the time horizon of the lookup table.
+"""
+function SoftConflictTable(graph,T::Int)
+    SoftConflictTable(construct_empty_lookup_table(graph,T))
+end
+"""
+    `construct_and_populate_soft_lookup_table!`
+"""
+function SoftConflictTable(graph,start_times::Vector{Int},start_vtxs::Vector{Int},goal_vtxs::Vector{Int};
+        T = Int(round(maximum(start_times) + nv(graph))))
+    CAT = construct_empty_lookup_table(graph,T)
+    D = get_dist_matrix(graph)
+    populate_soft_lookup_table!(CAT,graph,D,start_times,start_vtxs,goal_vtxs)
+    SoftConflictTable(CAT)
+end
+
+################################################################################
+############################# ConflictCostModel ############################
+################################################################################
+export
+    ConflictCostModel,
+    HardConflictCost,
+    SoftConflictCost
+
+struct ConflictCostModel{T<:Union{HardConflictTable,SoftConflictTable}} <: LowLevelCostModel{Float64}
+    table::T
+end
+get_conflict_value(h::H, args...) where {H<:ConflictCostModel} = get_conflict_value(h.table, args...)
+accumulate_cost(h::H,cost,transition_cost) where {H<:ConflictCostModel} = cost + transition_cost
+
+HardConflictCost(args...) = FullCostModel(sum,ConflictCostModel(HardConflictTable(args...)))
+SoftConflictCost(args...) = FullCostModel(sum,ConflictCostModel(SoftConflictTable(args...)))
+
+get_time_horizon(h::H) where {H<:ConflictCostModel} = get_time_horizon(h.table)
+get_planned_vtx(h::H,args...) where {T<:HardConflictTable,H<:ConflictCostModel}  = get_planned_vtx(h.table,args...)
+reset_path!(h::H,args...) where {T<:HardConflictTable,H<:ConflictCostModel{T}}   = reset_path!(h.table,args...)
+set_path!(h::H,args...) where {T<:HardConflictTable,H<:ConflictCostModel{T}}     = set_path!(h.table,args...)
+set_path!(h::H,args...) where {H<:AbstractCostModel} = nothing
+set_path!(h::FullCostModel{F,T,M},args...) where {F,T,M<:ConflictCostModel} = set_path!(h.model,args...)
+function set_path!(h::H,args...) where {H<:CompositeCostModel}
+    for m in h.cost_models
+        set_path!(m,args...)
+    end
+end

@@ -49,13 +49,10 @@ function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) 
 end
 # heuristic
 CRCBS.get_heuristic_cost(env::E,s::State) where {E<:LowLevelEnv} = CRCBS.get_heuristic_cost(env,get_heuristic_model(env),s)
-function CRCBS.get_heuristic_cost(env::E,h::PerfectHeuristic,s::State) where {E<:LowLevelEnv}
+function CRCBS.get_heuristic_cost(env::E,h::H,s::State) where {E<:LowLevelEnv,H<:PerfectHeuristic}
     get_heuristic_cost(h, env.goal.vtx, s.vtx)
 end
-function CRCBS.get_heuristic_cost(env::E,h::SoftConflictTable,s::State) where {E<:LowLevelEnv}
-    get_heuristic_cost(h, s.vtx, s.t)
-end
-function CRCBS.get_heuristic_cost(env::E,h::HardConflictTable,s::State) where {E<:LowLevelEnv}
+function CRCBS.get_heuristic_cost(env::E,h::H,s::State) where {E<:LowLevelEnv, H<:ConflictTableHeuristic}
     get_heuristic_cost(h, env.agent_idx, s.vtx, s.t)
 end
 
@@ -115,6 +112,9 @@ CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action) = get_next_state(s,a)
 # get_transition_cost
 function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
     return get_cost_type(c)(a.Δt)
+end
+function CRCBS.get_transition_cost(env::E,c::C,s::State,a::Action,sp::State) where {E<:LowLevelEnv,C<:ConflictCostModel}
+    return get_conflict_value(c, env.agent_idx, sp.vtx, sp.t)
 end
 function CRCBS.get_transition_cost(env::E,c::TravelDistance,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
     return (s.vtx == sp.vtx) ? get_cost_type(env)(1) : get_cost_type(env)(0)

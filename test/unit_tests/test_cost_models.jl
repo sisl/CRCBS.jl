@@ -39,6 +39,28 @@ let
     @test add_heuristic_cost(model, cost, h_cost) == cost + h_cost
     # set_deadline!(model,t_max,t_max-4)
 end
+# ConflictCostModel
+let
+    G = Graph(5)
+    for v in 1:nv(G)-1
+        add_edge!(G,v,v+1)
+    end
+    T = 10
+    num_agents = 2
+    h = HardConflictCost(G,T,num_agents)
+    set_path!(h,num_agents,[1,2],2)
+    # Agent 1 has a cost of 1 whenever it conflicts with agent 2's path
+    @test get_conflict_value(h.model,1,1,2) == 1.0
+    @test get_conflict_value(h.model,1,2,3) == 1.0
+    @test get_conflict_value(h.model,1,2,1) == 0.0
+    @test get_conflict_value(h.model,1,3,4) == 0.0
+    # Agent 2 should have zero cost even when it conflicts with its own path
+    @test get_conflict_value(h.model,2,1,2) == 0.0
+    # Now that agent 2's path has been updated, the cost should be zero for a
+    # vtx no longer on the path
+    set_path!(h.model,num_agents,[1,2],3)
+    @test get_conflict_value(h.model,1,1,2) == 0.0
+end
 # MetaCost
 let
     t0 = 0.0

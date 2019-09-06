@@ -18,7 +18,7 @@ end #module
 
 let
     PerfectHeuristic()
-    SoftConflictTable()
+    SoftConflictHeuristic()
 end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
@@ -30,12 +30,12 @@ let
         @test get_heuristic_cost(h,goals[1],starts[1]) == gdistances(G,starts[1])[goals[1]]
     end
     let
-        h = SoftConflictTable(G,start_times,starts,goals)
+        h = SoftConflictHeuristic(G,start_times,starts,goals)
         @test get_heuristic_cost(h,starts[1],1) >= 1.0
     end
     let
         h1 = PerfectHeuristic(G,starts,goals)
-        h2 = SoftConflictTable(G,start_times,starts,goals)
+        h2 = SoftConflictHeuristic(G,start_times,starts,goals)
     end
     let
         h = construct_composite_heuristic(
@@ -61,7 +61,7 @@ end
 #     @test get_heuristic_cost(h, 1.0, goals[1], starts[1]) == 0.0
 #     @test get_heuristic_cost(h, 2.0, goals[1], starts[1]) == 1.0
 # end
-# HardConflictTable
+# HardConflictHeuristic
 let
     G = Graph(5)
     for v in 1:nv(G)-1
@@ -69,7 +69,7 @@ let
     end
     T = 10
     num_agents = 2
-    h = HardConflictTable(G,T,num_agents)
+    h = HardConflictHeuristic(G,T,num_agents)
     set_path!(h,num_agents,[1,2],2)
     # Agent 1 has a cost of 1 whenever it conflicts with agent 2's path
     @test get_heuristic_cost(h,1,1,2) == 1.0
@@ -101,7 +101,7 @@ let
     )
     heuristic_model = construct_composite_heuristic(
         PerfectHeuristic(G,starts,goals),
-        HardConflictTable(G,ne(G),num_agents),
+        HardConflictHeuristic(G,ne(G),num_agents),
         PerfectHeuristic(G,starts,goals),
     )
 end

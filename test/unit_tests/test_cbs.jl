@@ -134,7 +134,7 @@ let
         )
         heuristic_model = construct_composite_heuristic(
             PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals)),
-            HardConflictTable(G,ne(G),num_agents),
+            HardConflictHeuristic(G,ne(G),num_agents),
             PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals)),
         )
         env = CBS.LowLevelEnv(graph=G,cost_model=cost_model,heuristic=heuristic_model)
