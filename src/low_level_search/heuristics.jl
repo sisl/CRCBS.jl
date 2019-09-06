@@ -129,7 +129,7 @@ function reset_path!(h::H,path_idx::Int) where {V,M,H<:HardConflictTable{V,M}}
     h.paths[path_idx] = V(zeros(Int,get_time_horizon(h)))
     return h
 end
-function set_path!(h::H,path_idx::Int,start_time::Int,path::Vector{Int}) where {V,M,H<:HardConflictTable{V,M}}
+function set_path!(h::H,path_idx::Int,path::Vector{Int},start_time::Int=1) where {V,M,H<:HardConflictTable{V,M}}
     reset_path!(h,path_idx)
     # now add new path vtxs to new path and lookup table
     for (i,vtx) in enumerate(path)

@@ -47,7 +47,7 @@ let
         CBS.Action(Edge(2,3),1),
         CBS.State(3,2)
     ))
-    detect_conflicts([path1,path2])
+    conflict_table = detect_conflicts([path1,path2])
 end
 let
     # TEST CONSTRAINTS
@@ -98,6 +98,7 @@ let
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
     starts = [CBS.State(1,0),CBS.State(2,0)]
     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
+    num_agents = 2
     # low_level_search
     let
         heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
@@ -122,6 +123,22 @@ let
         )
         env = CBS.LowLevelEnv(graph=G,cost_model=cost_model,heuristic=heuristic)
         mapf = MAPF(env,starts,goals)
+        solution, cost = CRCBS.solve!(solver,mapf)
+    end
+    let
+        cost_model = construct_composite_cost_model(
+            FullDeadlineCost(DeadlineCost(ne(G)+1.0)),
+            FullCostModel(sum,NullCost()),
+            SumOfTravelTime()
+        )
+        heuristic_model = construct_composite_heuristic(
+            PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals)),
+            HardConflictTable(G,ne(G),num_agents),
+            PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals)),
+        )
+        env = CBS.LowLevelEnv(graph=G,cost_model=cost_model,heuristic=heuristic_model)
+        mapf = MAPF(env,starts,goals)
+        default_solution(mapf)
         solution, cost = CRCBS.solve!(solver,mapf)
     end
 end

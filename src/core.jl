@@ -23,10 +23,13 @@ export
     get_cost,
     get_initial_state,
     get_final_state,
+    get_start_time,
+    get_end_time,
     get_path_node,
     get_action,
     extend_path!,
     extend_path
+
 """
     `Path{S,A,C}`
 
@@ -45,7 +48,12 @@ Base.get(p::P,i,default) where {P<:Path}    = get(p.path_nodes,i,default)
 Base.getindex(p::P,i) where {P<:Path}       = getindex(p.path_nodes,i)
 Base.setindex!(p::P,x,i) where {P<:Path}    = setindex!(p.path_nodes,x,i)
 Base.length(p::P) where {P<:Path}           = length(p.path_nodes)
-Base.push!(p::P,x) where {P<:Path}          = push!(p.path_nodes,x)
+function Base.push!(p::P,n::N) where {P<:Path,N<:PathNode}
+    if length(p.path_nodes) == 0
+        p.s0 = n.s
+    end
+    push!(p.path_nodes,n)
+end
 get_cost(p::P) where {P<:Path}              = p.cost
 Base.copy(p::P) where {P<:Path}             = Path(p.s0,copy(p.path_nodes),p.cost)
 
@@ -64,18 +72,55 @@ function get_final_state(path::P) where {P<:Path}
     end
 end
 
+
+export
+    TimeIndexedState,
+    get_start_index,
+    get_index_from_time,
+    get_end_index
+
+get_start_index(path::P) where {P<:Path} = 0
+get_end_index(path::P) where {P<:Path} = length(path) + get_start_index(path)
+get_index_from_time(path::P,t::Int) where {P<:Path} = t - get_start_index(path)
+abstract type TimeIndexedState end
+get_start_index(path::P) where {S<:TimeIndexedState,A,C,P<:Path{S,A,C}} = 1 - get_time_index(path.s0)
+
 """
     returns the `PathNode` (s,a,s') corresponding to step `t` of `path`
 
     If `t` is greater than the length of `path`, the `PathNode` returned
-    is (s,wait(s),s) corresponding to waiting at that node of the path
+    is (s,wait(s),s) corresponding to waiting at that node of the path.
+
+    Assumes that all paths start at t = 1
 """
+# function get_path_node(path::P,t::Int) where {P<:Path}
+#     if t <= length(path)
+#         return path[t]
+#     else
+#         t₀ = length(path)
+#         if t₀ == 0
+#             sp = get_initial_state(path)
+#         else
+#             node = get(path,length(path),node_type(path)())
+#             s = get_s(node)
+#             a = get_a(node)
+#             sp = get_sp(node)
+#         end
+#         for τ in length(path)+1:t
+#             s = sp
+#             a = wait(s)
+#             sp = get_next_state(s,a)
+#         end
+#         return PathNode(s,a,sp)
+#     end
+# end
 function get_path_node(path::P,t::Int) where {P<:Path}
-    if t <= length(path)
-        return path[t]
+    t_idx = get_index_from_time(path,t)
+    if 1 <= t_idx <= length(path)
+        return path[t_idx]
     else
-        t₀ = length(path)
-        if t₀ == 0
+        t₀ = get_index_from_time(path,get_end_index(path))
+        if t₀ <= 0
             sp = get_initial_state(path)
         else
             node = get(path,length(path),node_type(path)())
@@ -83,7 +128,7 @@ function get_path_node(path::P,t::Int) where {P<:Path}
             a = get_a(node)
             sp = get_sp(node)
         end
-        for τ in length(path)+1:t
+        for τ in t₀+1:t_idx
             s = sp
             a = wait(s)
             sp = get_next_state(s,a)
@@ -115,7 +160,8 @@ end
     - the desired length of the new path
 """
 function extend_path!(path::P,T::Int) where {P<:Path}
-    while length(path) < T
+    # while length(path) < T
+    while get_index_from_time(path,get_end_index(path)) < T
         s = get_final_state(path)
         a = wait(s)
         push!(path,PathNode(s,wait(s),get_next_state(s,a)))
@@ -227,42 +273,3 @@ export
     AbstractMAPFSolver
 """ Abstract type for algorithms that solve MAPF instances """
 abstract type AbstractMAPFSolver end
-
-################################################################################
-################################## Utilities ###################################
-################################################################################
-# export
-#     get_initial_solution,
-#     get_infeasible_solution,
-#     default_solution
-# """
-#     `get_initial_solution`
-# """
-# function get_initial_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-#     LowLevelSolution{S,A,T,C}(
-#         paths = Vector{Path{S,A,T}}(map(a->Path{S,A,T}(),1:num_agents(mapf))),
-#         costs = Vector{T}(map(a->get_infeasible_cost(mapf.env),1:num_agents(mapf))),
-#         cost = get_infeasible_cost(mapf.env),
-#         cost_model = get_cost_model(mapf.env)
-#     )
-# end
-# """
-#     `get_infeasible_solution`
-# """
-# function get_infeasible_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-#     LowLevelSolution{S,A,T,C}(
-#         paths = Vector{Path{S,A,T}}(map(a->Path{S,A,T}(),1:num_agents(mapf))),
-#         costs = Vector{T}(map(a->get_initial_cost(mapf.env),1:num_agents(mapf))),
-#         cost = get_initial_cost(mapf.env),
-#         cost_model = get_cost_model(mapf.env)
-#     )
-# end
-# """
-#     `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
-#
-#     Defines what is returned by the solver in case of failure to find a feasible
-#     solution.
-# """
-# function default_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-#     return get_infeasible_solution(mapf), get_infeasible_cost(mapf.env)
-# end

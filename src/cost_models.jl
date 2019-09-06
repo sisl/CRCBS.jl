@@ -28,14 +28,17 @@ export
     NullCost,
     DeadlineCost,
 
+    FullDeadlineCost,
     MakeSpan,
     SumOfTravelDistance,
     SumOfTravelTime
 
 
+get_initial_cost(mapf::M) where {M<:AbstractMAPF}           = get_initial_cost(mapf.env)
 get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(get_cost_model(env))
 get_initial_cost(model::C) where {C<:AbstractCostModel}     = get_cost_type(model)(0)
 
+get_infeasible_cost(mapf::M) where {M<:AbstractMAPF}        = get_infeasible_cost(mapf.env)
 get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(get_cost_model(env))
 get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(get_cost_type(model))
 

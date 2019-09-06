@@ -55,6 +55,9 @@ end
 function CRCBS.get_heuristic_cost(env::E,h::SoftConflictTable,s::State) where {E<:LowLevelEnv}
     get_heuristic_cost(h, s.vtx, s.t)
 end
+function CRCBS.get_heuristic_cost(env::E,h::HardConflictTable,s::State) where {E<:LowLevelEnv}
+    get_heuristic_cost(h, env.agent_idx, s.vtx, s.t)
+end
 
 # states_match
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)

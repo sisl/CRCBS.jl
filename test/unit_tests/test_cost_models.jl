@@ -72,3 +72,12 @@ let
     get_initial_cost(model)
     get_infeasible_cost(model)
 end
+let
+    cost_model = construct_composite_cost_model(
+        FullDeadlineCost(DeadlineCost(10,TravelTime())),
+        FullCostModel(sum,NullCost()),
+        SumOfTravelTime()
+    )
+    get_infeasible_cost(cost_model)
+
+end

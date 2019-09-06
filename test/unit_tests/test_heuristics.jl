@@ -70,7 +70,7 @@ let
     T = 10
     num_agents = 2
     h = HardConflictTable(G,T,num_agents)
-    set_path!(h,num_agents,2,[1,2])
+    set_path!(h,num_agents,[1,2],2)
     # Agent 1 has a cost of 1 whenever it conflicts with agent 2's path
     @test get_heuristic_cost(h,1,1,2) == 1.0
     @test get_heuristic_cost(h,1,2,3) == 1.0
@@ -80,7 +80,7 @@ let
     @test get_heuristic_cost(h,2,1,2) == 0.0
     # Now that agent 2's path has been updated, the cost should be zero for a
     # vtx no longer on the path
-    set_path!(h,num_agents,3,[1,2])
+    set_path!(h,num_agents,[1,2],3)
     @test get_heuristic_cost(h,1,1,2) == 0.0
 end
 # Full CompositeCost and CompositeHeuristic for TaskGraphs route planner
@@ -95,13 +95,13 @@ let
     T = 10
     num_agents = 1
     cost_model = construct_composite_cost_model(
-        DeadlineCost(ne(G)+1.0),
-        TravelTime(),
-        NullCost()
+        FullDeadlineCost(DeadlineCost(ne(G)+1.0)),
+        FullCostModel(sum,NullCost()),
+        SumOfTravelTime()
     )
     heuristic_model = construct_composite_heuristic(
         PerfectHeuristic(G,starts,goals),
-        HardConflictTable(G,T,num_agents),
+        HardConflictTable(G,ne(G),num_agents),
         PerfectHeuristic(G,starts,goals),
     )
 end

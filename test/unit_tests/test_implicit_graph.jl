@@ -80,12 +80,18 @@ let
     add_edge!(G,3,6)
     add_edge!(G,6,8)
     add_edge!(G,8,10)
-    goal_state = ImplicitGraphsTests.State(10,-1)
+    goal_state = ImplicitGraphsTests.State(8,-1)
     env = ImplicitGraphsTests.GraphEnv(G,Set{Int}(5),goal_state)
     start_state = ImplicitGraphsTests.State(1,0)
 
     dists = gdistances(G,goal_state.v)
     heuristic(env,s) = dists[s.v]
+    path, path_cost = A_star(env,start_state,heuristic)
 
-    path = A_star(env,start_state,heuristic)
+    # Now run A_star again on top of the previous path
+    goal_state2 = ImplicitGraphsTests.State(10,-1)
+    dists = gdistances(G,goal_state2.v)
+    env2 = ImplicitGraphsTests.GraphEnv(G,Set{Int}(5),goal_state2)
+    heuristic(env,s) = dists[s.v]
+    path2, path_cost  = A_star(env2,path,heuristic,path_cost)
 end
