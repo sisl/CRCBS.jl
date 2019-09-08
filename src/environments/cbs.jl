@@ -114,7 +114,7 @@ function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::S
     return get_cost_type(c)(a.Δt)
 end
 function CRCBS.get_transition_cost(env::E,c::C,s::State,a::Action,sp::State) where {E<:LowLevelEnv,C<:ConflictCostModel}
-    return get_conflict_value(c, env.agent_idx, sp.vtx, sp.t)
+    return get_conflict_value(c, env.agent_idx, sp.vtx, s.t)
 end
 function CRCBS.get_transition_cost(env::E,c::TravelDistance,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
     return (s.vtx == sp.vtx) ? get_cost_type(env)(1) : get_cost_type(env)(0)
