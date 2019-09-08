@@ -322,7 +322,7 @@ function reset_path!(h::T,path_idx::Int) where {V,M,T<:HardConflictTable{V,M}}
     return h
 end
 function set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::Int=1) where {V,M,T<:HardConflictTable{V,M}}
-    # println("Updating Heuristic model with path ", path, " for agent ",path_idx)
+    # println("Updating conflict table with path ", path, " for agent ",path_idx)
     reset_path!(h,path_idx)
     # now add new path vtxs to new path and lookup table
     for (i,vtx) in enumerate(path)
@@ -336,6 +336,9 @@ function get_conflict_value(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
     c = h.CAT[vtx,t]
     if get_planned_vtx(h,agent_idx,t) == vtx # conflict with own trajectory
         c = c - 1
+    end
+    if c > 0
+        println("get_conflict_value(agent_idx=",agent_idx,", vtx=",vtx," t=",t,") = ",c)
     end
     return c
 end
@@ -456,8 +459,8 @@ SoftConflictCost(args...) = FullCostModel(sum,ConflictCostModel(SoftConflictTabl
 
 get_time_horizon(h::H) where {H<:ConflictCostModel} = get_time_horizon(h.table)
 get_planned_vtx(h::H,args...) where {T<:HardConflictTable,H<:ConflictCostModel}  = get_planned_vtx(h.table,args...)
-reset_path!(h::H,args...) where {T<:HardConflictTable,H<:ConflictCostModel{T}}   = reset_path!(h.table,args...)
-set_path!(h::H,args...) where {T<:HardConflictTable,H<:ConflictCostModel{T}}     = set_path!(h.table,args...)
+reset_path!(h::H,args...) where {H<:ConflictCostModel}   = reset_path!(h.table,args...)
+set_path!(h::H,args...) where {H<:ConflictCostModel}     = set_path!(h.table,args...)
 set_path!(h::H,args...) where {H<:AbstractCostModel} = nothing
 set_path!(h::FullCostModel{F,T,M},args...) where {F,T,M<:ConflictCostModel} = set_path!(h.model,args...)
 function set_path!(h::H,args...) where {H<:CompositeCostModel}
