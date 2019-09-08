@@ -128,9 +128,7 @@ version = "0.10.3"
 
 [[GraphUtils]]
 deps = ["Documenter", "LightGraphs", "Logging", "MetaGraphs", "Random", "Reexport", "Test"]
-git-tree-sha1 = "b966a784e7029401114d502b402cd9ba88160373"
-repo-rev = "master"
-repo-url = "https://github.com/kylejbrown17/GraphUtils.jl.git"
+path = "/home/kylebrown/.julia/dev/GraphUtils"
 uuid = "5d4bc1c0-0fb7-11e9-3252-b1aa07358cab"
 version = "0.1.0"
 
@@ -198,10 +196,9 @@ uuid = "626554b9-1ddb-594c-aa3c-2596fe9399a5"
 version = "0.6.1"
 
 [[Missings]]
-deps = ["SparseArrays", "Test"]
-git-tree-sha1 = "f0719736664b4358aa9ec173077d4285775f8007"
+git-tree-sha1 = "29858ce6c8ae629cf2d733bffa329619a1c843d0"
 uuid = "e1d29d7a-bbdc-5cf2-9ac0-f12de2c33e28"
-version = "0.4.1"
+version = "0.4.2"
 
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"

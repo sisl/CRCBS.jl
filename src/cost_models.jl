@@ -307,6 +307,7 @@ export
 @with_kw struct HardConflictTable{V<:AbstractVector,M<:AbstractMatrix}
     paths   ::Vector{V} = Vector{SparseVector{Int,Int}}()
     CAT     ::M         = SparseMatrixCSC(zeros(2,2)) # global table
+    start_time::Int     = 0
 end
 get_time_horizon(h::T) where {T<:HardConflictTable} = size(h.CAT,2)
 get_planned_vtx(h::T,agent_idx::Int,t::Int) where {T<:HardConflictTable} = h.paths[agent_idx][t]
@@ -321,20 +322,21 @@ function reset_path!(h::T,path_idx::Int) where {V,M,T<:HardConflictTable{V,M}}
     h.paths[path_idx] = V(zeros(Int,get_time_horizon(h)))
     return h
 end
-function set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::Int=1) where {V,M,T<:HardConflictTable{V,M}}
+function set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::Int=0) where {V,M,T<:HardConflictTable{V,M}}
     # println("Updating conflict table with path ", path, " for agent ",path_idx)
     reset_path!(h,path_idx)
     # now add new path vtxs to new path and lookup table
     for (i,vtx) in enumerate(path)
-        t = start_time+i-1
+        t = (start_time-h.start_time) + i
         h.paths[path_idx][t] = vtx
         h.CAT[vtx,t] = h.CAT[vtx,t] + 1
     end
     h
 end
 function get_conflict_value(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
-    c = h.CAT[vtx,t]
-    if get_planned_vtx(h,agent_idx,t) == vtx # conflict with own trajectory
+    t_idx = t + (1-h.start_time)
+    c = h.CAT[vtx,t_idx]
+    if get_planned_vtx(h,agent_idx,t_idx) == vtx # conflict with own trajectory
         c = c - 1
     end
     if c > 0

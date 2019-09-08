@@ -92,6 +92,20 @@ end
 let
     env = CBS.LowLevelEnv(cost_model=SumOfTravelTime())
 end
+let
+    G = initialize_grid_graph_from_vtx_grid(initialize_dense_vtx_grid(4,4))
+    # 1  5   9  13
+    # 2  6  10  14
+    # 3  7  11  15
+    # 4  8  12  16
+    T = 10
+    n_agents = 2
+    env = CBS.LowLevelEnv(graph=G,agent_idx=1,cost_model=HardConflictCost(G,T,n_agents))
+    # path1 = Path{CBS.State,CBS.Action,Float64}(s0=CBS.State(5,0))
+    # path1 = Path{CBS.State,CBS.Action,Float64}(s0=CBS.State(5,0))
+    set_path!(get_cost_model(env),2,[2,6,10,14])
+    @test get_transition_cost(env,CBS.State(5,0),CBS.Action(Edge(5,6),1),CBS.State(6,1)) == 1
+end
 # solve!
 let
     solver = CBS_Solver()
