@@ -367,7 +367,7 @@ function get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
     preliminary_count = res[1]
     dtcount = res[2]
     if preliminary_count < 0.0001
-        return 0.0,0.0,dt_count
+        return 0.0,0.0,dtcount
     else
         return integrate_node_with_box(n1,t1,n2,t2,nn,lambda,dtcount)
     end
