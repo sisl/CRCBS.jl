@@ -48,7 +48,10 @@ let
     T = 10
     num_agents = 2
     h = HardConflictCost(G,T,num_agents)
-    set_path!(h,num_agents,[1,2],0)
+    set_path!(h,2,[1,2],0)
+    set_path!(h,1,[3,2],0)
+    path_id_to_time_idx = get_conflicting_paths(h.model.table)
+    @test path_id_to_time_idx[1] == path_id_to_time_idx[2] == 1
     # Agent 1 has a cost of 1 whenever it conflicts with agent 2's path
     @test get_conflict_value(h.model,1,1,0) == 1.0
     @test get_conflict_value(h.model,1,2,1) == 1.0

@@ -48,7 +48,10 @@ end
 ################################################################################
 ################################# Extend Paths #################################
 ################################################################################
-function extend_path!(env::E,path::P,t::Int) where {E<:AbstractLowLevelEnv,P<:Path}
+export
+    extend_path!
+
+function extend_path!(env::E,path::P,T::Int) where {E<:AbstractLowLevelEnv,P<:Path}
     while get_index_from_time(path,get_end_index(path)) < T
         s = get_final_state(path)
         a = wait(s)

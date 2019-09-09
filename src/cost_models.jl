@@ -294,6 +294,7 @@ export
     set_path!,
     reset_path!,
     get_conflict_value,
+    get_conflicting_paths,
     construct_empty_lookup_table
 
 """
@@ -310,7 +311,10 @@ export
     start_time::Int     = 0
 end
 get_time_horizon(h::T) where {T<:HardConflictTable} = size(h.CAT,2)
-get_planned_vtx(h::T,agent_idx::Int,t::Int) where {T<:HardConflictTable} = h.paths[agent_idx][t]
+function get_planned_vtx(h::T,agent_idx::Int,t::Int) where {T<:HardConflictTable}
+    t_idx = t + (1-h.start_time)
+    h.paths[agent_idx][t_idx]
+end
 function reset_path!(h::T,path_idx::Int) where {V,M,T<:HardConflictTable{V,M}}
     # first remove the old path from the lookup table
     for (t,vtx) in enumerate(h.paths[path_idx])
@@ -336,13 +340,33 @@ end
 function get_conflict_value(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
     t_idx = t + (1-h.start_time)
     c = h.CAT[vtx,t_idx]
-    if get_planned_vtx(h,agent_idx,t_idx) == vtx # conflict with own trajectory
+    if get_planned_vtx(h,agent_idx,t) == vtx # conflict with own trajectory
         c = c - 1
     end
     # if c > 0
     #     println("get_conflict_value(agent_idx=",agent_idx,", vtx=",vtx," t=",t,") = ",c)
     # end
     return c
+end
+"""
+    `get_conflicting_paths`
+
+    operates over a lookup table and returns a dictionary mapping path index to
+    the time index at which the conflict occurred
+"""
+function get_conflicting_paths(ct::T) where {T<:HardConflictTable}
+    conflict_idxs = map(idx->Int.([idx.I...]), findall(ct.CAT .> 1))
+    agent_id_to_time_idx = Dict{Int,Int}()
+    for idx in conflict_idxs
+        vtx = idx[1]
+        t = idx[2]+ct.start_time-1
+        for (agent_id,path) in enumerate(ct.paths)
+            if get_planned_vtx(ct,agent_id,t) == vtx
+                agent_id_to_time_idx[agent_id] = t
+            end
+        end
+    end
+    agent_id_to_time_idx
 end
 """
     `construct_empty_lookup_table(G,T::Int)`
