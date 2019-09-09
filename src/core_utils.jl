@@ -46,6 +46,20 @@ function default_solution(mapf::M) where {M<:AbstractMAPF}
 end
 
 ################################################################################
+################################# Extend Paths #################################
+################################################################################
+function extend_path!(env::E,path::P,t::Int) where {E<:AbstractLowLevelEnv,P<:Path}
+    while get_index_from_time(path,get_end_index(path)) < T
+        s = get_final_state(path)
+        a = wait(s)
+        sp = get_next_state(env,s,a)
+        push!(path,PathNode(s,a,sp))
+        path.cost = accumulate_cost(env, path.cost, get_transition_cost(env,s,a,sp))
+    end
+    return path
+end
+
+################################################################################
 ################################## Utilities ###################################
 ################################################################################
 export

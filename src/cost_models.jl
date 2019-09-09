@@ -339,9 +339,9 @@ function get_conflict_value(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
     if get_planned_vtx(h,agent_idx,t_idx) == vtx # conflict with own trajectory
         c = c - 1
     end
-    if c > 0
-        println("get_conflict_value(agent_idx=",agent_idx,", vtx=",vtx," t=",t,") = ",c)
-    end
+    # if c > 0
+    #     println("get_conflict_value(agent_idx=",agent_idx,", vtx=",vtx," t=",t,") = ",c)
+    # end
     return c
 end
 """

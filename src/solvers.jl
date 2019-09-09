@@ -165,9 +165,9 @@ function solve!(solver::MetaAgentCBS_Solver, mapf::M where {M<:AbstractMAPF}, pa
     return default_solution(solver, mapf)
 end
 
-# struct Prioritized_PC_MAPF_Solver <: AbstractMAPFSolver end
+# struct Prioritized_PC_TAPF_Solver <: AbstractMAPFSolver end
 #
-# function solve!(solver::S, mapf::M, path_finder=A_star) where {S<:Prioritized_PC_MAPF_Solver,M<:PC_MAPF}
+# function solve!(solver::S, mapf::M, path_finder=A_star) where {S<:Prioritized_PC_TAPF_Solver,M<:PC_TAPF}
 #     priority_queue = PriorityQueue{ConstraintTreeNode,get_cost_type(mapf.env)}()
 #
 #     root_node = initialize_root_node(mapf)

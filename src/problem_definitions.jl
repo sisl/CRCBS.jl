@@ -10,7 +10,7 @@ export
     MAPF,
     MultiMAPF,
     MetaMAPF,
-    PC_MAPF
+    PC_TAPF
 
 abstract type AbstractMAPF end
 num_agents(mapf::AbstractMAPF)          = length(mapf.starts)
@@ -47,7 +47,7 @@ get_starts(mapf::MetaMAPF)  = get_starts(mapf.mapf)
 get_goals(mapf::MetaMAPF)   = get_goals(mapf.mapf)
 
 """
-    `PC_MAPF`
+    `PC_TAPF`
 
     Precedence-Constrained Multi-Agent Path-Finding Problem.
     Elements:
@@ -62,7 +62,7 @@ get_goals(mapf::MetaMAPF)   = get_goals(mapf.mapf)
     * `starts` - `starts[i]` gives the start state associated with path i
     * `goals` - `goals[i]` gives the goal associated with path i
 """
-@with_kw struct PC_MAPF{E,GR<:AbstractGraph,S,G}
+@with_kw struct PC_TAPF{E,GR<:AbstractGraph,S,G}
     env::E                      = nothing
     task_precedence_graph::GR   = DiGraph()
     num_agents ::Int            = 0
@@ -73,10 +73,10 @@ get_goals(mapf::MetaMAPF)   = get_goals(mapf.mapf)
     starts     ::Vector{S}      = Vector{Int}() # start states of agents (includes start times, I suppose)
     goals      ::Vector{G}      = Vector{Int}() # goals assigned to agents
 end
-num_agents(mapf::M) where {M<:PC_MAPF}          = length(mapf.starts)
-num_goals(mapf::M) where {M<:PC_MAPF}           = length(mapf.goals)
-get_starts(mapf::M) where {M<:PC_MAPF}          = mapf.starts
-get_goals(mapf::M) where {M<:PC_MAPF}           = mapf.goals
-get_start(mapf::M, i) where {M<:PC_MAPF}        = get_starts(mapf)[i]
-get_goal(mapf::M, i) where {M<:PC_MAPF}         = get_goals(mapf)[i]
-get_start(mapf::M, env, i) where {M<:PC_MAPF}   = get_start(mapf,i)
+num_agents(mapf::M) where {M<:PC_TAPF}          = length(mapf.starts)
+num_goals(mapf::M) where {M<:PC_TAPF}           = length(mapf.goals)
+get_starts(mapf::M) where {M<:PC_TAPF}          = mapf.starts
+get_goals(mapf::M) where {M<:PC_TAPF}           = mapf.goals
+get_start(mapf::M, i) where {M<:PC_TAPF}        = get_starts(mapf)[i]
+get_goal(mapf::M, i) where {M<:PC_TAPF}         = get_goals(mapf)[i]
+get_start(mapf::M, env, i) where {M<:PC_TAPF}   = get_start(mapf,i)

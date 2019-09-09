@@ -4,5 +4,5 @@ let
     @test num_goals(mapf) == 4
 end
 let
-    PC_MAPF()
+    PC_TAPF()
 end
