@@ -291,8 +291,9 @@ export
     HardConflictTable,
     get_time_horizon,
     get_planned_vtx,
-    set_path!,
     reset_path!,
+    set_path!,
+    partially_set_path!,
     get_conflict_value,
     get_conflicting_paths,
     construct_empty_lookup_table
@@ -332,6 +333,24 @@ function set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::Int=0) where
     # now add new path vtxs to new path and lookup table
     for (i,vtx) in enumerate(path)
         t = (start_time-h.start_time) + i
+        h.paths[path_idx][t] = vtx
+        h.CAT[vtx,t] = h.CAT[vtx,t] + 1
+    end
+    h
+end
+"""
+    `partially_set_path!`
+
+    Only replaces the cached path from start_time to length(path). Useful if you
+    want the remainder of the cached path to stay in the lookup table (i.e. for
+    repairing an existing plan).
+"""
+function partially_set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::Int=0) where {V,M,T<:HardConflictTable{V,M}}
+    # now add new path vtxs to new path and lookup table
+    for (i,vtx) in enumerate(path)
+        t = (start_time-h.start_time) + i
+        old_vtx = h.paths[path_idx][t]
+        h.CAT[old_vtx,t] = h.CAT[old_vtx,t] - 1
         h.paths[path_idx][t] = vtx
         h.CAT[vtx,t] = h.CAT[vtx,t] + 1
     end
@@ -485,12 +504,27 @@ SoftConflictCost(args...) = FullCostModel(sum,ConflictCostModel(SoftConflictTabl
 
 get_time_horizon(h::H) where {H<:ConflictCostModel} = get_time_horizon(h.table)
 get_planned_vtx(h::H,args...) where {T<:HardConflictTable,H<:ConflictCostModel}  = get_planned_vtx(h.table,args...)
-reset_path!(h::H,args...) where {H<:ConflictCostModel}   = reset_path!(h.table,args...)
-set_path!(h::H,args...) where {H<:ConflictCostModel}     = set_path!(h.table,args...)
-set_path!(h::H,args...) where {H<:AbstractCostModel} = nothing
+reset_path!(h::H,args...) where {H<:ConflictCostModel}    = reset_path!(h.table,args...)
+reset_path!(h::H,args...) where {H<:AbstractCostModel}    = nothing
+reset_path!(h::FullCostModel{F,T,M},args...) where {F,T,M<:ConflictCostModel} = reset_path!(h.model,args...)
+function reset_path!(h::H,args...) where {H<:CompositeCostModel}
+    for m in h.cost_models
+        reset_path!(m,args...)
+    end
+end
+set_path!(h::H,args...) where {H<:ConflictCostModel}    = set_path!(h.table,args...)
+set_path!(h::H,args...) where {H<:AbstractCostModel}    = nothing
 set_path!(h::FullCostModel{F,T,M},args...) where {F,T,M<:ConflictCostModel} = set_path!(h.model,args...)
 function set_path!(h::H,args...) where {H<:CompositeCostModel}
     for m in h.cost_models
         set_path!(m,args...)
+    end
+end
+partially_set_path!(h::H,args...) where {H<:ConflictCostModel}    = partially_set_path!(h.table,args...)
+partially_set_path!(h::H,args...) where {H<:AbstractCostModel}    = nothing
+partially_set_path!(h::FullCostModel{F,T,M},args...) where {F,T,M<:ConflictCostModel} = partially_set_path!(h.model,args...)
+function partially_set_path!(h::H,args...) where {H<:CompositeCostModel}
+    for m in h.cost_models
+        partially_set_path!(m,args...)
     end
 end

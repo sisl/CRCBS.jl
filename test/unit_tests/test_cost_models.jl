@@ -48,22 +48,26 @@ let
     T = 10
     num_agents = 2
     h = HardConflictCost(G,T,num_agents)
-    set_path!(h,2,[1,2],0)
-    set_path!(h,1,[3,2],0)
+    set_path!(h,1,[5,4,3],0)
+    set_path!(h,2,[1,2,3],0)
     path_id_to_time_idx = get_conflicting_paths(h.model.table)
-    @test path_id_to_time_idx[1] == path_id_to_time_idx[2] == 1
+    @test path_id_to_time_idx[1] == path_id_to_time_idx[2] == 2
     # Agent 1 has a cost of 1 whenever it conflicts with agent 2's path
-    @test get_conflict_value(h.model,1,1,0) == 1.0
     @test get_conflict_value(h.model,1,2,1) == 1.0
-    @test get_conflict_value(h.model,1,2,0) == 0.0
+    @test get_conflict_value(h.model,1,3,2) == 1.0
+    @test get_conflict_value(h.model,1,4,0) == 0.0
     @test get_conflict_value(h.model,1,3,1) == 0.0
     # Agent 2 should have zero cost even when it conflicts with its own path
-    @test get_conflict_value(h.model,2,1,0) == 0.0
+    @test get_conflict_value(h.model,2,2,1) == 0.0
+    # Partial path reset - check that later conflicts still remain
+    partially_set_path!(h.model,2,[2,1],0)
+    @test get_conflict_value(h.model,1,2,1) == 0.0
+    @test get_conflict_value(h.model,1,3,2) == 1.0
 
-    set_path!(h.model,num_agents,[3,4],0)
+    set_path!(h.model,2,[3,4,5],0)
     # Now that agent 2's path has been updated, the cost should be zero for a
     # vtx no longer on the path
-    @test get_conflict_value(h.model,1,1,0) == 0.0
+    @test get_conflict_value(h.model,1,3,2) == 0.0
 end
 # MetaCost
 let
