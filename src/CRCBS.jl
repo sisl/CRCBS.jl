@@ -374,6 +374,7 @@ function get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
 end
 
 function integrate_node_with_box(n1,t1,n2,t2,nn,lambda,dtcount)
+    bound_radius=20
     function h(x)
         y = x[1]
         t = x[2]

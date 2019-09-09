@@ -151,15 +151,6 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
                 (n1,t1) = occupancy[r1]
                 (n2,t2) = occupancy[r2]
                 (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
-                # if cp==0
-                #     println("found probability of zero with parameters")
-                #     println("n1: ", n1)
-                #     println("t1: ", t1)
-                #     println("n2: ", n2)
-                #     println("t2: ", t2)
-                #     println("nn: ", nn)
-                #     println("lambda: ", lambda)
-                # end
 
 
                 # Count conflicts
@@ -330,15 +321,6 @@ function push_conflict_stats!(mapf::MAPF,paths::LowLevelSolution,solution_times:
                 (n1,t1) = occupancy[r1]
                 (n2,t2) = occupancy[r2]
                 (cp,err) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
-                # if cp==0
-                #     println("found probability of zero with parameters")
-                #     println("n1: ", n1)
-                #     println("t1: ", t1)
-                #     println("n2: ", n2)
-                #     println("t2: ", t2)
-                #     println("nn: ", nn)
-                #     println("lambda: ", lambda)
-                # end
 
 
                 # Count conflicts
