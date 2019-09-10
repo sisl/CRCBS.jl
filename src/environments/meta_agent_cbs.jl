@@ -62,7 +62,8 @@ function CRCBS.low_level_search!(
     node::N,
     idxs::Vector{Int}=collect(1:num_agents(mapf));
     heuristic=get_heuristic_cost,
-    path_finder=A_star) where {M<:AbstractMAPF,N<:ConstraintTreeNode}
+    path_finder=A_star,
+    verbose=false) where {M<:AbstractMAPF,N<:ConstraintTreeNode}
     # Only compute a path for the indices specified by idxs
     for i in idxs
         group = node.groups[i]

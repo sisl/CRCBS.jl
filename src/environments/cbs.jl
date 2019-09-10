@@ -62,6 +62,9 @@ CRCBS.states_match(env::LowLevelEnv,s1::State,s2::State) = (s1.vtx == s2.vtx)
 # is_goal
 function CRCBS.is_goal(env::LowLevelEnv,s::State)
     if states_match(s, env.goal)
+        if s.t < env.goal.t
+            return false
+        end
         ###########################
         # Cannot terminate if there is a constraint on the goal state in the
         # future (e.g. the robot will need to move out of the way so another
@@ -70,7 +73,9 @@ function CRCBS.is_goal(env::LowLevelEnv,s::State)
             if s.t < get_time_of(constraint)
                 if states_match(s, get_sp(constraint.v))
                     # @show s.t, get_time_of(constraint)
+                    # println("Constraint on goal vtx ", env.goal.vtx, " at time ",get_time_of(constraint)," - current time = ",s.t)
                     return false
+                    # return true
                 end
             end
         end

@@ -350,7 +350,9 @@ function partially_set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::In
     for (i,vtx) in enumerate(path)
         t = (start_time-h.start_time) + i
         old_vtx = h.paths[path_idx][t]
-        h.CAT[old_vtx,t] = h.CAT[old_vtx,t] - 1
+        if old_vtx != 0
+            h.CAT[old_vtx,t] = h.CAT[old_vtx,t] - 1
+        end
         h.paths[path_idx][t] = vtx
         h.CAT[vtx,t] = h.CAT[vtx,t] + 1
     end

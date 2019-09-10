@@ -26,12 +26,12 @@ end
 """
 struct CBS_Solver <: AbstractMAPFSolver end
 
-function solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_finder=A_star)
+function solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_finder=A_star;verbose=false)
     # priority queue that stores nodes in order of their cost
     priority_queue = PriorityQueue{ConstraintTreeNode,get_cost_type(mapf.env)}()
 
     root_node = initialize_root_node(mapf)
-    low_level_search!(solver,mapf,root_node;path_finder=path_finder)
+    low_level_search!(solver,mapf,root_node;path_finder=path_finder,verbose=verbose)
     detect_conflicts!(root_node.conflict_table,root_node.solution)
     if is_valid(root_node.solution,mapf)
         enqueue!(priority_queue, root_node => root_node.cost)
@@ -50,7 +50,10 @@ function solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_finder
         for constraint in constraints
             new_node = initialize_child_search_node(node)
             if add_constraint!(new_node,constraint)
-                low_level_search!(solver, mapf, new_node,[get_agent_id(constraint)]; path_finder=path_finder)
+                if verbose
+                    println("CBS: Constraint agent id = ",get_agent_id(constraint),", time index = ",get_time_of(constraint))
+                end
+                low_level_search!(solver, mapf, new_node,[get_agent_id(constraint)]; path_finder=path_finder,verbose=verbose)
                 detect_conflicts!(new_node.conflict_table,new_node.solution,[get_agent_id(constraint)]) # update conflicts related to this agent
                 if is_valid(new_node.solution, mapf)
                     # TODO update env (i.e. update heuristic, etc.)

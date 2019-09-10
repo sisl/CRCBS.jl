@@ -578,7 +578,7 @@ end
 """
 function low_level_search!(
     solver::S, mapf::M, node::N, idxs::Vector{Int}=collect(1:num_agents(mapf));
-    heuristic=get_heuristic_cost, path_finder=A_star
+    heuristic=get_heuristic_cost, path_finder=A_star, verbose=false
     ) where {S<:AbstractMAPFSolver,M<:AbstractMAPF,N<:ConstraintTreeNode}
     # Only compute a path for the indices specified by idxs
     for i in idxs

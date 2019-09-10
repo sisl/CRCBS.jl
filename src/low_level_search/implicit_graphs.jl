@@ -54,13 +54,13 @@ end
     - get_transition_cost(env::E,s::S,a::A)
     - violates_constraints(env::E,s::S,path::Path{S,A,C})
 """
-function A_star(env::E,path::P,heuristic::Function,initial_cost::T=get_cost(path)) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
+function A_star(env::E,path::P,heuristic::Function,initial_cost::T=get_cost(path)) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     frontier = PriorityQueue{Tuple{T, P, S}, T}()
     enqueue!(frontier, (initial_cost, path, get_final_state(path))=>initial_cost)
     explored = Set{S}()
     A_star_impl!(env,frontier,explored,heuristic)
 end
-function A_star(env::E,start_state::S,heuristic::Function,initial_cost::T=get_initial_cost(env)) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
+function A_star(env::E,start_state::S,heuristic::Function,initial_cost::T=get_initial_cost(env)) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     path = Path{S,A,T}(s0=start_state,cost=initial_cost)
     A_star(env,path,heuristic,initial_cost)
 end
