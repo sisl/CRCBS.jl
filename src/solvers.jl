@@ -39,6 +39,12 @@ function solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_finder
 
     while length(priority_queue) > 0
         node = dequeue!(priority_queue)
+        if verbose
+            println("CBS: Current paths: ")
+            for (i,path) in enumerate(get_paths(node.solution))
+                println("\t",i,": ",convert_to_vertex_lists(path))
+            end
+        end
         # check for conflicts
         conflict = get_next_conflict(node.conflict_table)
         if !is_valid(conflict)

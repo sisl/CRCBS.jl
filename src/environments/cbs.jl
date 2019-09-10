@@ -62,9 +62,9 @@ CRCBS.states_match(env::LowLevelEnv,s1::State,s2::State) = (s1.vtx == s2.vtx)
 # is_goal
 function CRCBS.is_goal(env::LowLevelEnv,s::State)
     if states_match(s, env.goal)
-        if s.t < env.goal.t
-            return false
-        end
+        # if s.t < env.goal.t
+        #     return false
+        # end
         ###########################
         # Cannot terminate if there is a constraint on the goal state in the
         # future (e.g. the robot will need to move out of the way so another
@@ -122,7 +122,7 @@ function CRCBS.get_transition_cost(env::E,c::C,s::State,a::Action,sp::State) whe
     return get_conflict_value(c, env.agent_idx, sp.vtx, sp.t)
 end
 function CRCBS.get_transition_cost(env::E,c::TravelDistance,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
-    return (s.vtx == sp.vtx) ? get_cost_type(env)(1) : get_cost_type(env)(0)
+    return (s.vtx == sp.vtx) ? 0.0 : 1.0
 end
 # violates_constraints
 function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action, sp::State)
@@ -133,7 +133,6 @@ function CRCBS.violates_constraints(env::LowLevelEnv, path, s::State, a::Action,
         return true
     end
     return false
-
     # cs = StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
     # constraints = env.constraints.sorted_state_constraints
     # idx = max(1, find_index_in_sorted_array(constraints, cs)-1)
@@ -187,14 +186,14 @@ CRCBS.detect_action_conflict(env::LowLevelEnv,n1::PathNode{State,Action},n2::Pat
 ############################### HELPER FUNCTIONS ###############################
 ################################################################################
 """ Helper for displaying Paths """
-function convert_to_vertex_lists(path::Path{State,Action})
+function CRCBS.convert_to_vertex_lists(path::Path{State,Action})
     vtx_list = [n.sp.vtx for n in path.path_nodes]
     if length(path) > 0
         vtx_list = [get_s(get_path_node(path,1)).vtx, vtx_list...]
     end
     vtx_list
 end
-function convert_to_vertex_lists(solution::L) where {T,C,L<:LowLevelSolution{State,Action,T,C}}
+function CRCBS.convert_to_vertex_lists(solution::L) where {T,C,L<:LowLevelSolution{State,Action,T,C}}
     return [convert_to_vertex_lists(path) for path in get_paths(solution)]
 end
 

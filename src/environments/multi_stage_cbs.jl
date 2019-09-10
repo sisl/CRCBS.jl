@@ -206,14 +206,14 @@ end
 ############################### HELPER FUNCTIONS ###############################
 ################################################################################
 """ Helper for displaying Paths """
-function convert_to_vertex_lists(path::Path)
+function CRCBS.convert_to_vertex_lists(path::Path)
     vtx_list = [n.sp.vtx for n in path.path_nodes]
     if length(path) > 0
         vtx_list = [get_s(get_path_node(path,1)).vtx, vtx_list...]
     end
     vtx_list
 end
-function convert_to_vertex_lists(solution::E) where {E<:LowLevelEnv}
+function CRCBS.convert_to_vertex_lists(solution::E) where {E<:LowLevelEnv}
     return [convert_to_vertex_lists(path) for path in get_paths(solution)]
 end
 

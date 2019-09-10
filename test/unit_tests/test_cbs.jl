@@ -123,7 +123,8 @@ let
         initialize_child_search_node(node)
         low_level_search!(solver,mapf,node)
         # high_level_search
-        solution, cost = CRCBS.solve!(solver,mapf)
+        println("Testing CBS in verbose mode")
+        solution, cost = CRCBS.solve!(solver,mapf;verbose=true)
     end
     # with CompositeCost and CompositeHeuristic
     let

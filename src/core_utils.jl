@@ -88,3 +88,12 @@ end
 function is_valid(solution::L,mapf::M) where {L<:LowLevelSolution, M<:AbstractMAPF}
     is_valid(solution,get_starts(mapf),get_goals(mapf))
 end
+
+################################################################################
+######################### Visualization and Debugging ##########################
+################################################################################
+
+export
+    convert_to_vertex_lists
+
+function convert_to_vertex_lists(path) end
