@@ -26,10 +26,6 @@ export
     TravelDistance,
     FinalTime,
     NullCost,
-    DeadlineCost,
-        set_deadline!,
-
-    FullDeadlineCost,
     MakeSpan,
     SumOfTravelDistance,
     SumOfTravelTime
@@ -243,6 +239,14 @@ struct NullCost         <: LowLevelCostModel{Float64} end
 get_transition_cost(env::E,model::F,s,a,sp) where {E<:AbstractLowLevelEnv,F<:NullCost} = 0.0
 accumulate_cost(model::NullCost,        cost,transition_cost) = cost
 
+export
+    DeadlineCost,
+    set_deadline!,
+    FullDeadlineCost,
+    WeightedDeadlinesCost,
+    SumOfMakeSpans
+
+abstract type AbstractDeadlineCost <: LowLevelCostModel{Float64} end
 """
     `DeadlineCost`
 
@@ -251,17 +255,13 @@ accumulate_cost(model::NullCost,        cost,transition_cost) = cost
 
     add_heuristic_cost: `c = max(0.0, t + Δt - deadline)`
 """
-mutable struct DeadlineCost     <: LowLevelCostModel{Float64}
+mutable struct DeadlineCost     <: AbstractDeadlineCost
     deadline::Float64 # deadline
-    # stage_deadline::Float64
     m::TravelTime
 end
-# DeadlineCost(deadline::R) where {R<:Real} = DeadlineCost(deadline,deadline,TravelTime())
 DeadlineCost(deadline::R) where {R<:Real} = DeadlineCost(deadline,TravelTime())
-# function set_deadline!(m::DeadlineCost,t_max,t_stage=t_max)
 function set_deadline!(m::DeadlineCost,t_max)
-    m.deadline = t_max
-    # m.stage_deadline = t_stage
+    m.deadline = minimum(t_max)
     return m
 end
 set_deadline!(m::C,args...) where {C<:AbstractCostModel} = nothing
@@ -272,17 +272,48 @@ function set_deadline!(m::C,args...) where {C<:CompositeCostModel}
         set_deadline!(model,args...)
     end
 end
-# get_initial_cost(m::DeadlineCost) = - get_cost_type(m)(m.deadline)
-get_initial_cost(m::DeadlineCost) = get_initial_cost(m.m)
-get_transition_cost(env::E,model::M,args...) where {E<:AbstractLowLevelEnv,M<:DeadlineCost} = get_transition_cost(env,model.m,args...)
-accumulate_cost(model::DeadlineCost,cost,transition_cost) = accumulate_cost(model.m,cost,transition_cost)
+get_initial_cost(m::C) where {C<:AbstractDeadlineCost} = get_initial_cost(m.m)
+get_transition_cost(env::E,model::M,args...) where {E<:AbstractLowLevelEnv,M<:AbstractDeadlineCost} = get_transition_cost(env,model.m,args...)
+accumulate_cost(model::C,cost,transition_cost) where {C<:AbstractDeadlineCost} = accumulate_cost(model.m,cost,transition_cost)
 # add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost + m.deadline - m.stage_deadline) # assumes heuristic is PerfectHeuristic
 add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost - m.deadline) # assumes heuristic is PerfectHeuristic
 FullDeadlineCost(model::DeadlineCost) = FullCostModel(costs->max(0.0, maximum(costs)),model)
 
-MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(MaxCost(),model)
-SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(SumCost(),model)
-SumOfTravelTime(model::TravelTime=TravelTime()) = FullCostModel(SumCost(), model)
+"""
+    `WeightedDeadlinesCost`
+"""
+struct WeightedDeadlinesCost <: AbstractDeadlineCost
+    weights::Vector{Float64}
+    deadlines::Vector{Float64}
+    m::TravelTime
+end
+function set_deadline!(m::WeightedDeadlinesCost,t_max)
+    m.deadlines .= t_max
+    return m
+end
+add_heuristic_cost(m::C, cost, h_cost) where {C<:WeightedDeadlinesCost} = max(0.0, cost + sum(m.weights .* (h_cost .- m.deadlines))) # assumes heuristic is PerfectHeuristic
+
+"""
+    `SumOfMakeSpans`
+"""
+struct SumOfMakeSpans <: AbstractDeadlineCost
+    tF::Vector{Float64}
+    root_nodes::Vector{Int}
+    weights::Vector{Float64}
+    deadlines::Vector{Float64}
+    m::TravelTime
+end
+SumOfMakeSpans(tF,root_nodes,weights,deadlines) = SumOfMakeSpans(tF,root_nodes,weights,deadlines,TravelTime())
+function set_deadline!(m::SumOfMakeSpans,t_max)
+    m.deadlines .= t_max
+    return m
+end
+add_heuristic_cost(m::C, cost, h_cost) where {C<:SumOfMakeSpans} = sum(m.weights .* max.(0.0, cost .+ h_cost .- m.deadlines)) # assumes heuristic is PerfectHeuristic
+aggregate_costs(m::C, costs::Vector{T}) where {T,C<:SumOfMakeSpans}  = sum(m.tF[m.root_nodes] .* m.weights)
+
+MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(maximum,model)
+SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(sum,model)
+SumOfTravelTime(model::TravelTime=TravelTime()) = FullCostModel(sum, model)
 
 ################################################################################
 ############################# HardConflictHeuristic ############################

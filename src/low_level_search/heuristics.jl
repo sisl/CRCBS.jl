@@ -2,6 +2,7 @@ export
     LowLevelSearchHeuristic,
     NullHeuristic,
     PerfectHeuristic,
+    DefaultPerfectHeuristic,
     # DeadlineHeuristic,
     MultiStagePerfectHeuristic,
     ConflictTableHeuristic,
@@ -65,6 +66,11 @@ function PerfectHeuristic(graph,starts::Vector{Int},goals::Vector{Int})
     dists = Dict(v => gdistances(graph,v) for v in goals)
     PerfectHeuristic(dists)
 end
+
+struct DefaultPerfectHeuristic <: LowLevelSearchHeuristic{Float64}
+    h::PerfectHeuristic
+end
+get_heuristic_cost(h::DefaultPerfectHeuristic,goal_vtx::Int,vtx::Int) = haskey(h.h.dists,goal_vtx) ? get_heuristic_cost(h.h,goal_vtx,vtx) : 0.0
 
 """
     `MultiStagePerfectHeuristic`

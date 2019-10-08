@@ -231,6 +231,16 @@ function count_conflicts(conflict_table::ConflictTable,idxs1::Vector{Int},idxs2:
     end
     return N
 end
+function count_conflicts(conflict_table::ConflictTable)
+    N = 0
+    for (k,v) in conflict_table.state_conflicts
+        N += length(v)
+    end
+    for (k,v) in conflict_table.action_conflicts
+        N += length(v)
+    end
+    return N
+end
 
 
 """
@@ -312,12 +322,11 @@ function detect_conflicts(paths::Vector{P} where {P <: Path}, idxs=collect(1:len
     # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     conflict_table = ConflictTable()
     detect_conflicts!(conflict_table,paths,idxs)
+    conflict_table
 end
-function detect_conflicts(solution::L, idxs=collect(1:length(paths))) where {L<:LowLevelSolution}
+function detect_conflicts(solution::L, idxs=collect(1:length(get_paths(solution)))) where {L<:LowLevelSolution}
     # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
-    # conflict_table = ConflictTable()
-    # detect_conflicts!(conflict_table,solution,idxs)
-    detect_conflicts(conflict_table,get_paths(solution),idxs)
+    detect_conflicts(get_paths(solution),idxs)
 end
 
 """ add detected conflicts to conflict table """

@@ -39,6 +39,21 @@ let
     @test add_heuristic_cost(model, cost, h_cost) == cost + h_cost
     # set_deadline!(model,t_max,t_max-4)
 end
+# SumOfMakeSpans cost
+let
+    tF = [1.0,2.0,3.0]
+    root_nodes = [2,3]
+    weights = [1,1]
+    deadlines = [0.0,0.0]
+    model = SumOfMakeSpans(tF,root_nodes,weights,deadlines)
+    set_deadline!(model,tF[root_nodes])
+    @test model.deadlines == tF[root_nodes]
+
+    cost = get_initial_cost(model)
+    @test add_heuristic_cost(model, 0, 2) == 0 + 0
+    @test add_heuristic_cost(model, 0, 3) == 1 + 0
+    @test add_heuristic_cost(model, 0, 4) == 2 + 1
+end
 # ConflictCostModel
 let
     G = Graph(5)

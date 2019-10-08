@@ -18,7 +18,7 @@ end
 @with_kw struct LowLevelEnv{S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} <: AbstractLowLevelEnv{State{S},Action{A},MetaCostModel{T,C}}
     envs::Vector{E}             = Vector{E}()
     cost_model::MetaCostModel{T,C} = MetaCostModel(
-        FullCostModel(SumCost(),TravelTime()),length(envs))
+        FullCostModel(sum,TravelTime()),length(envs))
 end
 function construct_meta_env(envs::Vector{E}) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
     LowLevelEnv{S,A,T,C,E}(envs=envs)

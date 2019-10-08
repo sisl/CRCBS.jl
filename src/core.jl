@@ -270,6 +270,9 @@ get_cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEn
 
 
 export
-    AbstractMAPFSolver
+    AbstractMAPFSolver,
+    NullSolver
+
 """ Abstract type for algorithms that solve MAPF instances """
 abstract type AbstractMAPFSolver end
+struct NullSolver <: AbstractMAPFSolver end
