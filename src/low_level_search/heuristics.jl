@@ -63,7 +63,7 @@ get_heuristic_cost(env::E,h::NullHeuristic,args...) where {E<:AbstractLowLevelEn
 end
 get_heuristic_cost(h::PerfectHeuristic,goal_vtx::Int,vtx::Int) = h.dists[goal_vtx][vtx]
 function PerfectHeuristic(graph,starts::Vector{Int},goals::Vector{Int})
-    dists = Dict(v => gdistances(graph,v) for v in goals)
+    dists = Dict(v => gdistances(graph,v) for v in goals if 0 < v <= nv(graph))
     PerfectHeuristic(dists)
 end
 

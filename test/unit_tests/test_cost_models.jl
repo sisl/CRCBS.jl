@@ -43,16 +43,30 @@ end
 let
     tF = [1.0,2.0,3.0]
     root_nodes = [2,3]
-    weights = [1,1]
+    weights = [1.0,1.0]
     deadlines = [0.0,0.0]
-    model = SumOfMakeSpans(tF,root_nodes,weights,deadlines)
-    set_deadline!(model,tF[root_nodes])
-    @test model.deadlines == tF[root_nodes]
+    let
+        model = SumOfMakeSpans(tF,root_nodes,weights,deadlines)
+        set_deadline!(model,tF[root_nodes])
+        @test model.deadlines == tF[root_nodes]
 
-    cost = get_initial_cost(model)
-    @test add_heuristic_cost(model, 0, 2) == 0 + 0
-    @test add_heuristic_cost(model, 0, 3) == 1 + 0
-    @test add_heuristic_cost(model, 0, 4) == 2 + 1
+        cost = get_initial_cost(model)
+        @test add_heuristic_cost(model, 0, 2) == 0 + 0
+        @test add_heuristic_cost(model, 0, 3) == 1 + 0
+        @test add_heuristic_cost(model, 0, 4) == 2 + 1
+        for (c,g) in [(0,1),(0,2),(0,3),(0,4)]
+            @test add_heuristic_cost(model, c, g) == c + sum(model.weights .* max.(0, g .- model.tF[model.root_nodes]))
+        end
+    end
+    let
+        model = MakeSpan(tF,root_nodes,weights,deadlines)
+        set_deadline!(model,tF[root_nodes])
+        @test model.deadlines == tF[root_nodes]
+        cost = get_initial_cost(model)
+        for (c,g) in [(0,1),(0,2),(0,3),(0,4)]
+            @test add_heuristic_cost(model, c, g) == c + maximum(model.weights .* max.(0, g .- model.tF[model.root_nodes]))
+        end
+    end
 end
 # ConflictCostModel
 let
