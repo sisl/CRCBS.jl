@@ -66,6 +66,10 @@ function PerfectHeuristic(graph,starts::Vector{Int},goals::Vector{Int})
     dists = Dict(v => gdistances(graph,v) for v in goals if 0 < v <= nv(graph))
     PerfectHeuristic(dists)
 end
+function PerfectHeuristic(dist_matrix::AbstractMatrix)
+    dists = Dict(v => dist_matrix[:,v] for v in 1:size(dist_matrix,2))
+    PerfectHeuristic(dists)
+end
 
 struct DefaultPerfectHeuristic <: LowLevelSearchHeuristic{Float64}
     h::PerfectHeuristic

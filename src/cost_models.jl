@@ -280,20 +280,6 @@ accumulate_cost(model::C,cost,transition_cost) where {C<:AbstractDeadlineCost} =
 add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost - m.deadline) # assumes heuristic is PerfectHeuristic
 FullDeadlineCost(model::DeadlineCost) = FullCostModel(costs->max(0.0, maximum(costs)),model)
 
-# """
-#     `WeightedDeadlinesCost`
-# """
-# struct WeightedDeadlinesCost <: AbstractDeadlineCost
-#     weights::Vector{Float64}
-#     deadlines::Vector{Float64}
-#     m::TravelTime
-# end
-# function set_deadline!(m::WeightedDeadlinesCost,t_max)
-#     m.deadlines .= t_max
-#     return m
-# end
-# add_heuristic_cost(m::C, cost, h_cost) where {C<:WeightedDeadlinesCost} = max(0.0, cost + sum(m.weights .* (h_cost .- m.deadlines))) # assumes heuristic is PerfectHeuristic
-
 """
     `MultiDeadlineCost`
 """
@@ -305,32 +291,14 @@ struct MultiDeadlineCost{F} <: AbstractDeadlineCost
     deadlines::Vector{Float64}
     m::TravelTime
 end
-SumOfMakeSpans(tF,root_nodes,weights,deadlines) = MultiDeadlineCost(sum,tF,root_nodes,weights,deadlines,TravelTime())
-MakeSpan(tF,root_nodes,weights,deadlines) = MultiDeadlineCost(maximum,tF,root_nodes,weights,deadlines,TravelTime())
+SumOfMakeSpans(tF,root_nodes,weights,deadlines) = MultiDeadlineCost(sum,Float64.(tF),root_nodes,Float64.(weights),Float64.(deadlines),TravelTime())
+MakeSpan(tF,root_nodes,weights,deadlines) = MultiDeadlineCost(maximum,Float64.(tF),root_nodes,Float64.(weights),Float64.(deadlines),TravelTime())
 function set_deadline!(m::M,t_max) where {M<:MultiDeadlineCost}
     m.deadlines .= t_max
     return m
 end
 add_heuristic_cost(m::C, cost, h_cost) where {C<:MultiDeadlineCost} = m.f(m.weights .* max.(0.0, cost .+ h_cost .- m.deadlines)) # assumes heuristic is PerfectHeuristic
 aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(m.tF[m.root_nodes] .* m.weights)
-
-# """
-#     `SumOfMakeSpans`
-# """
-# struct SumOfMakeSpans <: AbstractDeadlineCost
-#     tF::Vector{Float64}
-#     root_nodes::Vector{Int}
-#     weights::Vector{Float64}
-#     deadlines::Vector{Float64}
-#     m::TravelTime
-# end
-# SumOfMakeSpans(tF,root_nodes,weights,deadlines) = SumOfMakeSpans(tF,root_nodes,weights,deadlines,TravelTime())
-# function set_deadline!(m::SumOfMakeSpans,t_max)
-#     m.deadlines .= t_max
-#     return m
-# end
-# add_heuristic_cost(m::C, cost, h_cost) where {C<:SumOfMakeSpans} = sum(m.weights .* max.(0.0, cost .+ h_cost .- m.deadlines)) # assumes heuristic is PerfectHeuristic
-# aggregate_costs(m::C, costs::Vector{T}) where {T,C<:SumOfMakeSpans}  = sum(m.tF[m.root_nodes] .* m.weights)
 
 MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(maximum,model)
 SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(sum,model)

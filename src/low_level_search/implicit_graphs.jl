@@ -45,6 +45,7 @@ function A_star_impl!(solver, env::E, frontier, explored::Set{S}, heuristic::Fun
         end
         push!(explored,s)
     end
+    println("A*: Returning Infeasible")
     Path{S,A,T}(cost=get_infeasible_cost(env)), get_infeasible_cost(env)
 end
 

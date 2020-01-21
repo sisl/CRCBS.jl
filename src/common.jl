@@ -78,6 +78,13 @@ action2(conflict::Conflict)         = get_a(node2(conflict))
 next_state1(conflict::Conflict)     = get_sp(node1(conflict))
 next_state2(conflict::Conflict)     = get_sp(node2(conflict))
 time_of(conflict::Conflict)         = conflict.t
+Base.string(conflict::Conflict) = string(
+    "conflict type: ",conflict_type(conflict),
+    ": agent1=",agent1_id(conflict),
+    ", agent2=", agent2_id(conflict),
+    ", v1=(",get_s(node1(conflict)).vtx,",",get_sp(node1(conflict)).vtx,")",
+    ", v2=(",get_s(node2(conflict)).vtx,",",get_sp(node2(conflict)).vtx,")",
+    ", t=",get_s(node1(conflict)).t)
 """ Default (invalid) conflict """
 const DefaultConflict = Conflict{DefaultPathNode,DefaultPathNode}
 
@@ -110,7 +117,7 @@ end
 """
     detect conflicts between paths
 """
-function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int) where {P1<:Path,P2<:Path}
+function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int,t0::Int=1) where {P1<:Path,P2<:Path}
     # print("detect_conflicts!(conflict_table,path1::Path,path2::Path,i::Int,j::Int)\n")
     if length(path1) > length(path2)
         path2 = extend_path(path2,length(path1))
@@ -119,7 +126,7 @@ function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int) whe
     end
     @assert(length(path1) == length(path2))
     reset_conflict_table!(conflict_table,i,j)
-    for t in 1:length(path1)
+    for t in t0:length(path1)
         path_node1 = path1[t]
         path_node2 = path2[t]
         detect_conflicts!(conflict_table,path_node1,path_node2,i,j,t)
@@ -138,21 +145,21 @@ end
     - idxs                  (optional) a list of agent ids for which to check
                             collisions against all other agents
 """
-function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths))) where {P<:Path}
+function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths)),args...) where {P<:Path}
     # print("detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     for (i,path1) in enumerate(paths)
         for (j,path2) in enumerate(paths)
             if !(((i ∈ idxs) || (j ∈ idxs)) && (j > i)) # save time by working only on the upper triangle
                 continue
             end
-            detect_conflicts!(conflict_table,path1,path2,i,j)
+            detect_conflicts!(conflict_table,path1,path2,i,j,args...)
         end
     end
     return conflict_table
 end
 
-function detect_conflicts!(conflict_table, solution::L, idxs=collect(1:length(get_paths(solution)))) where {L <: LowLevelSolution}
-    detect_conflicts!(conflict_table,get_paths(solution),idxs)
+function detect_conflicts!(conflict_table, solution::L, idxs=collect(1:length(get_paths(solution))),args...) where {L <: LowLevelSolution}
+    detect_conflicts!(conflict_table,get_paths(solution),idxs,args...)
 end
 
 """
