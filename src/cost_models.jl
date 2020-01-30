@@ -72,6 +72,10 @@ add_heuristic_cost(env::E, cost, h_cost) where {E<:AbstractLowLevelEnv} = add_he
     completion time of all paths.
 """
 function aggregate_costs end
+"""
+    a special version of aggregate_costs for the meta_env
+"""
+aggregate_costs_meta(m::AbstractCostModel,args...) = aggregate_costs(m,args...)
 
 abstract type AggregationFunction end
 struct MaxCost <: AggregationFunction end
@@ -132,6 +136,11 @@ function aggregate_costs(model::C, costs::Vector{T}) where {T,M,C<:CompositeCost
         i->aggregate_costs(model.cost_models[i], map(c->c[i], costs)), 1:length(model.cost_models))
     T(aggregated_costs)
 end
+function aggregate_costs_meta(model::C, costs::Vector{T}) where {T,M,C<:CompositeCostModel{M,T}}
+    aggregated_costs = map(
+        i->aggregate_costs_meta(model.cost_models[i], map(c->c[i], costs)), 1:length(model.cost_models))
+    T(aggregated_costs)
+end
 function get_initial_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
     T(map(m->get_initial_cost(m),model.cost_models))
 end
@@ -170,10 +179,6 @@ struct MetaCostModel{T,M<:AbstractCostModel{T}} <: AbstractCostModel{MetaCost{T}
     model::M
     num_agents::Int
 end
-"""
-    a special version of aggregate_costs for the meta_env
-"""
-aggregate_costs_meta(m::AbstractCostModel,args...) = aggregate_costs(m,args...)
 aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MetaCostModel} = aggregate_costs(m.model, costs)
 function add_heuristic_cost(m::C, cost, h_cost) where {C<:MetaCostModel}
     costs = map(i->add_heuristic_cost(
