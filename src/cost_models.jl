@@ -303,7 +303,7 @@ function set_deadline!(m::M,t_max) where {M<:MultiDeadlineCost}
 end
 add_heuristic_cost(m::C, cost, h_cost) where {C<:MultiDeadlineCost} = m.f(m.weights .* max.(0.0, cost .+ h_cost .- m.deadlines)) # assumes heuristic is PerfectHeuristic
 aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(m.tF[m.root_nodes] .* m.weights) # TODO this is why A_star is failing on MetaEnv!
-aggregate_costs_meta(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(costs)
+aggregate_costs_meta(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = maximum(costs)
 
 MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(maximum,model)
 SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(sum,model)

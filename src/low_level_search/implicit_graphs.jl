@@ -4,6 +4,15 @@ export
 
 CRCBS.check_termination_criteria(solver,env,cost_so_far,path,s) = CRCBS.check_termination_criteria(env,cost_so_far,path,s)
 
+export
+    DefaultLogger,
+    step_logger!
+
+struct DefaultLogger end
+function step_logger!(logger, path, s, q_cost)
+    nothing
+end
+
 """
     The internal loop of the A* algorithm.
 """
@@ -14,6 +23,7 @@ function A_star_impl!(solver, env::E, frontier, explored::Set{S}, heuristic::Fun
     end
     while !isempty(frontier)
         (cost_so_far, path, s), q_cost = dequeue_pair!(frontier)
+        step_logger!(solver,path,s,q_cost)
         if verbose
             println("A_star: q_cost = ", q_cost)
             # print("(",s.vtx,",",s.t,"),")
