@@ -13,9 +13,9 @@ function A_star_impl!(solver, env::E, frontier, explored::Set{S}, heuristic::Fun
         # println("vtx_list=[")
     end
     while !isempty(frontier)
-        (cost_so_far, path, s) = dequeue!(frontier)
+        (cost_so_far, path, s), q_cost = dequeue_pair!(frontier)
         if verbose
-            println("A_star: cost_so_far = ",cost_so_far)
+            println("A_star: q_cost = ", q_cost)
             # print("(",s.vtx,",",s.t,"),")
         end
         if is_goal(env,s)

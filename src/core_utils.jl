@@ -19,9 +19,9 @@ function get_initial_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostM
                     s0=get_start(mapf,i),
                     cost=get_initial_cost(mapf.env)),
                 1:num_agents(mapf)),
+        cost_model = get_cost_model(mapf.env),
         costs = Vector{T}(map(a->get_initial_cost(mapf.env),1:num_agents(mapf))),
         cost = get_initial_cost(mapf.env),
-        cost_model = get_cost_model(mapf.env)
     )
 end
 """
@@ -30,9 +30,9 @@ end
 function get_infeasible_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     LowLevelSolution{S,A,T,C}(
         paths = Vector{Path{S,A,T}}(map(a->Path{S,A,T}(cost=get_initial_cost(mapf.env)),1:num_agents(mapf))),
+        cost_model = get_cost_model(mapf.env),
         costs = Vector{T}(map(a->get_initial_cost(mapf.env),1:num_agents(mapf))),
         cost = get_initial_cost(mapf.env),
-        cost_model = get_cost_model(mapf.env)
     )
 end
 """
@@ -60,6 +60,11 @@ function extend_path!(env::E,path::P,T::Int) where {E<:AbstractLowLevelEnv,P<:Pa
         path.cost = accumulate_cost(env, path.cost, get_transition_cost(env,s,a,sp))
     end
     return path
+end
+function extend_path(env::E,path::P,args...) where {E<:AbstractLowLevelEnv,P<:Path}
+    new_path = copy(path)
+    extend_path!(new_path,args...)
+    return new_path
 end
 
 ################################################################################

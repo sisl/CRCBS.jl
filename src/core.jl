@@ -179,9 +179,9 @@ end
     - path      the path to be extended
     - the desired length of the new path
 """
-function extend_path(path::P,T::Int) where {P<:Path}
+function extend_path(path::P,args...) where {P<:Path}
     new_path = copy(path)
-    extend_path!(new_path,T)
+    extend_path!(new_path,args...)
     return new_path
 end
 
@@ -217,15 +217,15 @@ export
 """
 @with_kw mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
     paths::Vector{Path{S,A,T}}  = Vector{Path{S,A,T}}()
-    costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(C()),1:length(paths))) # TODO C() is a problem
-    cost::T                     = get_initial_cost(C())
-    cost_model::C               = C()
+    cost_model::C               = C() # TODO C() is a problem
+    costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(cost_model),1:length(paths)))
+    cost::T                     = get_initial_cost(cost_model)
 end
 Base.copy(solution::L) where {L <: LowLevelSolution} = L(
     paths=copy(solution.paths),
+    cost_model=deepcopy(solution.cost_model),
     costs=copy(solution.costs),
     cost=deepcopy(solution.cost),
-    cost_model=deepcopy(solution.cost_model)
     )
 get_paths(solution::L) where {L <: LowLevelSolution}        = solution.paths
 get_path_costs(solution::L) where {L <: LowLevelSolution}   = solution.costs

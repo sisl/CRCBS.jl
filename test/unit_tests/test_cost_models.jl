@@ -75,8 +75,8 @@ let
         add_edge!(G,v,v+1)
     end
     T = 10
-    num_agents = 2
-    h = HardConflictCost(G,T,num_agents)
+    n_agents = 2
+    h = HardConflictCost(G,T,n_agents)
     set_path!(h,1,[5,4,3],0)
     set_path!(h,2,[1,2,3],0)
     path_id_to_time_idx = get_conflicting_paths(h.model.table)
@@ -101,7 +101,7 @@ end
 # MetaCost
 let
     t0 = 0.0
-    num_agents = 3
+    n_agents = 3
     cost = MetaCost{Float64}([1.0,3.0,4.0],0.0)
     transition_cost = [1.0,1.0,1.0]
     let
@@ -112,17 +112,17 @@ let
         SumOfTravelDistance()
     end
     let
-        model = MetaCostModel(MakeSpan(),num_agents)
+        model = MetaCostModel(MakeSpan(),n_agents)
         new_cost = accumulate_cost(model,cost,transition_cost)
         @test new_cost.total_cost == 5.0
     end
     let
-        model = MetaCostModel(SumOfTravelTime(),num_agents)
+        model = MetaCostModel(SumOfTravelTime(),n_agents)
         new_cost = accumulate_cost(model,cost,transition_cost)
         @test new_cost.total_cost == 11.0
     end
     let
-        model = FullCostModel(max,MetaCostModel(SumOfTravelTime(),num_agents))
+        model = FullCostModel(max,MetaCostModel(SumOfTravelTime(),n_agents))
         get_cost_model(model)
         new_cost = accumulate_cost(model,cost,transition_cost)
         @test new_cost.total_cost == 11.0

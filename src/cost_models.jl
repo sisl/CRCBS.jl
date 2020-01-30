@@ -170,13 +170,17 @@ struct MetaCostModel{T,M<:AbstractCostModel{T}} <: AbstractCostModel{MetaCost{T}
     model::M
     num_agents::Int
 end
+"""
+    a special version of aggregate_costs for the meta_env
+"""
+aggregate_costs_meta(m::AbstractCostModel,args...) = aggregate_costs(m,args...)
 aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MetaCostModel} = aggregate_costs(m.model, costs)
 function add_heuristic_cost(m::C, cost, h_cost) where {C<:MetaCostModel}
     costs = map(i->add_heuristic_cost(
         m.model,
         cost.independent_costs[i],
         h_cost[i]),1:m.num_agents)
-    MetaCost(costs, aggregate_costs(m, costs))
+    MetaCost(costs, aggregate_costs_meta(m.model, costs))
 end
 function accumulate_cost(model::M, cost::MetaCost{T}, transition_cost::Vector{T}) where {T,M<:MetaCostModel}
     new_costs = Vector{T}()
@@ -185,7 +189,7 @@ function accumulate_cost(model::M, cost::MetaCost{T}, transition_cost::Vector{T}
         transition_cost))
         push!(new_costs, accumulate_cost(model.model, c1, c2))
     end
-    total_cost = aggregate_costs(model.model,new_costs)
+    total_cost = aggregate_costs_meta(model.model,new_costs)
     new_cost = MetaCost{T}(new_costs,total_cost)
     return new_cost
 end
@@ -298,7 +302,8 @@ function set_deadline!(m::M,t_max) where {M<:MultiDeadlineCost}
     return m
 end
 add_heuristic_cost(m::C, cost, h_cost) where {C<:MultiDeadlineCost} = m.f(m.weights .* max.(0.0, cost .+ h_cost .- m.deadlines)) # assumes heuristic is PerfectHeuristic
-aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(m.tF[m.root_nodes] .* m.weights)
+aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(m.tF[m.root_nodes] .* m.weights) # TODO this is why A_star is failing on MetaEnv!
+aggregate_costs_meta(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(costs)
 
 MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(maximum,model)
 SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(sum,model)
@@ -334,7 +339,11 @@ end
 get_time_horizon(h::T) where {T<:HardConflictTable} = size(h.CAT,2)
 function get_planned_vtx(h::T,agent_idx::Int,t::Int) where {T<:HardConflictTable}
     t_idx = t + (1-h.start_time)
-    h.paths[agent_idx][t_idx]
+    if agent_idx == -1
+        return 0
+    else
+        return get(h.paths[agent_idx], t_idx, -1)
+    end
 end
 function reset_path!(h::T,path_idx::Int) where {V,M,T<:HardConflictTable{V,M}}
     # first remove the old path from the lookup table
@@ -380,14 +389,17 @@ function partially_set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::In
 end
 function get_conflict_value(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
     t_idx = t + (1-h.start_time)
-    c = h.CAT[vtx,t_idx]
-    if get_planned_vtx(h,agent_idx,t) == vtx # conflict with own trajectory
-        c = c - 1
+    try
+        # c = h.CAT[vtx,t_idx]
+        c = get(h.CAT, (vtx,t_idx), 0)
+        if get_planned_vtx(h,agent_idx,t) == vtx # conflict with own trajectory
+            c = c - 1
+        end
+        return c
+    catch e
+        @show vtx,t_idx,size(h.CAT)
+        throw(e)
     end
-    # if c > 0
-    #     println("get_conflict_value(agent_idx=",agent_idx,", vtx=",vtx," t=",t,") = ",c)
-    # end
-    return c
 end
 """
     `get_conflicting_paths`

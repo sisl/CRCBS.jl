@@ -39,7 +39,7 @@ CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
 """
 function split_path(path::Path{State{S},Action{A},MetaCost{C}}) where {S,A,C}
     N = length(get_s(get_path_node(path, 1)).states)
-    paths = [Path{S,A,C}() for i in 1:N]
+    paths = [Path{S,A,C}(cost=get_cost(path).independent_costs[i]) for i in 1:N]
     for t in 1:length(path)
         path_node = get_path_node(path, t)
         for i in 1:N
