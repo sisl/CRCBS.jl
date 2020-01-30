@@ -14,6 +14,8 @@ end
 @with_kw struct Action{A}
     actions::Vector{A} = Vector{A}()
 end
+Base.hash(s::State{S}) where {S} = hash(s.states)
+Base.:(==)(s1::S,s2::S) where {S<:State} = hash(s1) == hash(s2)
 
 @with_kw struct LowLevelEnv{S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} <: AbstractLowLevelEnv{State{S},Action{A},MetaCostModel{T,C}}
     envs::Vector{E}             = Vector{E}()

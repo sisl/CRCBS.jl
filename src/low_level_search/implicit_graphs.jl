@@ -5,34 +5,47 @@ export
 CRCBS.check_termination_criteria(solver,env,cost_so_far,path,s) = CRCBS.check_termination_criteria(env,cost_so_far,path,s)
 
 export
-    DefaultLogger,
-    step_logger!
+    logger_enter_a_star!,
+    logger_exit_a_star!,
+    logger_step_a_star!,
+    logger_find_constraint_a_star!,
+    logger_enqueue_a_star!
 
-struct DefaultLogger end
-function step_logger!(logger, path, s, q_cost)
+function logger_enter_a_star!(logger)
+    nothing
+end
+function logger_exit_a_star!(logger, path, cost, status)
+    if status == false
+        println("A*: Returning Infeasible")
+    end
+    nothing
+end
+function logger_step_a_star!(logger, path, s, q_cost)
+    nothing
+end
+function logger_find_constraint_a_star!(logger,env,path,s,a,sp)
+    nothing
+end
+function logger_enqueue_a_star!(logger,env,path,s,a,sp)
     nothing
 end
 
 """
     The internal loop of the A* algorithm.
+
+    # g(n) = cost of the path from the start node to n,
+    # h(n) = heuristic estimate of cost from n to goal
+    # f(n) = g(n) + h(n)
 """
 function A_star_impl!(solver, env::E, frontier, explored::Set{S}, heuristic::Function;verbose=false) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
-    if verbose
-        println("# A_star: entering...")
-        # println("vtx_list=[")
-    end
+    logger_enter_a_star!(solver)
+    opt_status = false
     while !isempty(frontier)
         (cost_so_far, path, s), q_cost = dequeue_pair!(frontier)
-        step_logger!(solver,path,s,q_cost)
-        if verbose
-            println("A_star: q_cost = ", q_cost)
-            # print("(",s.vtx,",",s.t,"),")
-        end
+        logger_step_a_star!(solver,path,s,q_cost)
         if is_goal(env,s)
-            if verbose
-                # println("\n]")
-                println("# A_star: returning")
-            end
+            opt_status = true
+            logger_exit_a_star!(solver,path,cost_so_far,opt_status)
             return path, cost_so_far
         elseif check_termination_criteria(solver,env,cost_so_far,path,s)
             break
@@ -42,26 +55,25 @@ function A_star_impl!(solver, env::E, frontier, explored::Set{S}, heuristic::Fun
             sp = get_next_state(env,s,a)
             # Skip node if it violates any of the constraints
             if violates_constraints(env,path,s,a,sp)
-                # if verbose
-                #     println("A_star: constraint violated by state: ",s,", action: ",a)
-                # end
+                logger_find_constraint_a_star!(solver,env,path,s,a,sp)
                 continue
             end
             if !(sp in explored)
                 new_path = cat(path, PathNode(s, a, sp))
                 new_path.cost = accumulate_cost(env, get_cost(path), get_transition_cost(env,s,a,sp))
+                logger_enqueue_a_star!(logger,env,new_path,s,a,sp)
                 enqueue!(frontier, (new_path.cost, new_path, sp) => add_heuristic_cost(env, new_path.cost, heuristic(env,sp)))
             end
         end
         push!(explored,s)
     end
-    println("A*: Returning Infeasible")
-    Path{S,A,T}(cost=get_infeasible_cost(env)), get_infeasible_cost(env)
+    # println("A*: Returning Infeasible")
+    path = Path{S,A,T}(cost=get_infeasible_cost(env))
+    cost = path.cost # get_infeasible_cost(env)
+    logger_exit_a_star!(solver,path,cost,opt_status)
+    return path, cost
 end
 
-# g(n) = cost of the path from the start node to n,
-# h(n) = heuristic estimate of cost from n to goal
-# f(n) = g(n) + h(n)
 
 """
     `A_star(env,start_state,heuristic)`
