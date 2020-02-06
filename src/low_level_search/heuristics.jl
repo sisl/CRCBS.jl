@@ -58,10 +58,14 @@ get_heuristic_cost(env::E,h::NullHeuristic,args...) where {E<:AbstractLowLevelEn
     An example of how to access the distance from vertex `v1` to goal `v2`:
     `get_heuristic_cost(h,v1,v2) = h.dists[v2][v1]`
 """
-@with_kw struct PerfectHeuristic <: LowLevelSearchHeuristic{Float64}
-    dists::Dict{Int,Vector{Float64}} = Dict{Int,Vector{Float64}}()
+@with_kw struct PerfectHeuristic{F} <: LowLevelSearchHeuristic{Float64}
+    # dists::Dict{Int,Vector{Float64}} = Dict{Int,Vector{Float64}}()
+    dists::F = (v1,v2)->0.0
 end
-get_heuristic_cost(h::PerfectHeuristic,goal_vtx::Int,vtx::Int) = h.dists[goal_vtx][vtx]
+function PerfectHeuristic(dists::Dict{Int,Vector{R}}) where {R<:Real}
+    PerfectHeuristic((v1,v2)->get(get(dists,v1,Int[]),v2,0)*1.0)
+end
+get_heuristic_cost(h::PerfectHeuristic,goal_vtx::Int,vtx::Int) = h.dists(goal_vtx,vtx)
 function PerfectHeuristic(graph,starts::Vector{Int},goals::Vector{Int})
     dists = Dict(v => gdistances(graph,v) for v in goals if 0 < v <= nv(graph))
     PerfectHeuristic(dists)

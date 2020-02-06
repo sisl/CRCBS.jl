@@ -53,8 +53,7 @@ function A_star_impl!(solver, env::E, frontier, explored::Set{S}, heuristic::Fun
 
         for a in get_possible_actions(env,s)
             sp = get_next_state(env,s,a)
-            # Skip node if it violates any of the constraints
-            if violates_constraints(env,path,s,a,sp)
+            if violates_constraints(env,path,s,a,sp) # Skip node if it violates any of the constraints
                 logger_find_constraint_a_star!(solver,env,path,s,a,sp)
                 continue
             end

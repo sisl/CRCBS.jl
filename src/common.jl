@@ -117,7 +117,7 @@ end
 """
     detect conflicts between paths
 """
-function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int,t0::Int=1) where {P1<:Path,P2<:Path}
+function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int;t0::Int=1) where {P1<:Path,P2<:Path}
     # print("detect_conflicts!(conflict_table,path1::Path,path2::Path,i::Int,j::Int)\n")
     if length(path1) > length(path2)
         path2 = extend_path(path2,length(path1))
@@ -145,21 +145,21 @@ end
     - idxs                  (optional) a list of agent ids for which to check
                             collisions against all other agents
 """
-function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths)),args...) where {P<:Path}
+function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths));kwargs...) where {P<:Path}
     # print("detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     for (i,path1) in enumerate(paths)
         for (j,path2) in enumerate(paths)
             if !(((i ∈ idxs) || (j ∈ idxs)) && (j > i)) # save time by working only on the upper triangle
                 continue
             end
-            detect_conflicts!(conflict_table,path1,path2,i,j,args...)
+            detect_conflicts!(conflict_table,path1,path2,i,j;kwargs...)
         end
     end
     return conflict_table
 end
 
-function detect_conflicts!(conflict_table, solution::L, idxs=collect(1:length(get_paths(solution))),args...) where {L <: LowLevelSolution}
-    detect_conflicts!(conflict_table,get_paths(solution),idxs,args...)
+function detect_conflicts!(conflict_table, solution::L, idxs=collect(1:length(get_paths(solution)));kwargs...) where {L <: LowLevelSolution}
+    detect_conflicts!(conflict_table,get_paths(solution),idxs;kwargs...)
 end
 
 """

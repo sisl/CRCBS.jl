@@ -381,14 +381,19 @@ end
 """
 function partially_set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::Int=0) where {V,M,T<:HardConflictTable{V,M}}
     # now add new path vtxs to new path and lookup table
+    t0 = (start_time-h.start_time)
     for (i,vtx) in enumerate(path)
-        t = (start_time-h.start_time) + i
-        old_vtx = h.paths[path_idx][t]
+        t = t0 + i
+        # try
+            old_vtx = h.paths[path_idx][t]
         if old_vtx != 0
             h.CAT[old_vtx,t] = h.CAT[old_vtx,t] - 1
         end
         h.paths[path_idx][t] = vtx
         h.CAT[vtx,t] = h.CAT[vtx,t] + 1
+        # catch e
+        #     throw(e)
+        # end
     end
     h
 end
