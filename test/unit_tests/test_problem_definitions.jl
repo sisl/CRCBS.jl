@@ -3,6 +3,3 @@ let
     @test num_agents(mapf) == 4
     @test num_goals(mapf) == 4
 end
-let
-    PC_TAPF()
-end
