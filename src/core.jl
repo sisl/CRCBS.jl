@@ -37,17 +37,23 @@ export
 """
 abstract type AbstractPath end
 @with_kw mutable struct Path{S,A,C} <: AbstractPath
-    s0          ::S                     = S()
     path_nodes  ::Vector{PathNode{S,A}} = Vector{PathNode{S,A}}()
+    s0          ::S                     = get_s(get(path_nodes, 1, PathNode{S,A}()))
     cost        ::C                     = typemax(C)
 end
+# function Path(path_nodes::Vector{P}, cost::C) where {P<:PathNode,C}
+#     Path(get_s(get))
+# end
 node_type(p::Path{S,A,C}) where {S,A,C}     = PathNode{S,A}
 Path(v::Vector{P}) where {P<:PathNode}      = Path(get_s(get(v,0,P())),v,0)
-Base.cat(p::P,x::N,i...) where {P<:Path,N<:PathNode} = P(p.s0,cat(p.path_nodes,x,dims=1),p.cost)
+Base.cat(p::P,x::N,i...) where {P<:Path,N<:PathNode} = P(s0=p.s0,path_nodes=cat(p.path_nodes,x,dims=1),cost=p.cost)
 Base.get(p::P,i,default) where {P<:Path}    = get(p.path_nodes,i,default)
 Base.getindex(p::P,i) where {P<:Path}       = getindex(p.path_nodes,i)
 Base.setindex!(p::P,x,i) where {P<:Path}    = setindex!(p.path_nodes,x,i)
 Base.length(p::P) where {P<:Path}           = length(p.path_nodes)
+Base.typemax(::Type{Tuple{R,Vararg{T,N}}}) where {R<:Real,T,N} = tuple(typemax(R), typemax(Tuple{Vararg{T,N}})...)
+Base.typemax(::Type{Tuple{Int}}) where {N}      = tuple(typemax(Int))
+Base.typemax(::Type{Tuple{Float64}}) where {N}  = tuple(typemax(Float64))
 function Base.push!(p::P,n::N) where {P<:Path,N<:PathNode}
     if length(p.path_nodes) == 0
         p.s0 = n.s

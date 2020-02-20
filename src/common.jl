@@ -471,7 +471,7 @@ end
     # set of paths (one per agent) through graph
     solution        ::LowLevelSolution{S,A,T,C} = LowLevelSolution{S,A,T,C}()
     # cost = sum([length(path) for path in solution])
-    cost            ::T                         = get_initial_cost(C())
+    cost            ::T                         = get_cost(solution)
     # index of parent node
     parent          ::Int                       = -1
     # indices of two child nodes
@@ -488,10 +488,10 @@ get_cost_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = T
 
     Construct an empty `ConstraintTreeNode` from a `AbstractMAPF` instance
 """
-function initialize_root_node(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+function initialize_root_node(mapf::MAPF{E,S,G},solution=get_initial_solution(mapf)) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     ConstraintTreeNode{S,A,T,C}(
-        solution    = get_initial_solution(mapf),
-        cost        = get_initial_cost(mapf.env),
+        solution    = solution,
+        cost        = get_cost(solution),
         constraints = Dict{Int,ConstraintTable}(
             i=>ConstraintTable(a=i) for i in 1:num_agents(mapf)
             ),
@@ -504,10 +504,10 @@ end
     Initialize a new `ConstraintTreeNode` with the same `solution` and
     `constraints` as the parent node
 """
-function initialize_child_search_node(parent_node::N) where {N<:ConstraintTreeNode}
+function initialize_child_search_node(parent_node::N, solution=copy(parent_node.solution)) where {N<:ConstraintTreeNode}
     N(
-        solution = copy(parent_node.solution),
-        cost = deepcopy(get_cost(parent_node.solution)),
+        solution = solution,
+        cost = deepcopy(get_cost(solution)),
         constraints = copy(parent_node.constraints),
         groups = copy(parent_node.groups),
         conflict_table = copy(parent_node.conflict_table),

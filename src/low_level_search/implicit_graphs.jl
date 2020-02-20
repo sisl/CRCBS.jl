@@ -20,14 +20,29 @@ function logger_exit_a_star!(logger, path, cost, status)
     end
     nothing
 end
-function logger_step_a_star!(logger, path, s, q_cost)
+function logger_step_a_star!(logger, s, q_cost)
     nothing
 end
-function logger_find_constraint_a_star!(logger,env,path,s,a,sp)
+function logger_find_constraint_a_star!(logger,env,s,a,sp)
     nothing
 end
-function logger_enqueue_a_star!(logger,env,path,s,a,sp)
+function logger_enqueue_a_star!(logger,env,s,a,sp)
     nothing
+end
+
+"""
+    reconstruct path by working backward from the terminal state
+"""
+function reconstruct_path(base_path::P,predecessor_dict::Dict{K,V},s,cost) where {P,K,V}
+    node_sequence = Vector{V}()
+    while haskey(predecessor_dict, s)
+        path_node = predecessor_dict[s]
+        push!(node_sequence, path_node)
+        s = get_s(path_node)
+    end
+    reverse!(node_sequence)
+    prepend!(node_sequence, base_path.path_nodes)
+    P(path_nodes=node_sequence, s0=get_initial_state(base_path), cost=cost)
 end
 
 """
@@ -37,31 +52,37 @@ end
     # h(n) = heuristic estimate of cost from n to goal
     # f(n) = g(n) + h(n)
 """
-function A_star_impl!(solver, env::E, frontier, explored::Set{S}, heuristic::Function;verbose=false) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
+function A_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S}, heuristic::Function;verbose=false) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
     logger_enter_a_star!(solver)
+    cost_dict = Dict{S,T}()
+    predecessor_dict = Dict{S,PathNode{S,A}}() # TODO: get some speedup by converting states to indices (this would become a vector)
+    default_cost = get_infeasible_cost(env)
     opt_status = false
     while !isempty(frontier)
-        (cost_so_far, path, s), q_cost = dequeue_pair!(frontier)
-        logger_step_a_star!(solver,path,s,q_cost)
+        (cost_so_far, s), q_cost = dequeue_pair!(frontier)
         if is_goal(env,s)
             opt_status = true
-            logger_exit_a_star!(solver,path,cost_so_far,opt_status)
-            return path, cost_so_far
-        elseif check_termination_criteria(solver,env,cost_so_far,path,s)
+            r_path = reconstruct_path(base_path,predecessor_dict,s,cost_so_far)
+            logger_exit_a_star!(solver,r_path,s,q_cost)
+            return r_path, cost_so_far
+        elseif check_termination_criteria(solver,env,cost_so_far,s)
             break
         end
 
         for a in get_possible_actions(env,s)
             sp = get_next_state(env,s,a)
-            if violates_constraints(env,path,s,a,sp) # Skip node if it violates any of the constraints
-                logger_find_constraint_a_star!(solver,env,path,s,a,sp)
+            if violates_constraints(env,s,a,sp) # Skip node if it violates any of the constraints
+                logger_find_constraint_a_star!(solver,env,s,a,sp)
                 continue
             end
             if !(sp in explored)
-                new_path = cat(path, PathNode(s, a, sp))
-                new_path.cost = accumulate_cost(env, get_cost(path), get_transition_cost(env,s,a,sp))
-                logger_enqueue_a_star!(logger,env,new_path,s,a,sp)
-                enqueue!(frontier, (new_path.cost, new_path, sp) => add_heuristic_cost(env, new_path.cost, heuristic(env,sp)))
+                new_cost = accumulate_cost(env, cost_so_far, get_transition_cost(env,s,a,sp))
+                logger_enqueue_a_star!(logger,env,s,a,sp)
+                if new_cost < get(cost_dict, sp, default_cost)
+                    cost_dict[sp] = new_cost
+                    predecessor_dict[sp] = PathNode(s, a, sp) # track predecessor
+                    enqueue!(frontier, (new_cost, sp) => add_heuristic_cost(env, new_cost, heuristic(env,sp)))
+                end
             end
         end
         push!(explored,s)
@@ -94,10 +115,10 @@ end
     - violates_constraints(env::E,s::S,path::Path{S,A,C})
 """
 function A_star(solver, env::E,path::P,heuristic::Function,initial_cost::T=get_cost(path);verbose=false) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    frontier = PriorityQueue{Tuple{T, P, S}, T}()
-    enqueue!(frontier, (initial_cost, path, get_final_state(path))=>initial_cost)
+    frontier = PriorityQueue{Tuple{T, S}, T}()
+    enqueue!(frontier, (initial_cost, get_final_state(path))=>initial_cost)
     explored = Set{S}()
-    A_star_impl!(solver,env,frontier,explored,heuristic;verbose=verbose)
+    A_star_impl!(solver,env,path,frontier,explored,heuristic;verbose=verbose)
 end
 function A_star(env::E,path::P,heuristic::Function,initial_cost::T=get_cost(path);verbose=false) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     A_star(NullSolver(),env,path,heuristic,initial_cost;verbose=verbose)
