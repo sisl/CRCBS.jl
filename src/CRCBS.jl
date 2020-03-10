@@ -252,8 +252,8 @@ end
 """
 function initialize_child_node(parent_node::ConstraintTreeNode)
     ConstraintTreeNode(
-        solution = copy(parent_node.solution),
-        constraints = copy(parent_node.constraints)
+        solution = deepcopy(parent_node.solution), ################
+        constraints = deepcopy(parent_node.constraints)
     )
 end
 

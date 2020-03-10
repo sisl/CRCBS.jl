@@ -36,7 +36,7 @@ end
 function initialize_full_grid_graph()
     dx = 1.0
     dy = 1.0
-    x_pts=collect(0.0:dx:5.0)
+    x_pts=collect(0.0:dx:4.0)
     y_pts=collect(0.0:dy:4.0)
     G = MetaGraph() # navigation graph
     pts = []

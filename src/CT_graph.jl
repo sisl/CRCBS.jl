@@ -11,11 +11,11 @@ using CRCBS
 
 include("utils.jl")
 
-function initialize_full_grid_graph()
+function initialize_full_grid_graph(dim=10.0)
     dx = 1.0
     dy = 1.0
-    x_pts=collect(0.0:dx:10.0)
-    y_pts=collect(0.0:dy:10.0)
+    x_pts=collect(0.0:dx:dim)
+    y_pts=collect(0.0:dy:dim)
     G = MetaDiGraph() # navigation graph
     pts = []
     for x in x_pts
