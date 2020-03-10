@@ -33,16 +33,16 @@ end
 """
     reconstruct path by working backward from the terminal state
 """
-function reconstruct_path(base_path::P,predecessor_dict::Dict{K,V},s,cost) where {P,K,V}
-    node_sequence = Vector{V}()
-    while haskey(predecessor_dict, s)
-        path_node = predecessor_dict[s]
+function reconstruct_path(base_path::Path{S,A,T},predecessor_map,s,cost) where {S,A,T}
+    node_sequence = Vector{PathNode{S,A}}()
+    while haskey(predecessor_map, s)
+        path_node = predecessor_map[s]
         push!(node_sequence, path_node)
         s = get_s(path_node)
     end
     reverse!(node_sequence)
     prepend!(node_sequence, base_path.path_nodes)
-    P(path_nodes=node_sequence, s0=get_initial_state(base_path), cost=cost)
+    Path(path_nodes=node_sequence, s0=get_initial_state(base_path), cost=cost)
 end
 
 """
@@ -54,16 +54,17 @@ end
 """
 function A_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S}, heuristic::Function;verbose=false) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
     logger_enter_a_star!(solver)
-    cost_dict = Dict{S,T}()
-    predecessor_dict = Dict{S,PathNode{S,A}}() # TODO: get some speedup by converting states to indices (this would become a vector)
+    cost_map = Dict{S,T}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
+    predecessor_map = Dict{S,PathNode{S,A}}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
     default_cost = get_infeasible_cost(env)
     opt_status = false
     while !isempty(frontier)
         (cost_so_far, s), q_cost = dequeue_pair!(frontier)
+        logger_step_a_star!(solver,s,q_cost)
         if is_goal(env,s)
             opt_status = true
-            r_path = reconstruct_path(base_path,predecessor_dict,s,cost_so_far)
-            logger_exit_a_star!(solver,r_path,s,q_cost)
+            r_path = reconstruct_path(base_path,predecessor_map,s,cost_so_far)
+            logger_exit_a_star!(solver,r_path,cost_so_far,opt_status)
             return r_path, cost_so_far
         elseif check_termination_criteria(solver,env,cost_so_far,s)
             break
@@ -77,10 +78,10 @@ function A_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S
             end
             if !(sp in explored)
                 new_cost = accumulate_cost(env, cost_so_far, get_transition_cost(env,s,a,sp))
-                logger_enqueue_a_star!(logger,env,s,a,sp)
-                if new_cost < get(cost_dict, sp, default_cost)
-                    cost_dict[sp] = new_cost
-                    predecessor_dict[sp] = PathNode(s, a, sp) # track predecessor
+                logger_enqueue_a_star!(solver,env,s,a,sp)
+                if new_cost < get(cost_map, sp, default_cost)
+                    cost_map[sp] = new_cost
+                    predecessor_map[sp] = PathNode(s, a, sp) # track predecessor
                     enqueue!(frontier, (new_cost, sp) => add_heuristic_cost(env, new_cost, heuristic(env,sp)))
                 end
             end

@@ -61,7 +61,7 @@ function Base.push!(p::P,n::N) where {P<:Path,N<:PathNode}
     push!(p.path_nodes,n)
 end
 get_cost(p::P) where {P<:Path}              = p.cost
-Base.copy(p::P) where {P<:Path}             = Path(p.s0,copy(p.path_nodes),p.cost)
+Base.copy(p::P) where {P<:Path}             = Path(s0=p.s0,path_nodes=copy(p.path_nodes),cost=p.cost)
 
 function get_initial_state(path::P) where {P<:Path}
     if length(path) > 0

@@ -506,12 +506,12 @@ end
 """
 function initialize_child_search_node(parent_node::N, solution=copy(parent_node.solution)) where {N<:ConstraintTreeNode}
     N(
-        solution = solution,
-        cost = deepcopy(get_cost(solution)),
-        constraints = copy(parent_node.constraints),
-        groups = copy(parent_node.groups),
-        conflict_table = copy(parent_node.conflict_table),
-        parent = parent_node.id
+        solution        = solution,
+        cost            = deepcopy(get_cost(solution)),
+        constraints     = deepcopy(parent_node.constraints),
+        groups          = deepcopy(parent_node.groups),
+        conflict_table  = deepcopy(parent_node.conflict_table),
+        parent          = parent_node.id
     )
 end
 
