@@ -254,8 +254,8 @@ end
     `constraints` as the parent node"""
 function initialize_child_node(parent_node::ConstraintTreeNode)
     ConstraintTreeNode(
-        solution = copy(parent_node.solution),
-        constraints = copy(parent_node.constraints)
+        solution = deepcopy(parent_node.solution),
+        constraints = deepcopy(parent_node.constraints)
     )
 end
 
@@ -442,7 +442,7 @@ function get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
     preliminary_count = res[1]
     dtcount = res[2]
     if preliminary_count < 0.0001
-        return 0.0,0.0,dt_count
+        return 0.0,0.0,dtcount
     else
         return integrate_edge_with_box(n1,t1,n2,t2,t_edge,lambda,dtcount)
     end
@@ -1048,7 +1048,7 @@ function low_level_search!(mapf::MAPF,
     """Returns a low level solution for a MAPF with constraints"""
     # compute an initial solution
     # solution = LowLevelSolution()
-    println("ASTAR: ", length(idxs))
+    #println("ASTAR: ", length(idxs))
     sleep(0.1)
     for i in idxs
         pathwtime = @timed(path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),mapf,distmx_DP,distmx))
@@ -1110,14 +1110,14 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     iteration_count = 0
 
     while length(priority_queue) > 0 && iteration_count < max_iterations
-        print("\n \n")
+        #print("\n \n")
         node = dequeue!(priority_queue)
         # check for conflicts
         # node_conflict, edge_conflict, integral_deltat = get_most_likely_conflicts!(mapf,node.solution,num_interactions)
         node_conflict, edge_conflict, counting_deltat,conflict_params = count_most_likely_conflicts!(mapf,node.solution,num_interactions)
         countingtime += counting_deltat
         if is_valid(node_conflict)
-            println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
+            #println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
             constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
         elseif is_valid(edge_conflict)
             constraints = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
@@ -1186,7 +1186,7 @@ function STTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     iteration_count = 0
 
     while length(priority_queue) > 0 && iteration_count < max_iterations
-        print("\n \n")
+        #print("\n \n")
         node = dequeue!(priority_queue)
         # check for conflicts
         # node_conflict, edge_conflict, integral_deltat = get_most_likely_conflicts!(mapf,node.solution,num_interactions)
@@ -1206,7 +1206,7 @@ function STTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
         for node_conflict in node_conflicts
 
             if is_valid(node_conflict)
-                println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
+                #println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
                 constraints = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay)
                 for constraint in constraints
                     new_node = initialize_child_node(node)
