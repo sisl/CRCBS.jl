@@ -37,6 +37,8 @@ export
     low_level_search!,
     CBS
 
+const k_robust = 2
+
 
 """
     A MAPF is an instance of a Multi Agent Path Finding problem. It consists of
@@ -84,15 +86,17 @@ end
 
 abstract type CBSConflict end
 
+# Changes -----------------------------------------------------------
 """
-    Encodes a conflict wherein two agents occupy a particular node at a
-    particular time
+    Encodes a conflict wherein two agents occupy a particular node at times that
+    are close enough by k
 """
 struct NodeConflict <: CBSConflict
     agent1_id::Int
     agent2_id::Int
     node_id::Int
-    t::Int
+    t1::Int
+    t2::Int # Added for krobust
 end
 
 """ Checks for a `NodeConflict` between two `Edge`s """
@@ -103,18 +107,32 @@ function detect_node_conflict(edge1::Edge,edge2::Edge)
     return false
 end
 
-""" Checks for a `NodeConflict` between two `GraphPath`s at time t """
+# Krobust Changes ------------------------------------------------------------
+""" Checks for a `NodeConflict` between two `GraphPath`s at time t.
+This means that for one agent at a node at time t, the other agent
+does not cross this node at time t+1, or t+2, or... or t+k_robust.
+We do the same for the other agent. """
 function detect_node_conflict(path1::GraphPath,path2::GraphPath,t::Int)
     e1 = get_edge(path1,t)
     e2 = get_edge(path2,t)
-    if detect_node_conflict(e1,e2)
-        return true
+    for k=0:k_robust-1
+        # This should be bug-free as the default returned edge is the last.
+        #Fix agent 1, scan agent 2
+        e2k = get_edge(path2,t+k)
+        if detect_node_conflict(e1,e2k)
+            return true, 2, k #the second agent will be at the node in k steps
+        end
+        # Fix agent 2, scan agent 1
+        e1k = get_edge(path1,t+k)
+        if detect_node_conflict(e1k,e2)
+            return true, 1, k #the first agent will be at the node in k steps
+        end
     end
-    return false
+    return false, -1, -1
 end
 
 """ Returns an invalid NodeConflict """
-invalid_node_conflict() = NodeConflict(-1,-1,-1,-1)
+invalid_node_conflict() = NodeConflict(-1,-1,-1,-1,-1)
 
 """ Checks if a node conflict is valid """
 is_valid(conflict::NodeConflict) = (conflict.agent1_id != -1)
@@ -128,7 +146,8 @@ struct EdgeConflict <: CBSConflict
     agent2_id::Int
     node1_id::Int
     node2_id::Int
-    t::Int
+    t1::Int #changed for krobust
+    t2::Int #Changed for krobust
 end
 
 """ Checks for an `EdgeConflict` between two `Edge`s """
@@ -139,18 +158,38 @@ function detect_edge_conflict(edge1::Edge,edge2::Edge)
     return false
 end
 
+# """ Checks for an `EdgeConflict` between two `GraphPath`s at time t """
+# function detect_edge_conflict(path1::GraphPath,path2::GraphPath,t::Int)
+#     e1 = get_edge(path1,t)
+#     e2 = get_edge(path2,t)
+#     if detect_edge_conflict(e1,e2)
+#         return true
+#     end
+#     return false
+# end
+
 """ Checks for an `EdgeConflict` between two `GraphPath`s at time t """
 function detect_edge_conflict(path1::GraphPath,path2::GraphPath,t::Int)
     e1 = get_edge(path1,t)
     e2 = get_edge(path2,t)
-    if detect_edge_conflict(e1,e2)
-        return true
+    for k=0:k_robust-1
+        # This should be bug-free as the default returned edge is the last.
+        #Fix agent 1, scan agent 2
+        e2k = get_edge(path2,t+k)
+        if detect_edge_conflict(e1,e2k)
+            return true, 2, k #the second agent will be at the node in k steps
+        end
+        # Fix agent 2, scan agent 1
+        e1k = get_edge(path1,t+k)
+        if detect_edge_conflict(e1k,e2)
+            return true, 1, k #the first agent will be at the node in k steps
+        end
     end
-    return false
+    return false, -1, -1
 end
 
 """ Returns an invalid EdgeConflict """
-invalid_edge_conflict() = EdgeConflict(-1,-1,-1,-1,-1)
+invalid_edge_conflict() = EdgeConflict(-1,-1,-1,-1,-1,-1)
 
 """ checks if an edge node is invalid """
 is_valid(conflict::EdgeConflict) = (conflict.agent1_id != -1)
@@ -374,12 +413,26 @@ function get_next_conflicts(paths::LowLevelSolution,
     for j in j_:length(paths)
         path2 = paths[j]
         e2 = get_edge(path2,t)
-        if detect_node_conflict(e1,e2)
-            node_conflict = NodeConflict(i,j,e1.dst,t)
+
+        # Changes
+        conflict, which, delay = detect_node_conflict(path1,path2,t)
+        conflict_edge, which_edge, delay_edge = detect_edge_conflict(path1,path2,t)
+        if conflict # Now only the first term indicates conflict
+            if which==1
+                node_conflict = NodeConflict(i,j,e2.dst,t+delay,t)
+            else
+                node_conflict = NodeConflict(i,j,e1.dst,t,t+delay)
+            end
             return node_conflict, edge_conflict
-        elseif detect_edge_conflict(e1,e2)
-            edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
+        elseif conflict_edge
+            if which_edge==1
+                edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t+delay_edge,t)
+            else
+                edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t,t+delay_edge)
+            end
             return node_conflict, edge_conflict
+            #edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
+            #return node_conflict, edge_conflict
         end
     end
     # Continue search from next time step
@@ -389,11 +442,21 @@ function get_next_conflicts(paths::LowLevelSolution,
             for j in i+1:length(paths)
                 path2 = paths[j]
                 e2 = get_edge(path2,t)
-                if detect_node_conflict(e1,e2)
-                    node_conflict = NodeConflict(i,j,e1.dst,t)
+                conflict, which, delay = detect_node_conflict(path1,path2,t)
+                conflict_edge, which_edge, delay_edge = detect_edge_conflict(path1,path2,t)
+                if conflict
+                    if which==1
+                        node_conflict = NodeConflict(i,j,e2.dst,t+delay,t)
+                    else
+                        node_conflict = NodeConflict(i,j,e1.dst,t,t+delay)
+                    end
                     return node_conflict, edge_conflict
-                elseif detect_edge_conflict(e1,e2)
-                    edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t)
+                elseif conflict_edge
+                    if which_edge==1
+                        edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t+delay_edge,t)
+                    else
+                        edge_conflict = EdgeConflict(i,j,e1.src,e1.dst,t,t+delay_edge)
+                    end
                     return node_conflict, edge_conflict
                 end
             end
@@ -440,17 +503,17 @@ end
 """
 function generate_constraints_from_conflict(conflict::NodeConflict)
     return [
-        # Agent 1 may not occupy node at time t + 1
+        # Agent 1 may not occupy node at time t1 + 1
         NodeConstraint(
             conflict.agent1_id,
             conflict.node_id,
-            conflict.t
+            conflict.t1
         ),
-        # Agent 2 may not occupy node at time t + 1
+        # Agent 2 may not occupy node at time t2 + 1
         NodeConstraint(
             conflict.agent2_id,
             conflict.node_id,
-            conflict.t
+            conflict.t2
         )
         ]
 end
@@ -459,22 +522,24 @@ end
     generates a set of constraints from an EdgeConflict
 """
 function generate_constraints_from_conflict(conflict::EdgeConflict)
+
     return [
-        # Agent 1 may not traverse Edge(node1,node2) at time t
+        # Agent 1 may not traverse Edge(node1,node2) until time t1
         EdgeConstraint(
             conflict.agent1_id,
             conflict.node1_id,
             conflict.node2_id,
-            conflict.t # + 1
+            conflict.t1
         ),
-        # Agent 2 may not traverse Edge(node2,node1) at time t
+        # Agent 2 may not traverse Edge(node2,node1) until time t2
         EdgeConstraint(
             conflict.agent2_id,
             conflict.node2_id,
             conflict.node1_id,
-            conflict.t# + 1
+            conflict.t2
         )
         ]
+
 end
 
 """
