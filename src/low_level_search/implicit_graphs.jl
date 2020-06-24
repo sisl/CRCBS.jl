@@ -11,22 +11,22 @@ export
     logger_find_constraint_a_star!,
     logger_enqueue_a_star!
 
-function logger_enter_a_star!(logger)
+function logger_enter_a_star!(logger,args...)
     nothing
 end
-function logger_exit_a_star!(logger, path, cost, status)
+function logger_exit_a_star!(logger, path, cost, status, args...)
     if status == false
         println("A*: Returning Infeasible")
     end
     nothing
 end
-function logger_step_a_star!(logger, s, q_cost)
+function logger_step_a_star!(logger, s, q_cost, args...)
     nothing
 end
-function logger_find_constraint_a_star!(logger,env,s,a,sp)
+function logger_find_constraint_a_star!(logger,env,s,a,sp,args...)
     nothing
 end
-function logger_enqueue_a_star!(logger,env,s,a,sp)
+function logger_enqueue_a_star!(logger,env,s,a,sp,args...)
     nothing
 end
 
@@ -60,7 +60,7 @@ function A_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S
     opt_status = false
     while !isempty(frontier)
         (cost_so_far, s), q_cost = dequeue_pair!(frontier)
-        logger_step_a_star!(solver,s,q_cost)
+        logger_step_a_star!(solver,env,base_path,s,q_cost)
         if is_goal(env,s)
             opt_status = true
             r_path = reconstruct_path(base_path,predecessor_map,s,cost_so_far)
@@ -78,11 +78,12 @@ function A_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S
             end
             if !(sp in explored)
                 new_cost = accumulate_cost(env, cost_so_far, get_transition_cost(env,s,a,sp))
-                logger_enqueue_a_star!(solver,env,s,a,sp)
                 if new_cost < get(cost_map, sp, default_cost)
                     cost_map[sp] = new_cost
                     predecessor_map[sp] = PathNode(s, a, sp) # track predecessor
-                    enqueue!(frontier, (new_cost, sp) => add_heuristic_cost(env, new_cost, heuristic(env,sp)))
+                    h_cost = add_heuristic_cost(env, new_cost, heuristic(env,sp))
+                    logger_enqueue_a_star!(solver,env,s,a,sp,h_cost)
+                    enqueue!(frontier, (new_cost, sp) => h_cost)
                 end
             end
         end

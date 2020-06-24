@@ -127,9 +127,12 @@ function get_path_node(path::P,t::Int) where {P<:Path}
     else
         t₀ = get_index_from_time(path,get_end_index(path))
         if t₀ <= 0
-            sp = get_initial_state(path)
+            node = node_type(path)(sp=get_initial_state(path))
+            s = get_s(node)
+            a = get_a(node)
+            sp = get_sp(node)
         else
-            node = get(path,length(path),node_type(path)())
+            node = get(path,length(path),node_type(path)(s=get_initial_state(path)))
             s = get_s(node)
             a = get_a(node)
             sp = get_sp(node)

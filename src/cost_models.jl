@@ -39,6 +39,7 @@ get_infeasible_cost(mapf::M) where {M<:AbstractMAPF}        = get_infeasible_cos
 get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(get_cost_model(env))
 get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(get_cost_type(model))
 
+get_transition_cost(env::E,s,a) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,get_cost_model(env),s,a,get_next_state(env,s,a))
 get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,get_cost_model(env),s,a,sp)
 
 """
@@ -79,9 +80,9 @@ aggregate_costs_meta(m::AbstractCostModel,args...) = aggregate_costs(m,args...)
 
 abstract type AggregationFunction end
 struct MaxCost <: AggregationFunction end
-(f::MaxCost)(costs) = maximum(costs)
+(f::MaxCost)(costs...) = maximum(costs...)
 struct SumCost <: AggregationFunction end
-(f::SumCost)(costs) = sum(costs)
+(f::SumCost)(costs...) = sum(costs...)
 
 """
     `FullCostModel{F,T,M<:AbstractCostModel{T}} <: AbstractCostModel{T}`
@@ -235,6 +236,19 @@ end
 """
 abstract type LowLevelCostModel{T} <: AbstractCostModel{T} end
 
+export
+    TransformCostModel
+
+struct TransformCostModel{T,M<:LowLevelCostModel{T}} <: LowLevelCostModel{T}
+    f::Function
+    model::M
+end
+get_transition_cost(env,m::TransformCostModel,args...) = m.f(get_transition_cost(env,m.model,args...))
+accumulate_cost(m::TransformCostModel, args...)     = accumulate_cost(m.model,args...)
+get_initial_cost(m::TransformCostModel,args...)     = get_initial_cost(m.model,args...)
+get_infeasible_cost(m::TransformCostModel)          = get_infeasible_cost(m.model)
+add_heuristic_cost(m::TransformCostModel,args...)   = add_heuristic_cost(m.model,args...)
+
 struct TravelTime       <: LowLevelCostModel{Float64} end
 accumulate_cost(model::TravelTime,      cost,transition_cost) = cost+transition_cost
 
@@ -300,8 +314,12 @@ struct MultiDeadlineCost{F} <: AbstractDeadlineCost
     deadlines::Vector{Float64}
     m::TravelTime
 end
-SumOfMakeSpans(tF,root_nodes,weights,deadlines) = MultiDeadlineCost(sum,Float64.(tF),root_nodes,Float64.(weights),Float64.(deadlines),TravelTime())
-MakeSpan(tF,root_nodes,weights,deadlines) = MultiDeadlineCost(maximum,Float64.(tF),root_nodes,Float64.(weights),Float64.(deadlines),TravelTime())
+const SumOfMakeSpans = MultiDeadlineCost{SumCost}
+const MakeSpan = MultiDeadlineCost{MaxCost}
+SumOfMakeSpans(tF,root_nodes,weights,deadlines) = MultiDeadlineCost(SumCost(),Float64.(tF),root_nodes,Float64.(weights),Float64.(deadlines),TravelTime())
+SumOfMakeSpans() = MultiDeadlineCost(SumCost(),Float64[],Int[],Float64[],Float64[],TravelTime())
+MakeSpan(tF,root_nodes,weights,deadlines) = MultiDeadlineCost(MaxCost(),Float64.(tF),root_nodes,Float64.(weights),Float64.(deadlines),TravelTime())
+MakeSpan() = MultiDeadlineCost(MaxCost(),Float64[],Int[],Float64[],Float64[],TravelTime())
 function set_deadline!(m::M,t_max) where {M<:MultiDeadlineCost}
     m.deadlines .= t_max
     return m
@@ -310,7 +328,7 @@ add_heuristic_cost(m::C, cost, h_cost) where {C<:MultiDeadlineCost} = m.f(m.weig
 aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(m.tF[m.root_nodes] .* m.weights) # TODO this is why A_star is failing on MetaEnv!
 aggregate_costs_meta(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = maximum(costs)
 
-MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(maximum,model)
+# MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(maximum,model)
 SumOfTravelDistance(model::TravelDistance=TravelDistance()) = FullCostModel(sum,model)
 SumOfTravelTime(model::TravelTime=TravelTime()) = FullCostModel(sum, model)
 
@@ -463,6 +481,7 @@ end
 get_time_horizon(h::SoftConflictTable) = size(h.CAT,2)
 get_conflict_value(h::SoftConflictTable,vtx::Int,t::Int) = h.CAT[vtx,t]
 get_conflict_value(h::SoftConflictTable,agent_idx::Int,vtx::Int,t::Int) = h.CAT[vtx,t]
+
 """
     `get_fat_path(G,D,start_vtx,goal_vtx)`
 

@@ -32,7 +32,7 @@ function get_infeasible_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCo
         paths = Vector{Path{S,A,T}}(map(a->Path{S,A,T}(cost=get_initial_cost(mapf.env)),1:num_agents(mapf))),
         cost_model = get_cost_model(mapf.env),
         costs = Vector{T}(map(a->get_initial_cost(mapf.env),1:num_agents(mapf))),
-        cost = get_initial_cost(mapf.env),
+        cost = get_infeasible_cost(mapf.env),
     )
 end
 """

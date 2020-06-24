@@ -150,9 +150,9 @@ CRCBS.get_next_state(env::E,s::State,a::Action) where {E<:LowLevelEnv} = State(
 CRCBS.get_transition_cost(env::E,s::State,a::Action,sp::State) where {E<:LowLevelEnv} = [
     get_transition_cost(e_,s_,a_,sp_) for (e_,s_,a_,sp_) in zip(env.envs,s.states,a.actions,sp.states)
 ]
-function CRCBS.violates_constraints(env::E, path, s::State, a::Action, sp::State) where {E<:LowLevelEnv}
+function CRCBS.violates_constraints(env::E, s::State, a::Action, sp::State) where {E<:LowLevelEnv}
     for (i, (e_,s_,a_,sp_)) in enumerate(zip(env.envs,s.states,a.actions,sp.states))
-        if violates_constraints(e_,path,s_,a_,sp_)
+        if violates_constraints(e_,s_,a_,sp_)
             return true
         end
         # check for self conflict
