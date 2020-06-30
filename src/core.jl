@@ -16,6 +16,8 @@ end
 get_s(p::P) where {P<:PathNode} = p.s
 get_a(p::P) where {P<:PathNode} = p.a
 get_sp(p::P) where {P<:PathNode} = p.sp
+state_type(p::PathNode{S,A}) where {S,A} = S
+action_type(p::PathNode{S,A}) where {S,A} = A
 
 export
     Path,
@@ -30,30 +32,28 @@ export
     extend_path!,
     extend_path
 
+abstract type AbstractPath end
+
 """
     `Path{S,A,C}`
 
     Encodes a motion plan as a sequence of `PathNode{S,A}`s
 """
-abstract type AbstractPath end
 @with_kw mutable struct Path{S,A,C} <: AbstractPath
     path_nodes  ::Vector{PathNode{S,A}} = Vector{PathNode{S,A}}()
     s0          ::S                     = get_s(get(path_nodes, 1, PathNode{S,A}()))
     cost        ::C                     = typemax(C)
 end
-# function Path(path_nodes::Vector{P}, cost::C) where {P<:PathNode,C}
-#     Path(get_s(get))
-# end
+Path(v::Vector{P}) where {P<:PathNode}      = Path(path_nodes=v,s0=get_s(get(v,1,P())),cost=0.0)
+state_type(p::Path{S,A,C}) where {S,A,C}    = S
+action_type(p::Path{S,A,C}) where {S,A,C}   = A
+cost_type(p::Path{S,A,C}) where {S,A,C}     = C
 node_type(p::Path{S,A,C}) where {S,A,C}     = PathNode{S,A}
-Path(v::Vector{P}) where {P<:PathNode}      = Path(get_s(get(v,0,P())),v,0)
 Base.cat(p::P,x::N,i...) where {P<:Path,N<:PathNode} = P(s0=p.s0,path_nodes=cat(p.path_nodes,x,dims=1),cost=p.cost)
-Base.get(p::P,i,default) where {P<:Path}    = get(p.path_nodes,i,default)
+Base.get(p::P,i,default=node_type(p)) where {P<:Path}    = get(p.path_nodes,i,default)
 Base.getindex(p::P,i) where {P<:Path}       = getindex(p.path_nodes,i)
 Base.setindex!(p::P,x,i) where {P<:Path}    = setindex!(p.path_nodes,x,i)
 Base.length(p::P) where {P<:Path}           = length(p.path_nodes)
-Base.typemax(::Type{Tuple{R,Vararg{T,N}}}) where {R<:Real,T,N} = tuple(typemax(R), typemax(Tuple{Vararg{T,N}})...)
-Base.typemax(::Type{Tuple{Int}}) where {N}      = tuple(typemax(Int))
-Base.typemax(::Type{Tuple{Float64}}) where {N}  = tuple(typemax(Float64))
 function Base.push!(p::P,n::N) where {P<:Path,N<:PathNode}
     if length(p.path_nodes) == 0
         p.s0 = n.s
@@ -62,6 +62,27 @@ function Base.push!(p::P,n::N) where {P<:Path,N<:PathNode}
 end
 get_cost(p::P) where {P<:Path}              = p.cost
 Base.copy(p::P) where {P<:Path}             = Path(s0=p.s0,path_nodes=copy(p.path_nodes),cost=p.cost)
+
+for op in [:typemin,:typemax]
+    @eval Base.$op(::Type{Tuple{A,B,C,D,E,F}}) where {A,B,C,D,E,F}    = map(i->$op(i),(A,B,C,D,E,F))
+    @eval Base.$op(::Type{Tuple{A,B,C,D,E}}) where {A,B,C,D,E}        = map(i->$op(i),(A,B,C,D,E))
+    @eval Base.$op(::Type{Tuple{A,B,C,D}}) where {A,B,C,D}            = map(i->$op(i),(A,B,C,D))
+    @eval Base.$op(::Type{Tuple{A,B,C}}) where {A,B,C}                = map(i->$op(i),(A,B,C))
+    @eval Base.$op(::Type{Tuple{A,B}}) where {A,B}                    = map(i->$op(i),(A,B))
+    @eval Base.$op(::Type{Tuple{A}}) where {A}                        = map(i->$op(i),(A,))
+end
+Base.Tuple{A,B,C,D,E,F}() where {A,B,C,D,E,F}    = map(i->i(0),(A,B,C,D,E,F))
+Base.Tuple{A,B,C,D,E}() where {A,B,C,D,E}        = map(i->i(0),(A,B,C,D,E))
+Base.Tuple{A,B,C,D}() where {A,B,C,D}            = map(i->i(0),(A,B,C,D))
+Base.Tuple{A,B,C}() where {A,B,C}                = map(i->i(0),(A,B,C))
+Base.Tuple{A,B}() where {A,B}                    = map(i->i(0),(A,B))
+Base.Tuple{A}() where {A}                        = map(i->i(0),(A))
+
+Base.typemin(::Type{NTuple{N,R}}) where {N,R} = NTuple{N,R}(map(i->typemin(R),1:N))
+Base.typemax(::Type{NTuple{N,R}}) where {N,R} = NTuple{N,R}(map(i->typemax(R),1:N))
+Base.NTuple{N,R}() where {N,R} = NTuple{N,R}(map(i->R(0), 1:N))
+Base.typemin(c::Tuple) = typemin(typeof(c))
+Base.typemax(c::Tuple) = typemax(typeof(c))
 
 function get_initial_state(path::P) where {P<:Path}
     if length(path) > 0

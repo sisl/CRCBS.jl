@@ -67,17 +67,32 @@ end
 let
     # solver = MultiStageCBS.CBS_Solver()
     solver = CBS_Solver()
-    G = initialize_regular_grid_graph(;n_obstacles_x=2,n_obstacles_y=2,obs_offset = [2;2])
-    starts = [   MultiStageCBS.State(vtx=1,stage=1,t=0),
+    vtx_grid = initialize_regular_vtx_grid(;n_obstacles_x=2,n_obstacles_y=2,obs_offset = [1;1])
+    #  1   2   3   4   5   6   7   8   9  10
+    # 11  12  13  14  15  16  17  18  19  20
+    # 21  22   0   0  23  24   0   0  25  26
+    # 27  28   0   0  29  30   0   0  31  32
+    # 33  34  35  36  37  38  39  40  41  42
+    # 43  44  45  46  47  48  49  50  51  52
+    # 53  54   0   0  55  56   0   0  57  58
+    # 59  60   0   0  61  62   0   0  63  64
+    # 65  66  67  68  69  70  71  72  73  74
+    # 75  76  77  78  79  80  81  82  83  84
+    G = initialize_grid_graph_from_vtx_grid(vtx_grid)
+    starts = [
+        MultiStageCBS.State(vtx=1,stage=1,t=0),
         MultiStageCBS.State(vtx=2,stage=1,t=0),
-        MultiStageCBS.State(vtx=26,stage=1,t=10),
-        MultiStageCBS.State(vtx=167,stage=1,t=10),
-        MultiStageCBS.State(vtx=41,stage=1,t=4)    ]
-    goals = [   [MultiStageCBS.State(vtx=6),MultiStageCBS.State(vtx=171)],
-        [MultiStageCBS.State(vtx=5),MultiStageCBS.State(vtx=90)],
-        [MultiStageCBS.State(vtx=100),MultiStageCBS.State(vtx=175)],
-        [MultiStageCBS.State(vtx=85)],
-        [MultiStageCBS.State(vtx=91),MultiStageCBS.State(vtx=1)]    ]
+        # MultiStageCBS.State(vtx=26,stage=1,t=10),
+        # MultiStageCBS.State(vtx=19,stage=1,t=10),
+        # MultiStageCBS.State(vtx=41,stage=1,t=4)
+        ]
+    goals = [
+        [MultiStageCBS.State(vtx=14),MultiStageCBS.State(vtx=81)],
+        [MultiStageCBS.State(vtx=5),MultiStageCBS.State(vtx=55)],
+        # [MultiStageCBS.State(vtx=60),MultiStageCBS.State(vtx=52)],
+        # [MultiStageCBS.State(vtx=61)],
+        # [MultiStageCBS.State(vtx=32),MultiStageCBS.State(vtx=1)]
+        ]
     let
         heuristic = MultiStagePerfectHeuristic(
             G, map(g->map(s->s.vtx, g), goals)
@@ -85,7 +100,7 @@ let
         env = MultiStageCBS.LowLevelEnv(graph=G,heuristic=heuristic)
         mapf = MAPF(env,starts,goals)
         node = initialize_root_node(mapf)
-        solution, cost = CRCBS.solve!(solver,mapf);
+        solution, cost = CRCBS.solve!(solver,mapf;verbose=true)
     end
     let
         env = MultiStageCBS.LowLevelEnv(

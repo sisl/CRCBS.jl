@@ -46,8 +46,8 @@ CRCBS.get_possible_actions(env::GraphEnv,s::State) = ActionIter(env,s.v,outneigh
 CRCBS.get_next_state(env::GraphEnv,s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
 CRCBS.get_transition_cost(env::GraphEnv,s::State,a::Action,sp::State) = 1.0
 CRCBS.get_path_cost(env::GraphEnv,path::Path{State,Action}) = get_final_state(path).t
-CRCBS.violates_constraints(env::GraphEnv,path::Path{State,Action},s::State,a::Action,sp::State) = s.v in env.constraints ? true : false
-function CRCBS.check_termination_criteria(env::GraphEnv, cost, path::Path{State,Action},s::State)
+CRCBS.violates_constraints(env::GraphEnv,s::State,a::Action,sp::State) = s.v in env.constraints ? true : false
+function CRCBS.check_termination_criteria(solver, env::GraphEnv, cost, s::State)
     if cost >= 20
         return true
     end
@@ -84,14 +84,19 @@ let
     env = ImplicitGraphsTests.GraphEnv(G,Set{Int}(5),goal_state)
     start_state = ImplicitGraphsTests.State(1,0)
 
-    dists = gdistances(G,goal_state.v)
-    heuristic(env,s) = dists[s.v]
-    path, path_cost = A_star(env,start_state,heuristic)
-
-    # Now run A_star again on top of the previous path
-    goal_state2 = ImplicitGraphsTests.State(10,-1)
-    dists = gdistances(G,goal_state2.v)
-    env2 = ImplicitGraphsTests.GraphEnv(G,Set{Int}(5),goal_state2)
-    heuristic(env,s) = dists[s.v]
-    path2, path_cost  = A_star(env2,path,heuristic,path_cost)
+    let
+        dists = gdistances(G,goal_state.v)
+        heuristic(env,s) = dists[s.v]
+        path, path_cost = A_star(env,start_state,heuristic)
+        @test length(path) == 4
+        @test get_cost(path) == 4
+        # Now run A_star again on top of the previous path
+        goal_state2 = ImplicitGraphsTests.State(10,-1)
+        dists = gdistances(G,goal_state2.v)
+        env2 = ImplicitGraphsTests.GraphEnv(G,Set{Int}(5),goal_state2)
+        heuristic(env,s) = dists[s.v]
+        path2, path_cost  = A_star(env2,path,heuristic,path_cost)
+        @test get_cost(path2) == 5
+        @test length(path2) == 5
+    end
 end

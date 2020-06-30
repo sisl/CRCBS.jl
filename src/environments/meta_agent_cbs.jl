@@ -168,6 +168,7 @@ function CRCBS.violates_constraints(env::E, s::State, a::Action, sp::State) wher
     end
     return false
 end
-CRCBS.check_termination_criteria(env::E,cost,path,s) where {E<:LowLevelEnv} = false
+# CRCBS.check_termination_criteria(env::E,cost,path,s) where {E<:LowLevelEnv} = false
+CRCBS.check_termination_criteria(solver,env::E,cost,s) where {E<:LowLevelEnv} = false
 
 end

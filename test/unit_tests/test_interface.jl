@@ -1,13 +1,30 @@
 let
+    basetup = (1,2.0,3,4.0,5,6.0)
+    for j in 1:length(basetup)
+        tup = tuple(basetup[1:j])
+        for i in 1:length(tup)
+            @test typemax(tup)[i] == typemax(typeof(tup[i]))
+            @test typemin(tup)[i] == typemin(typeof(tup[i]))
+        end
+    end
+end
+let
     DefaultState()
     DefaultAction()
     p = DefaultPathNode()
-    @test typeof(get_s(p)) == DefaultState
-    @test typeof(get_a(p)) == DefaultAction
-    @test typeof(get_sp(p)) == DefaultState
+    @test typeof(get_s(p)) == state_type(p) == DefaultState
+    @test typeof(get_a(p)) == action_type(p) == DefaultAction
+    @test typeof(get_sp(p)) == state_type(p) == DefaultState
 end
 let
+    Path([DefaultPathNode()])
     p = Path{DefaultState,DefaultAction,Float64}(cost=0.0)
+    @test state_type(p) == DefaultState
+    @test action_type(p) == DefaultAction
+    @test node_type(p) == PathNode{state_type(p),action_type(p)}
+    @test cost_type(p) == Float64
+    get(p,1,node_type(p))
+    get(p,1)
     # @test get_cost(p) == 0
     @test length(p.path_nodes) == 0
     push!(p,PathNode{DefaultState,DefaultAction}())
@@ -18,7 +35,7 @@ let
     p[1] = DefaultPathNode()
     @test length(p) == length(p.path_nodes)
     p1 = copy(p)
-    @test p1.cost == p.cost
+    @test get_cost(p1) == get_cost(p)
     @test length(p1) == length(p)
 
     get_path_node(p,1)
@@ -35,9 +52,6 @@ let
     cost_model = TravelTime()
     solution = LowLevelSolution{DefaultState,DefaultAction,get_cost_type(cost_model),TravelTime}()
     copy(solution)
-end
-let
-    G = initialize_regular_grid_graph()
 end
 
 # let

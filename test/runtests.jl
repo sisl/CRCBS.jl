@@ -1,9 +1,9 @@
 using Test
 using Logging
-using LightGraphs, MetaGraphs
-using Parameters
 # Package Under Test
 using CRCBS
+using LightGraphs, MetaGraphs
+using Parameters
 using GraphUtils
 
 # Set logging level
@@ -63,13 +63,13 @@ end
     @time @testset "CRCBS.CBSTests" begin
         include(joinpath(testdir, "unit_tests/test_cbs.jl"))
     end
-    @time @testset "CRCBS.MultiStageCBSTests" begin
-        include(joinpath(testdir, "unit_tests/test_multi_stage_cbs.jl"))
-    end
-    @time @testset "CRCBS.MetaAgentCBSTests" begin
-        include(joinpath(testdir, "unit_tests/test_meta_agent_cbs.jl"))
-    end
-    @time @testset "CRCBS.FlowProblemsTests" begin
-        include(joinpath(testdir, "unit_tests/test_flow_problems.jl"))
-    end
+    # @time @testset "CRCBS.MultiStageCBSTests" begin
+    #     include(joinpath(testdir, "unit_tests/test_multi_stage_cbs.jl"))
+    # end
+    # @time @testset "CRCBS.MetaAgentCBSTests" begin
+    #     include(joinpath(testdir, "unit_tests/test_meta_agent_cbs.jl"))
+    # end
+    # @time @testset "CRCBS.FlowProblemsTests" begin
+    #     include(joinpath(testdir, "unit_tests/test_flow_problems.jl"))
+    # end
 end
