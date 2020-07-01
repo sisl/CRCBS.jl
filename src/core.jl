@@ -23,6 +23,7 @@ export
     Path,
     node_type,
     get_cost,
+    set_cost!,
     get_initial_state,
     get_final_state,
     get_start_time,
@@ -48,7 +49,7 @@ Path(v::Vector{P}) where {P<:PathNode}      = Path(path_nodes=v,s0=get_s(get(v,1
 state_type(p::Path{S,A,C}) where {S,A,C}    = S
 action_type(p::Path{S,A,C}) where {S,A,C}   = A
 cost_type(p::Path{S,A,C}) where {S,A,C}     = C
-node_type(p::Path{S,A,C}) where {S,A,C}     = PathNode{S,A}
+node_type(p) = PathNode{state_type(p),action_type(p)}
 Base.cat(p::P,x::N,i...) where {P<:Path,N<:PathNode} = P(s0=p.s0,path_nodes=cat(p.path_nodes,x,dims=1),cost=p.cost)
 Base.get(p::P,i,default=node_type(p)) where {P<:Path}    = get(p.path_nodes,i,default)
 Base.getindex(p::P,i) where {P<:Path}       = getindex(p.path_nodes,i)
@@ -61,6 +62,9 @@ function Base.push!(p::P,n::N) where {P<:Path,N<:PathNode}
     push!(p.path_nodes,n)
 end
 get_cost(p::P) where {P<:Path}              = p.cost
+function set_cost!(p::P) where {P<:Path}
+    p.cost = cost
+end
 Base.copy(p::P) where {P<:Path}             = Path(s0=p.s0,path_nodes=copy(p.path_nodes),cost=p.cost)
 
 for op in [:typemin,:typemax]
@@ -223,14 +227,15 @@ export
 """
 abstract type AbstractCostModel{T} end
 get_cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
+cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
 
 export
     LowLevelSolution,
     get_paths,
     get_path_costs,
-    get_cost,
     set_solution_path!,
     set_path_cost!
+
 """
     `LowLevelSolution{S,A,T,C}`
 
@@ -251,8 +256,11 @@ export
     costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(cost_model),1:length(paths)))
     cost::T                     = get_initial_cost(cost_model)
 end
+state_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}    = S
+action_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}   = A
+cost_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}     = T
 Base.copy(solution::L) where {L <: LowLevelSolution} = L(
-    paths=copy(solution.paths),
+    paths=copy(solution.paths), # NOTE don't want to needlessly copy paths between search nodes
     cost_model=deepcopy(solution.cost_model),
     costs=copy(solution.costs),
     cost=deepcopy(solution.cost),
@@ -269,6 +277,10 @@ function set_path_cost!(solution::L, cost::C, idx::Int) where {L<:LowLevelSoluti
     solution.costs[idx] = cost
     return solution
 end
+function set_cost!(solution::L,cost) where {L<:LowLevelSolution}
+    solution.cost = cost
+    return solution
+end
 
 export
     AbstractLowLevelEnv,
@@ -277,6 +289,7 @@ export
     get_cost_model,
     get_heuristic_model,
     get_cost_type
+
 """
     `AbstractLowLevelEnv{S,A,C}`
 
@@ -293,6 +306,7 @@ export
 abstract type AbstractLowLevelEnv{S,A,C} end
 action_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = A
 state_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = S
+cost_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C
 """ Override this method for when the cost model has arguments """
 get_cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
 function get_heuristic_model end

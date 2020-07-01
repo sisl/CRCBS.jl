@@ -43,9 +43,8 @@ export
     initialize_child_search_node,
     get_constraints,
     violates_constraints,
-    generate_constraints_from_conflict,
+    generate_constraints_from_conflict
 
-    low_level_search!
 
 ################################################################################
 ################################## Conflicts ###################################
@@ -455,11 +454,12 @@ function add_constraint!(constraint_dict::ConstraintTable,constraint::ActionCons
     end
 end
 
+const DefaultSolution = LowLevelSolution{DefaultState,DefaultAction,Float64,TravelTime}
 """
     A node of a constraint tree. Each node has a set of constraints, a candidate
     solution (set of robot paths), and a cost
 """
-@with_kw mutable struct ConstraintTreeNode{S,A,T,C<:AbstractCostModel{T}} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
+@with_kw mutable struct ConstraintTreeNode{S,T} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
     # # Environment
     # env::E
     # maps agent_id to the set of constraints involving that agent
@@ -469,7 +469,7 @@ end
     # maintains a list of all conflicts
     conflict_table  ::ConflictTable             = ConflictTable()
     # set of paths (one per agent) through graph
-    solution        ::LowLevelSolution{S,A,T,C} = LowLevelSolution{S,A,T,C}()
+    solution        ::S                         = DefaultSolution()
     # cost = sum([length(path) for path in solution])
     cost            ::T                         = get_cost(solution)
     # index of parent node
@@ -479,17 +479,23 @@ end
     # unique id
     id              ::Int                       = -1
 end
-action_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = A
-state_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = S
-get_cost_type(node::N) where {S,A,T,C,N <: ConstraintTreeNode{S,A,T,C}} = T
+action_type(node::N) where {N <: ConstraintTreeNode} = action_type(node.solution)
+state_type(node::N) where {N <: ConstraintTreeNode} = state_type(node.solution)
+cost_type(node::N) where {N <: ConstraintTreeNode} = cost_type(node.solution)
+get_cost_type(node::N) where {N <: ConstraintTreeNode} = get_cost_type(node.solution)
+get_cost(node::N) where {N <: ConstraintTreeNode} = get_cost(node.solution)
+function set_cost!(node::N,cost) where {N <: ConstraintTreeNode}
+    set_cost!(node.solution,cost)
+    node.cost = cost
+end
 
 """
     `initialize_root_node`
 
     Construct an empty `ConstraintTreeNode` from a `AbstractMAPF` instance
 """
-function initialize_root_node(mapf::MAPF{E,S,G},solution=get_initial_solution(mapf)) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    ConstraintTreeNode{S,A,T,C}(
+function initialize_root_node(mapf::MAPF,solution=get_initial_solution(mapf))
+    ConstraintTreeNode(
         solution    = solution,
         cost        = get_cost(solution),
         constraints = Dict{Int,ConstraintTable}(
@@ -532,6 +538,11 @@ function add_constraint!(node::N,constraint::CBSConstraint) where {N<:Constraint
     add_constraint!(get_constraints(node, get_agent_id(constraint)), constraint)
     return true
 end
+
+function detect_conflicts!(node::ConstraintTreeNode, args...;kwargs...)
+    detect_conflicts!(node.conflict_table,node.solution,args...;kwargs...)
+end
+
 
 # """
 #     checks to see if two `ConstraintTreeNode`s are identical (in terms of their
@@ -579,33 +590,4 @@ function generate_constraints_from_conflict(conflict::Conflict)
         ))
     end
     return constraints
-end
-
-"""
-    `low_level_search!(
-        solver::S where {S<:AbstractMAPFSolver},
-        mapf::M where {M<:AbstractMAPF},
-        node::ConstraintTreeNode,
-        idxs=collect(1:num_agents(mapf)),
-        path_finder=A_star)`
-
-    Returns a low level solution for a MAPF with constraints. The heuristic
-    function for cost-to-go is user-defined and environment-specific
-"""
-function low_level_search!(
-    solver::S, mapf::M, node::N, idxs::Vector{Int}=collect(1:num_agents(mapf));
-    heuristic=get_heuristic_cost, path_finder=A_star, verbose=false
-    ) where {S<:AbstractMAPFSolver,M<:AbstractMAPF,N<:ConstraintTreeNode}
-    # Only compute a path for the indices specified by idxs
-    for i in idxs
-        env = build_env(mapf, node, i)
-        # Solve!
-        path, cost = path_finder(env, get_start(mapf,env,i), heuristic)
-        set_solution_path!(node.solution, path, i)
-        set_path_cost!(node.solution, cost, i)
-    end
-    node.solution.cost = aggregate_costs(get_cost_model(mapf.env),get_path_costs(node.solution))
-    node.cost = get_cost(node.solution)
-    # TODO check if solution is valid
-    return true
 end

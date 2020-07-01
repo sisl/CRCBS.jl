@@ -57,7 +57,7 @@ function extend_path!(env::E,path::P,T::Int) where {E<:AbstractLowLevelEnv,P<:Pa
         a = wait(s)
         sp = get_next_state(env,s,a)
         push!(path,PathNode(s,a,sp))
-        path.cost = accumulate_cost(env, path.cost, get_transition_cost(env,s,a,sp))
+        set_cost!(path, accumulate_cost(env, get_cost(path), get_transition_cost(env,s,a,sp)))
     end
     return path
 end
@@ -71,28 +71,34 @@ end
 ################################## Utilities ###################################
 ################################################################################
 export
+    is_consistent,
     is_valid
+
+
 """
-    Checks if an individual path satisfies start and end constraints
+    is_consistent(solution,mapf)
+
+    Check if solution satisfies start and end constraints
 """
-function is_valid(path::P,start::S,goal::G) where {S,G,P<:Path}
+function is_consistent(path::P,start::S,goal::G) where {S,G,P<:Path}
     return (states_match(get_initial_state(path), start)
         && states_match(get_final_state(path), goal))
 end
-function is_valid(paths::Vector{P},starts::Vector{S},goals::Vector{G}) where {S,G,P <: Path}
+function is_consistent(paths::Vector{P},starts::Vector{S},goals::Vector{G}) where {S,G,P <: Path}
     for (i,path) in enumerate(paths)
-        if !is_valid(path,starts[i],goals[i])
+        if !is_consistent(path,starts[i],goals[i])
             return false
         end
     end
     return true
 end
-function is_valid(solution::L,starts::Vector{S},goals::Vector{G}) where {S,G,L<:LowLevelSolution}
-    is_valid(get_paths(solution),starts,goals)
+function is_consistent(solution::L,starts::Vector{S},goals::Vector{G}) where {S,G,L<:LowLevelSolution}
+    is_consistent(get_paths(solution),starts,goals)
 end
-function is_valid(solution::L,mapf::M) where {L<:LowLevelSolution, M<:AbstractMAPF}
-    is_valid(solution,get_starts(mapf),get_goals(mapf))
+function is_consistent(solution::L,mapf::M) where {L<:LowLevelSolution, M<:AbstractMAPF}
+    is_consistent(solution,get_starts(mapf),get_goals(mapf))
 end
+is_valid(args...) = is_consistent(args...)
 
 ################################################################################
 ######################### Visualization and Debugging ##########################

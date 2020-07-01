@@ -186,7 +186,7 @@ let
     State = CommonTests.State
     Action = CommonTests.Action
     cm = TravelTime()
-    node = ConstraintTreeNode{State,Action,get_cost_type(cm),TravelTime}()
+    node = ConstraintTreeNode{CRCBS.DefaultSolution,get_cost_type(cm)}()
     node.constraints[1] = ConstraintTable(a = 1)
     @test get_cost(node) == 0
     get_constraints(node,1)

@@ -50,8 +50,23 @@ let
 end
 let
     cost_model = TravelTime()
-    solution = LowLevelSolution{DefaultState,DefaultAction,get_cost_type(cost_model),TravelTime}()
+    # LowLevelSolution{DefaultState,DefaultAction,get_cost_type(cost_model),TravelTime}()
+    solution = LowLevelSolution(
+        cost_model = TravelTime(),
+        paths = [Path{DefaultState,DefaultAction,cost_type(cost_model)}()],
+        costs = [0.0]
+    )
+    state_type(solution)
+    action_type(solution)
+    cost_type(solution)
+    node_type(solution)
     copy(solution)
+    get_paths(solution)
+    get_path_costs(solution)
+    get_cost(solution)
+    get_cost_model(solution)
+    set_solution_path!(solution,get_paths(solution)[1],1)
+    set_path_cost!(solution,2.0,1)
 end
 
 # let
