@@ -18,13 +18,30 @@ function solve!(solver::AbstractMAPFSolver, args ...)
         )))
 end
 
+# """
+#     CBSRoutePlanner
+#
+# Path planner that employs Conflict-Based Search
+# """
+# @with_kw struct CBSRoutePlanner{L,C}
+#     low_level_planner::L    = ISPS()
+#     logger::SolverLogger{C} = SolverLogger{get_cost_type(low_level_planner)}()
+# end
+
 """
     The Conflict-Based Search algorithm for multi-agent path finding - Sharon et
     al 2012
 
     https://www.aaai.org/ocs/index.php/AAAI/AAAI12/paper/viewFile/5062/5239
 """
-struct CBS_Solver <: AbstractMAPFSolver end
+@with_kw mutable struct CBS_Solver{C} <: AbstractMAPFSolver
+    # low_level_planner::L    = AStar()
+    logger::SolverLogger{C} = SolverLogger{C}(
+        iteration_limit = 1000,
+        runtime_limit   = 100.0
+    )
+end
+CBS_Solver() = CBS_Solver{Float64}()
 
 export low_level_search!
 
@@ -47,7 +64,7 @@ function low_level_search!(
     for i in idxs
         env = build_env(mapf, node, i)
         # Solve!
-        path, cost = path_finder(env, get_start(mapf,env,i), heuristic)
+        path, cost = path_finder(solver, env, get_start(mapf,env,i), heuristic)
         set_solution_path!(node.solution, path, i)
         set_path_cost!(node.solution, cost, i)
     end
@@ -56,8 +73,10 @@ function low_level_search!(
     return is_consistent(node.solution,mapf)
 end
 
-function enter_cbs!(solver) end
-verbosity(solver) = 1
+function enter_cbs!(solver)
+    reset_solver!(solver)
+end
+function logger_cbs_add_constraint!(solver,new_node,constraint) end
 function logger_dequeue_cbs_node!(solver,node)
     if verbosity(solver) >= 1
         println("CBS: Current paths: ")
@@ -67,12 +86,26 @@ function logger_dequeue_cbs_node!(solver,node)
     end
 end
 function logger_exit_cbs_optimal!(solver,node)
-    println("Optimal Solution Found! Cost = $(get_cost(node))")
+    if verbosity(solver) >= 0
+        println("Optimal Solution Found! Cost = $(get_cost(node))")
+    end
 end
-function logger_cbs_add_constraint!(solver,new_node,constraint)
-    if verbosity(solver) > 1
-        println("CBS: Constraint agent id = $(get_agent_id(constraint)),",
-            " time index = $(get_time_of(constraint))")
+function logger_cbs_add_constraint!(solver::CBS_Solver,node,constraint,mapf)
+    increment_iteration_count!(solver)
+    if verbosity(solver) == 1
+        println("CBS: adding constraint ",string(constraint))
+    elseif verbosity(solver) == 2
+        println("CBS: adding constraint:")
+        println("\t",string(constraint))
+        println("CBS: constraints in node:")
+        for i in 1:num_agents(mapf)
+            for constraint in sorted_state_constraints(node,i)
+                println("\t",string(constraint))
+            end
+            for constraint in sorted_action_constraints(node,i)
+                println("\t",string(constraint))
+            end
+        end
     end
 end
 
@@ -87,8 +120,8 @@ function cbs!(solver,mapf)
     root_node = initialize_root_node(mapf)
     priority_queue = PriorityQueue{typeof(root_node),get_cost_type(mapf.env)}()
     consistent_flag = low_level_search!(solver,mapf,root_node)
-    detect_conflicts!(root_node)
     if consistent_flag
+        detect_conflicts!(root_node)
         enqueue!(priority_queue, root_node => get_cost(root_node))
     end
 
@@ -107,10 +140,10 @@ function cbs!(solver,mapf)
         for constraint in constraints
             new_node = initialize_child_search_node(node)
             if add_constraint!(new_node,constraint)
-                logger_cbs_add_constraint!(solver,new_node,constraint)
+                logger_cbs_add_constraint!(solver,new_node,constraint,mapf)
                 consistent_flag = low_level_search!(solver, mapf, new_node,[get_agent_id(constraint)])
-                detect_conflicts!(new_node,[get_agent_id(constraint)]) # update conflicts related to this agent
                 if consistent_flag
+                    detect_conflicts!(new_node,[get_agent_id(constraint)]) # update conflicts related to this agent
                     enqueue!(priority_queue, new_node => get_cost(new_node))
                 end
             end

@@ -15,15 +15,17 @@ using Parameters, LightGraphs, DataStructures
     vtx::Int        = -1 # vertex of graph
     t::Int          = -1
 end
+Base.string(s::State) = "(v=$(s.vtx),t=$(s.t))"
 # Action
 @with_kw struct Action
     e::Edge{Int}    = Edge(-1,-1)
     Δt::Int         = 1
 end
+Base.string(a::Action) = "(e=$(a.e.src) → $(a.e.dst))"
 # LowLevelEnv
-@with_kw struct LowLevelEnv{C<:AbstractCostModel,H<:AbstractCostModel,G<:AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
+@with_kw struct LowLevelEnv{C<:AbstractCostModel,H<:AbstractCostModel,G<:AbstractGraph,T} <: AbstractLowLevelEnv{State,Action,C}
     graph::G                    = Graph()
-    constraints::ConstraintTable = ConstraintTable()
+    constraints::T              = ConstraintTable{PathNode{State,Action}}()
     goal::State                 = State()
     agent_idx::Int              = -1
     # helpers # TODO parameterize LowLevelEnv by heuristic type as well
@@ -38,10 +40,18 @@ CRCBS.get_heuristic_model(env::E) where {E<:LowLevelEnv} = env.heuristic
 ################################################################################
 # build_env
 function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) where {S,G,E<:LowLevelEnv}
+    t_goal = -1
+    for constraint in sorted_state_constraints(get_constraints(node,idx))
+        sp = get_sp(constraint.v)
+        if states_match(mapf.goals[idx], sp)
+            # @show s.t, get_time_of(constraint)
+            t_goal = max(t_goal,sp.t+1)
+        end
+    end
     typeof(mapf.env)(
         graph = mapf.env.graph,
         constraints = get_constraints(node,idx),
-        goal = mapf.goals[idx],
+        goal = State(mapf.goals[idx],t=t_goal),
         agent_idx = idx,
         heuristic = get_heuristic_model(mapf.env),  # TODO update the heuristic model
         cost_model = get_cost_model(mapf.env)       # TODO update the cost model
@@ -62,23 +72,23 @@ CRCBS.states_match(env::LowLevelEnv,s1::State,s2::State) = (s1.vtx == s2.vtx)
 # is_goal
 function CRCBS.is_goal(env::LowLevelEnv,s::State)
     if states_match(s, env.goal)
-        # if s.t < env.goal.t
-        #     return false
-        # end
+        if s.t < env.goal.t
+            return false
+        end
         ###########################
         # Cannot terminate if there is a constraint on the goal state in the
         # future (e.g. the robot will need to move out of the way so another
         # robot can pass)
-        for constraint in env.constraints.sorted_state_constraints
-            if s.t < get_time_of(constraint)
-                if states_match(s, get_sp(constraint.v))
-                    # @show s.t, get_time_of(constraint)
-                    # println("Constraint on goal vtx ", env.goal.vtx, " at time ",get_time_of(constraint)," - current time = ",s.t)
-                    return false
-                    # return true
-                end
-            end
-        end
+        # for constraint in env.constraints.sorted_state_constraints
+        #     if s.t < get_time_of(constraint)
+        #         if states_match(s, get_sp(constraint.v))
+        #             # @show s.t, get_time_of(constraint)
+        #             # println("Constraint on goal vtx ", env.goal.vtx, " at time ",get_time_of(constraint)," - current time = ",s.t)
+        #             return false
+        #             # return true
+        #         end
+        #     end
+        # end
         ###########################
         return true
     end
@@ -86,7 +96,7 @@ function CRCBS.is_goal(env::LowLevelEnv,s::State)
 end
 # check_termination_criteria
 # CRCBS.check_termination_criteria(env::LowLevelEnv,cost,path,s) = false
-CRCBS.check_termination_criteria(solver,env::LowLevelEnv,cost,s) = false
+CRCBS.check_termination_criteria(solver,env::LowLevelEnv,cost,s) = iterations(solver) > iteration_limit(solver)
 # wait
 CRCBS.wait(s::State) = Action(e=Edge(s.vtx,s.vtx))
 CRCBS.wait(env::LowLevelEnv,s::State) = Action(e=Edge(s.vtx,s.vtx))

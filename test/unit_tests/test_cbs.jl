@@ -93,11 +93,12 @@ let
     env = CBS.LowLevelEnv(cost_model=SumOfTravelTime())
 end
 let
-    G = initialize_grid_graph_from_vtx_grid(initialize_dense_vtx_grid(4,4))
+    vtx_grid = initialize_dense_vtx_grid(4,4)
     # 1  5   9  13
     # 2  6  10  14
     # 3  7  11  15
     # 4  8  12  16
+    G = initialize_grid_graph_from_vtx_grid(vtx_grid)
     T = 10
     n_agents = 2
     env = CBS.LowLevelEnv(graph=G,agent_idx=1,cost_model=HardConflictCost(G,T,n_agents))
@@ -108,23 +109,35 @@ let
 end
 # solve!
 let
-    solver = CBS_Solver()
-    G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
+    vtx_grid = initialize_regular_vtx_grid(;n_obstacles_x=1,n_obstacles_y=1)
+    #  1   2   3   4   5   6
+    #  7   8   9  10  11  12
+    # 13  14   0   0  15  16
+    # 17  18   0   0  19  20
+    # 21  22  23  24  25  26
+    # 27  28  29  30  31  32
+    G = initialize_grid_graph_from_vtx_grid(vtx_grid)
     starts = [CBS.State(1,0),CBS.State(2,0)]
     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
-    num_agents = 2
+    heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
+    env = CBS.LowLevelEnv(graph=G,heuristic=heuristic)
+    mapf = MAPF(env,starts,goals)
+    default_solution(mapf)
+    println("Testing CBS in verbose mode")
     # low_level_search
+    # let
+    #     solver = CBS_Solver()
+    #     node = CBS.initialize_root_node(mapf)
+    #     initialize_child_search_node(node)
+    #     low_level_search!(solver,mapf,node)
+    # end
+    # high_level_search
     let
-        heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
-        env = CBS.LowLevelEnv(graph=G,heuristic=heuristic)
-        mapf = MAPF(env,starts,goals)
-        default_solution(mapf)
-        node = CBS.initialize_root_node(mapf)
-        initialize_child_search_node(node)
-        low_level_search!(solver,mapf,node)
-        # high_level_search
-        println("Testing CBS in verbose mode")
-        solution, cost = CRCBS.solve!(solver,mapf;verbose=true)
+        solver = CBS_Solver()
+        set_verbosity!(solver,2)
+        set_iteration_limit!(solver,100)
+        solution, cost = CRCBS.solve!(solver,mapf)
+        @test cost == 10
     end
     # with CompositeCost and CompositeHeuristic
     let
@@ -138,6 +151,8 @@ let
         )
         env = CBS.LowLevelEnv(graph=G,cost_model=cost_model,heuristic=heuristic)
         mapf = MAPF(env,starts,goals)
+        solver = CBS_Solver{cost_type(mapf)}()
+        set_verbosity!(solver,1)
         solution, cost = CRCBS.solve!(solver,mapf)
     end
     let
@@ -149,12 +164,14 @@ let
         )
         heuristic_model = construct_composite_heuristic(
             PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals)),
-            HardConflictHeuristic(G,ne(G),num_agents),
+            HardConflictHeuristic(G,ne(G),num_agents(mapf)),
             PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals)),
         )
         env = CBS.LowLevelEnv(graph=G,cost_model=cost_model,heuristic=heuristic_model)
         mapf = MAPF(env,starts,goals)
         default_solution(mapf)
+        solver = CBS_Solver{cost_type(mapf)}()
+        set_verbosity!(solver,1)
         solution, cost = CRCBS.solve!(solver,mapf)
     end
 end

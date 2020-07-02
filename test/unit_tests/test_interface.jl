@@ -1,3 +1,4 @@
+# Tuple Tests
 let
     basetup = (1,2.0,3,4.0,5,6.0)
     for j in 1:length(basetup)
@@ -7,6 +8,15 @@ let
             @test typemin(tup)[i] == typemin(typeof(tup[i]))
         end
     end
+    @test (1,0,0,0,0) < 2
+    @test (1,0,0,0,0) <= 1
+    @test (1,0,0,0,0) >= 1
+    @test (1,0,0,0,0) > 0
+
+    @test 2 > (1,0,0,0,0)
+    @test 1 >= (1,0,0,0,0)
+    @test 1 <= (1,0,0,0,0)
+    @test 0 < (1,0,0,0,0)
 end
 let
     DefaultState()

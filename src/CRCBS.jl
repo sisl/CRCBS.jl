@@ -17,6 +17,7 @@ include("common.jl")
 include("low_level_search/heuristics.jl")
 include("low_level_search/implicit_graphs.jl")
 
+include("solver_utils.jl")
 include("solvers.jl")
 
 include("environments/cbs.jl")
