@@ -69,7 +69,8 @@ let
     id1 = 1
     id2 = 2
 
-    conflict_table = ConflictTable()
+    N = node_type(P)
+    conflict_table = ConflictTable{Conflict{N,N}}()
     conflict = Conflict(conflict_type=STATE_CONFLICT,agent1_id=id1,agent2_id=id2,node1=P,node2=P)
     @test is_valid(conflict)
     add_conflict!(conflict_table,conflict)
@@ -83,14 +84,7 @@ let
     @test !(conflict == nothing)
 end
 let
-    graph = Graph(3)
-    add_edge!(graph,1,2)
-    add_edge!(graph,1,3)
-    constraints = ConstraintTable()
-    env = CBS.LowLevelEnv() #graph=graph,constraints=constraints)
-end
-let
-    env = CBS.LowLevelEnv(cost_model=SumOfTravelTime())
+    CBS.LowLevelEnv(cost_model=SumOfTravelTime())
 end
 let
     vtx_grid = initialize_dense_vtx_grid(4,4)

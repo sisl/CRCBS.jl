@@ -342,9 +342,9 @@ end
     - idxs                  (optional) a list of agent ids for which to check
                             collisions against all other agents
 """
-function detect_conflicts(paths::Vector{P} where {P <: Path}, idxs=collect(1:length(paths)))
+function detect_conflicts(paths::Vector{P}, idxs=collect(1:length(paths))) where {P <: Path}
     # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
-    conflict_table = ConflictTable()
+    conflict_table = ConflictTable{SymmetricConflict{node_type(P())}}()
     detect_conflicts!(conflict_table,paths,idxs)
     conflict_table
 end
