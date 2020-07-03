@@ -237,11 +237,11 @@ end
 export
     AbstractCostModel,
     cost_type
+
 """
     `AbstractCostModel{T}`
 """
 abstract type AbstractCostModel{T} end
-get_cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
 cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
 
 export
@@ -303,7 +303,7 @@ export
     state_type,
     get_cost_model,
     get_heuristic_model,
-    get_cost_type
+    cost_type
 
 """
     `AbstractLowLevelEnv{S,A,C}`
@@ -326,7 +326,6 @@ cost_type(env::E) where {E<:AbstractLowLevelEnv} = cost_type(get_cost_model(env)
 get_cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
 function get_heuristic_model end
 cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
-get_cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
 
 
 export

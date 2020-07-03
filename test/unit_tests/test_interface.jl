@@ -60,7 +60,7 @@ let
 end
 let
     cost_model = TravelTime()
-    # LowLevelSolution{DefaultState,DefaultAction,get_cost_type(cost_model),TravelTime}()
+    # LowLevelSolution{DefaultState,DefaultAction,cost_type(cost_model),TravelTime}()
     solution = LowLevelSolution(
         cost_model = TravelTime(),
         paths = [Path{DefaultState,DefaultAction,cost_type(cost_model)}()],

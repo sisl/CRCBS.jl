@@ -13,7 +13,7 @@ export
     FullCostModel,
     get_aggregation_function,
     get_cost_model,
-    get_cost_type,
+    cost_type,
 
     MetaCostModel,
     MetaCost,
@@ -33,11 +33,11 @@ export
 
 get_initial_cost(mapf::M) where {M<:AbstractMAPF}           = get_initial_cost(mapf.env)
 get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(get_cost_model(env))
-get_initial_cost(model::C) where {C<:AbstractCostModel}     = get_cost_type(model)(0)
+get_initial_cost(model::C) where {C<:AbstractCostModel}     = cost_type(model)(0)
 
 get_infeasible_cost(mapf::M) where {M<:AbstractMAPF}        = get_infeasible_cost(mapf.env)
 get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(get_cost_model(env))
-get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(get_cost_type(model))
+get_infeasible_cost(model::C) where {C<:AbstractCostModel}  = typemax(cost_type(model))
 
 get_transition_cost(env::E,s,a) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,get_cost_model(env),s,a,get_next_state(env,s,a))
 get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,get_cost_model(env),s,a,sp)
@@ -121,11 +121,11 @@ function construct_composite_cost_model(args...)
     for m in models
         @assert typeof(m) <: AbstractCostModel
     end
-    cost_types = map(m->get_cost_type(m),models)
+    cost_types = map(m->cost_type(m),models)
     CompositeCostModel{typeof(models),Tuple{cost_types...}}(models)
 end
 function get_transition_cost(env::E,model::C,s,a,sp) where {S,A,C<:CompositeCostModel,E<:AbstractLowLevelEnv{S,A,C}}
-    get_cost_type(model)(map(m->get_transition_cost(env,m,s,a,sp), model.cost_models))
+    cost_type(model)(map(m->get_transition_cost(env,m,s,a,sp), model.cost_models))
 end
 function accumulate_cost(model::C, cost::T, transition_cost::T) where {T,M,C<:CompositeCostModel{M,T}}
     new_cost = map(x->accumulate_cost(x[1],x[2],x[3]),

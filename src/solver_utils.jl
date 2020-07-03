@@ -30,9 +30,7 @@ gap (including upper and lower bound), etc.
     DEBUG           ::Bool          = false
 end
 cost_type(logger::SolverLogger{C}) where {C} = C
-cost_type(solver) = get_cost_type(get_logger(solver))
-get_cost_type(logger::SolverLogger{C}) where {C} = C
-get_cost_type(solver) = get_cost_type(get_logger(solver))
+cost_type(solver) = cost_type(get_logger(solver))
 
 export get_logger
 
@@ -171,6 +169,7 @@ function reset_solver!(logger::SolverLogger)
     set_start_time!(logger,time())
     logger
 end
+reset_solver!(solver)               = reset_solver!(get_logger(solver))
 
 """
     hard_reset_solver!(solver)
@@ -182,15 +181,12 @@ function hard_reset_solver!(logger::SolverLogger)
     reset_solver!(logger)
     set_max_iterations!(logger,0)
 end
+hard_reset_solver!(solver)          = hard_reset_solver!(get_logger(solver))
 
 get_infeasible_cost(logger::SolverLogger{C}) where {C} = typemax(C)
 get_infeasible_cost(solver) = get_infeasible_cost(get_logger(solver))
 
 increment_iteration_count!(solver)  = increment_iteration_count!(get_logger(solver))
-set_lower_bound!(solver,val)        = set_lower_bound!(get_logger(solver),val)
-set_best_cost!(solver,val)          = set_best_cost!(get_logger(solver),val)
-reset_solver!(solver)               = reset_solver!(get_logger(solver))
-hard_reset_solver!(solver)          = hard_reset_solver!(get_logger(solver))
 
 export
     log_info

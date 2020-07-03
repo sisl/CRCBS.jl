@@ -128,6 +128,11 @@ let
     # high_level_search
     let
         solver = CBS_Solver()
+        set_iteration_limit!(solver,0)
+        @test_throws SolverException CRCBS.solve!(solver,mapf)
+    end
+    let
+        solver = CBS_Solver()
         set_verbosity!(solver,2)
         set_iteration_limit!(solver,100)
         solution, cost = CRCBS.solve!(solver,mapf)
@@ -145,7 +150,7 @@ let
         )
         env = CBS.LowLevelEnv(graph=G,cost_model=cost_model,heuristic=heuristic)
         mapf = MAPF(env,starts,goals)
-        solver = CBS_Solver{cost_type(mapf)}()
+        solver = CBS_Solver(AStar{cost_type(mapf)}())
         set_verbosity!(solver,1)
         solution, cost = CRCBS.solve!(solver,mapf)
     end
@@ -164,7 +169,7 @@ let
         env = CBS.LowLevelEnv(graph=G,cost_model=cost_model,heuristic=heuristic_model)
         mapf = MAPF(env,starts,goals)
         default_solution(mapf)
-        solver = CBS_Solver{cost_type(mapf)}()
+        solver = CBS_Solver(AStar{cost_type(mapf)}())
         set_verbosity!(solver,1)
         solution, cost = CRCBS.solve!(solver,mapf)
     end

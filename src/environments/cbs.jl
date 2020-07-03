@@ -72,31 +72,15 @@ CRCBS.states_match(env::LowLevelEnv,s1::State,s2::State) = (s1.vtx == s2.vtx)
 # is_goal
 function CRCBS.is_goal(env::LowLevelEnv,s::State)
     if states_match(s, env.goal)
-        if s.t < env.goal.t
-            return false
+        if s.t >= env.goal.t
+            return true
         end
-        ###########################
-        # Cannot terminate if there is a constraint on the goal state in the
-        # future (e.g. the robot will need to move out of the way so another
-        # robot can pass)
-        # for constraint in env.constraints.sorted_state_constraints
-        #     if s.t < get_time_of(constraint)
-        #         if states_match(s, get_sp(constraint.v))
-        #             # @show s.t, get_time_of(constraint)
-        #             # println("Constraint on goal vtx ", env.goal.vtx, " at time ",get_time_of(constraint)," - current time = ",s.t)
-        #             return false
-        #             # return true
-        #         end
-        #     end
-        # end
-        ###########################
-        return true
     end
     return false
 end
 # check_termination_criteria
 # CRCBS.check_termination_criteria(env::LowLevelEnv,cost,path,s) = false
-CRCBS.check_termination_criteria(solver,env::LowLevelEnv,cost,s) = iterations(solver) > iteration_limit(solver)
+# CRCBS.check_termination_criteria(solver,env::LowLevelEnv,cost,s) = iterations(solver) > iteration_limit(solver)
 # wait
 CRCBS.wait(s::State) = Action(e=Edge(s.vtx,s.vtx))
 CRCBS.wait(env::LowLevelEnv,s::State) = Action(e=Edge(s.vtx,s.vtx))
@@ -127,7 +111,7 @@ CRCBS.get_next_state(s::State,a::Action) = State(a.e.dst,s.t+a.Δt)
 CRCBS.get_next_state(env::LowLevelEnv,s::State,a::Action) = get_next_state(s,a)
 # get_transition_cost
 function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
-    return get_cost_type(c)(a.Δt)
+    return cost_type(c)(a.Δt)
 end
 function CRCBS.get_transition_cost(env::E,c::C,s::State,a::Action,sp::State) where {E<:LowLevelEnv,C<:ConflictCostModel}
     return get_conflict_value(c, env.agent_idx, sp.vtx, sp.t)

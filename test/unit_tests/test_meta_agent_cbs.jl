@@ -38,18 +38,17 @@ let
     get_initial_cost(env)
 end
 let
-    solver = MetaAgentCBS_Solver(1)
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
     starts = [CBS.State(1,0),CBS.State(2,0)]
     goals = [CBS.State(vtx=6),CBS.State(vtx=5)]
     heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
     env = CBS.LowLevelEnv(graph=G,heuristic=heuristic)
     mapf = MAPF(env,starts,goals)
-
+    solver = MetaAgentCBS_Solver(beta=1)
+    set_verbosity!(solver,2)
     solution, cost = CRCBS.solve!(solver,mapf)
 end
 let
-    solver = MetaAgentCBS_Solver(1)
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
     starts = [MultiStageCBS.State(vtx=1,stage=1,t=0),MultiStageCBS.State(vtx=2,stage=1,t=0)]
     goals = [[MultiStageCBS.State(vtx=6)],[MultiStageCBS.State(vtx=5)]]
@@ -58,6 +57,8 @@ let
     )
     env = MultiStageCBS.LowLevelEnv(graph=G,heuristic=heuristic)
     mapf = MAPF(env,starts,goals)
-
+    solver = MetaAgentCBS_Solver(beta=1)
+    set_verbosity!(solver,2)
+    set_iteration_limit!(solver,10)
     solution, cost = CRCBS.solve!(solver,mapf)
 end

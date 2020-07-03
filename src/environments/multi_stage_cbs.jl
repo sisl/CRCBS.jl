@@ -15,15 +15,17 @@ using Parameters, LightGraphs, DataStructures
     stage::Int  = -1 # which stage of the sequence
     t::Int      = -1
 end
+Base.string(s::State) = "(v=$(s.vtx),stage=$(s.stage),t=$(s.t))"
 CRCBS.is_valid(state::State) = state.vtx > 0
 # action
 @with_kw struct Action
     e::Edge{Int}    = Edge(-1,-1)
     Δt::Int         = 1
 end
-@with_kw struct LowLevelEnv{C<:AbstractCostModel,H<:LowLevelSearchHeuristic,G<:AbstractGraph} <: AbstractLowLevelEnv{State,Action,C}
+Base.string(a::Action) = "(e=$(a.e.src) → $(a.e.dst))"
+@with_kw struct LowLevelEnv{C<:AbstractCostModel,H<:LowLevelSearchHeuristic,G<:AbstractGraph,T} <: AbstractLowLevelEnv{State,Action,C}
     graph::G                        = Graph()
-    constraints::ConstraintTable    = ConstraintTable()
+    constraints::T                  = ConstraintTable{PathNode{State,Action}}()
     goal_sequence::Vector{State}    = Vector{State}()
     agent_idx::Int                  = -1
     cost_model::C                   = SumOfTravelTime()
@@ -36,10 +38,21 @@ CRCBS.get_heuristic_model(env::E) where {E<:LowLevelEnv} = env.heuristic
 ################################################################################
 # build_env
 function CRCBS.build_env(mapf::MAPF{E,S,G}, node::N, idx::Int)  where {S,G,E <: LowLevelEnv,N<:ConstraintTreeNode}
+    goals = deepcopy(mapf.goals[idx])
+    g = goals[end]
+    t_goal = -1
+    for constraint in sorted_state_constraints(get_constraints(node,idx))
+        sp = get_sp(constraint.v)
+        if states_match(g,sp)
+            # @show s.t, get_time_of(constraint)
+            t_goal = max(t_goal,sp.t+1)
+        end
+    end
+    goals[end] = State(g,t=t_goal)
     E(
         graph = mapf.env.graph,
         constraints = get_constraints(node,idx),
-        goal_sequence = mapf.goals[idx],
+        goal_sequence = goals,
         agent_idx = idx,
         cost_model = get_cost_model(mapf.env),
         heuristic = get_heuristic_model(mapf.env)
@@ -52,7 +65,7 @@ function CRCBS.get_heuristic_cost(env::E,h::MultiStagePerfectHeuristic,s::State)
 end
 # states_match
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
-function CRCBS.is_valid(path::Path{State,Action},start::State,goals::Vector{State})
+function CRCBS.is_consistent(path::Path,start::State,goals::Vector{State})
     valid = true
     stage = 1
     if states_match(start,goals[stage])
@@ -71,31 +84,36 @@ function CRCBS.is_valid(path::Path{State,Action},start::State,goals::Vector{Stat
 end
 # is_goal
 function CRCBS.is_goal(env::E,s::State) where {E<:LowLevelEnv}
-    if states_match(s, env.goal_sequence[s.stage])
-        ###########################
-        # Cannot terminate if there is a constraint on the goal state in the
-        # future (e.g. the robot will need to move out of the way so another
-        # robot can pass)
-        if s.stage == length(env.goal_sequence) # terminal goal state
-            for constraint in env.constraints.sorted_state_constraints
-                if s.t < get_time_of(constraint)
-                    if states_match(s, get_sp(constraint.v))
-                        # @show s.t, get_time_of(constraint)
-                        return false
-                    end
-                end
+    if s.stage == length(env.goal_sequence)
+        if states_match(s, env.goal_sequence[s.stage])
+            if s.t >= env.goal_sequence[s.stage].t
+                return true
             end
-            return true # done!
-        else
-            return false # not done yet!
+            # ###########################
+            # # Cannot terminate if there is a constraint on the goal state in the
+            # # future (e.g. the robot will need to move out of the way so another
+            # # robot can pass)
+            # if s.stage == length(env.goal_sequence) # terminal goal state
+            #     for constraint in env.constraints.sorted_state_constraints
+            #         if s.t < get_time_of(constraint)
+            #             if states_match(s, get_sp(constraint.v))
+            #                 # @show s.t, get_time_of(constraint)
+            #                 return false
+            #             end
+            #         end
+            #     end
+            #     return true # done!
+            # else
+            #     return false # not done yet!
+            # end
+            ###########################
         end
-        ###########################
     end
     return false
 end
 # check_termination_criteria
 # CRCBS.check_termination_criteria(env::E,cost,path,s) where {E<:LowLevelEnv} = false
-CRCBS.check_termination_criteria(solver,env::E,cost,s) where {E<:LowLevelEnv} = false
+# CRCBS.check_termination_criteria(solver,env::E,cost,s) where {E<:LowLevelEnv} = false
 # wait
 CRCBS.wait(s::State) = Action(e=Edge(s.vtx,s.vtx))
 CRCBS.wait(env::E,s::State) where {E<:LowLevelEnv} = Action(e=Edge(s.vtx,s.vtx))
@@ -138,7 +156,7 @@ function CRCBS.get_next_state(env::E,s::State,a::Action) where {E<:LowLevelEnv}
 end
 # get_transition_cost
 function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
-    get_cost_type(c)(a.Δt)
+    cost_type(c)(a.Δt)
 end
 # violates_constraints
 function CRCBS.violates_constraints(env::E, s::State, a::Action, sp::State) where {E<:LowLevelEnv}
@@ -208,15 +226,12 @@ end
 ############################### HELPER FUNCTIONS ###############################
 ################################################################################
 """ Helper for displaying Paths """
-function CRCBS.convert_to_vertex_lists(path::Path)
+function CRCBS.convert_to_vertex_lists(path::Path{State,Action,C}) where {C}
     vtx_list = [n.sp.vtx for n in path.path_nodes]
     if length(path) > 0
         vtx_list = [get_s(get_path_node(path,1)).vtx, vtx_list...]
     end
     vtx_list
-end
-function CRCBS.convert_to_vertex_lists(solution::E) where {E<:LowLevelEnv}
-    return [convert_to_vertex_lists(path) for path in get_paths(solution)]
 end
 
 end # end module MultiStageCBS

@@ -86,15 +86,15 @@ let
     # State = CommonTests.State
     # Action = CommonTests.Action
 
-    P = PathNode{CBS.State,CBS.Action}
-    State = CBS.State
-    Action = CBS.Action
+    P = PathNode{CommonTests.State,CommonTests.Action}
+    State = CommonTests.State
+    Action = CommonTests.Action
 
     let
 
 
-        starts = [State(1,0),State(2,0)]
-        goals = [State(3,-1),State(4,-1)]
+        starts = [State(1),State(2)]
+        goals = [State(3),State(4)]
         paths = [
             Path([
                 P(State(1),Action(1),State(2)),
@@ -119,14 +119,14 @@ let
         @test !(DefaultConflict() < DefaultConflict())
     end
     let
-        conflict_table = ConflictTable()
+        conflict_table = ConflictTable{Conflict{P,P}}()
         @test count_conflicts(conflict_table) == 0
         conflict = Conflict{P,P}(
             STATE_CONFLICT,1,2,P(State(1),Action(1),State(1)),P(State(1),Action(1),State(1)),1
         )
         add_conflict!(conflict_table,conflict)
         @test count_conflicts(conflict_table) == 1
-        @test count_conflicts(conflict_table,1,2) == 0
+        @test count_conflicts(conflict_table,1,2) == 1
 
         conflict = Conflict{P,P}(
             ACTION_CONFLICT,1,2,P(State(1),Action(1),State(1)),P(State(1),Action(1),State(1)),1
@@ -158,7 +158,7 @@ let
                 P(State(3),Action(2),State(2)),
             ])
             ]
-        conflict_table = ConflictTable()
+        conflict_table = ConflictTable{Conflict{P,P}}()
         detect_conflicts!(conflict_table,paths[1],paths[2],1,2)
 
         @test length(conflict_table.state_conflicts[(1,2)]) == 1
@@ -167,7 +167,7 @@ let
         reset_conflict_table!(conflict_table,2,1)
         @test length(conflict_table.state_conflicts[(1,2)]) == 0
 
-        conflict_table = ConflictTable()
+        conflict_table = ConflictTable{Conflict{P,P}}()
         paths = [
             Path([
                 P(State(1),Action(1),State(2)),
@@ -213,31 +213,19 @@ let
         @test CRCBS.get_agent_id(action_constraint) == action_constraint.a
     end
     let
-        constraints = ConstraintTable(a = 1)
+        constraints = ConstraintTable{P}(a = 1)
         @test get_agent_id(constraints) == constraints.a
         # add a constraint whose agent id does not match (should throw an error)
-        @test_throws ErrorException add_constraint!(constraints, StateConstraint(get_agent_id(constraints)+1,2,2))
+        @test_throws AssertionError add_constraint!(constraints, StateConstraint(get_agent_id(constraints)+1,P(),2))
         @test length(constraints.state_constraints) == 0
         @test length(constraints.action_constraints) == 0
         # add a constraint whose agent id DOES match
-        add_constraint!(constraints, StateConstraint(get_agent_id(constraints),1,1))
+        add_constraint!(constraints, StateConstraint(get_agent_id(constraints),P(),1))
         @test length(constraints.state_constraints) == 1
         @test length(constraints.action_constraints) == 0
         # add a constraint whose agent id DOES match
-        add_constraint!(constraints, ActionConstraint(get_agent_id(constraints),1,1))
+        add_constraint!(constraints, ActionConstraint(get_agent_id(constraints),P(),1))
         @test length(constraints.action_constraints) == 1
-    end
-    let
-        cm = TravelTime()
-        node = ConstraintTreeNode{CRCBS.DefaultSolution,get_cost_type(cm)}()
-        node.constraints[1] = ConstraintTable(a = 1)
-        @test get_cost(node) == 0
-        get_constraints(node,1)
-        @test add_constraint!(node,StateConstraint(1,1,1))
-        @test add_constraint!(node,ActionConstraint(1,1,1))
-        @test length(get_constraints(node,1).state_constraints) == 1
-        @test length(get_constraints(node,1).action_constraints) == 1
-
     end
     let
         conflict = Conflict{P,P}(

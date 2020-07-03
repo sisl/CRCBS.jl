@@ -108,3 +108,6 @@ export
     convert_to_vertex_lists
 
 function convert_to_vertex_lists(path) end
+function convert_to_vertex_lists(solution::S) where {S<:LowLevelSolution}
+    return [convert_to_vertex_lists(path) for path in get_paths(solution)]
+end

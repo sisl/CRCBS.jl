@@ -23,10 +23,10 @@ function construct_composite_heuristic(args...)
     for m in models
         @assert typeof(m) <: LowLevelSearchHeuristic
     end
-    cost_types = map(m->get_cost_type(m),models)
+    cost_types = map(m->cost_type(m),models)
     CompositeHeuristic{typeof(models),Tuple{cost_types...}}(models)
 end
-# get_cost_type(h::H) where {T,M,H<:CompositeHeuristic{T,M}} = T
+# cost_type(h::H) where {T,M,H<:CompositeHeuristic{T,M}} = T
 function get_heuristic_cost(model::H,args...) where {T,M,H<:CompositeHeuristic{M,T}}
     T(map(h->get_heuristic_cost(h,args...), model.cost_models))
 end

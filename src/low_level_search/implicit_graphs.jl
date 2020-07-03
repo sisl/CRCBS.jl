@@ -2,7 +2,7 @@ export
     A_star_impl!,
     A_star
 
-CRCBS.check_termination_criteria(solver,env,cost_so_far,path,s) = CRCBS.check_termination_criteria(env,cost_so_far,path,s)
+check_termination_criteria(solver,env,cost_so_far,path,s) = check_termination_criteria(env,cost_so_far,path,s)
 
 export
     logger_enter_a_star!,
