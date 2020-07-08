@@ -134,18 +134,12 @@ function CRCBS.detect_state_conflict(n1::PathNode{State,Action},n2::PathNode{Sta
     end
     return false
 end
-function CRCBS.detect_state_conflict(env::E,n1::PathNode{State,Action},n2::PathNode{State,Action}) where {E<:LowLevelEnv}
-    detect_state_conflict(n1,n2)
-end
 # detect_action_conflict
 function CRCBS.detect_action_conflict(n1::PathNode{State,Action},n2::PathNode{State,Action})
     if (n1.a.e.src == n2.a.e.dst) && (n1.a.e.dst == n2.a.e.src)
         return true
     end
     return false
-end
-function CRCBS.detect_action_conflict(env::E,n1::PathNode{State,Action},n2::PathNode{State,Action}) where {E<:LowLevelEnv}
-    detect_action_conflict(n1,n2)
 end
 
 ################################################################################
