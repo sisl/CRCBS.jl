@@ -1,7 +1,6 @@
 export
     solve!,
-    CBS_Solver,
-    ICBS_Solver,
+    CBSSolver,
     MetaAgentCBS_Solver
 
 function solve! end
@@ -23,7 +22,7 @@ end
 
 export AbstractAStarPlanner
 abstract type AbstractAStarPlanner end
-check_termination_criteria(solver::A,env,cost_so_far,s) where {A<:AbstractAStarPlanner} =  iterations(solver) > iteration_limit(solver)
+check_termination_criteria(solver::A, env, cost_so_far, s) where {A<:AbstractAStarPlanner} =  iterations(solver) > iteration_limit(solver)
 function logger_step_a_star!(solver::A, env, base_path, s, q_cost) where {A<:AbstractAStarPlanner}
     increment_iteration_count!(solver)
     log_info(2,solver,"A* iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost")
@@ -32,7 +31,7 @@ function logger_enter_a_star!(solver::A) where {A<:AbstractAStarPlanner}
     log_info(1,solver,"A*: entering...")
     @assert(iterations(solver) == 0, "A*: ERROR: iterations = $(iterations(solver)) at entry")
 end
-function logger_enqueue_a_star!(solver::A,env,s,a,sp,h_cost) where {A<:AbstractAStarPlanner}
+function logger_enqueue_a_star!(solver::A, env, s, a, sp, h_cost) where {A<:AbstractAStarPlanner}
     log_info(2,solver,"A* exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
 end
 function logger_exit_a_star!(solver::A, path, cost, status) where {A<:AbstractAStarPlanner}
@@ -78,18 +77,18 @@ function hard_reset_solver!(solver::AbstractCBSSolver)
     hard_reset_solver!(low_level(solver))
 end
 
-export CBS_Solver
+export CBSSolver
 
 """
-    CBS_Solver
+    CBSSolver
 
 Path planner that employs Conflict-Based Search
 """
-@with_kw struct CBS_Solver{L,C} <: AbstractCBSSolver
+@with_kw struct CBSSolver{L,C} <: AbstractCBSSolver
     low_level_planner::L    = AStar()
     logger::SolverLogger{C} = SolverLogger{cost_type(low_level_planner)}()
 end
-CBS_Solver(planner) = CBS_Solver(low_level_planner=planner)
+CBSSolver(planner) = CBSSolver(low_level_planner=planner)
 
 ################################################################################
 ############################# CBS Logger Interface #############################
@@ -114,6 +113,8 @@ function logger_exit_cbs_optimal!(solver,node)
 end
 function logger_cbs_add_constraint!(solver,node,constraint,mapf)
     increment_iteration_count!(solver)
+    enforce_time_limit(solver)
+    enforce_iteration_limit(solver)
     if verbosity(solver) == 1
         println("CBS: adding constraint ",string(constraint))
     elseif verbosity(solver) == 2
@@ -142,39 +143,28 @@ export low_level_search!
         mapf::M where {M<:AbstractMAPF},
         node::ConstraintTreeNode,
         idxs=collect(1:num_agents(mapf)),
-        path_finder=A_star)`
+        path_finder=a_star)`
 
     Returns a low level solution for a MAPF with constraints. The heuristic
     function for cost-to-go is user-defined and environment-specific
 """
 function low_level_search!(
-    solver::S, mapf::M, node::N, idxs::Vector{Int}=collect(1:num_agents(mapf));
-    heuristic=get_heuristic_cost, path_finder=A_star, verbose=false
-    ) where {S<:AbstractAStarPlanner,M<:AbstractMAPF,N<:ConstraintTreeNode}
+    solver::S, mapf::M, node::N, idxs=collect(1:num_agents(mapf));
+    path_finder=a_star
+    ) where {S,M<:AbstractMAPF,N<:ConstraintTreeNode}
     # Only compute a path for the indices specified by idxs
     for i in idxs
         env = build_env(solver, mapf, node, i)
-        reset_solver!(solver)
-        path, cost = path_finder(solver, env, get_start(mapf,env,i), heuristic)
+        reset_solver!(low_level(solver))
+        path, cost = path_finder(low_level(solver), env, get_start(mapf,env,i))
         set_solution_path!(node.solution, path, i)
         set_path_cost!(node.solution, cost, i)
     end
     set_cost!(node, aggregate_costs(get_cost_model(mapf.env),get_path_costs(node.solution)))
     return is_consistent(node.solution,mapf)
 end
-low_level_search!(solver::CBS_Solver,args...) = low_level_search!(low_level(solver),args...)
+# low_level_search!(solver::CBSSolver,args...) = low_level_search!(low_level(solver),args...)
 build_env(solver, mapf, node, i) = build_env(mapf, node, i)
-
-# """
-#     cbs_dequeue_and_preprocess(solver::CBS_Solver,priority_queue,mapf)
-#
-# Part of CBS interface. Defaults to dequeueing the next node from
-# `priority_queue`. This function can be overridden as part of implementing e.g.,
-# Meta-Agent CBS.
-# """
-# function cbs_dequeue_and_preprocess!(solver,priority_queue,mapf)
-#     node = dequeue!(priority_queue)
-# end
 
 """
     get_agent_idxs(solver,node,mapf,constraint)
@@ -187,14 +177,23 @@ function get_agent_idxs(solver,node,mapf,constraint)
     [get_agent_id(constraint)]
 end
 
-
 """
     cbs_bypass!(solver,mapf,node,conflict,priority_queue)
 
 Part of CBS interface. Defaults to false, but can be overridden to modify the
-priority_queue and/or bypass the branching step of CBS.
+priority_queue and/or bypass the branching step of CBS
 """
 cbs_bypass!(solver,mapf,node,priority_queue) = false
+
+"""
+    cbs_update_conflict_table!(solver,mapf,node,constraint)
+
+Allows for flexible conflict-updating dispatch. This function is called within
+    within the default `cbs_branch!()` method.
+"""
+function cbs_update_conflict_table!(solver,mapf,node,constraint)
+    detect_conflicts!(node,[get_agent_id(constraint)]) # update conflicts related to this agent
+end
 
 """
     cbs_branch!(solver,mapf,node,conflict,priority_queue)
@@ -211,7 +210,7 @@ function cbs_branch!(solver,mapf,node,conflict,priority_queue)
             logger_cbs_add_constraint!(solver,new_node,constraint,mapf)
             consistent_flag = low_level_search!(solver, mapf, new_node,[get_agent_id(constraint)])
             if consistent_flag
-                detect_conflicts!(new_node,[get_agent_id(constraint)]) # update conflicts related to this agent
+                cbs_update_conflict_table!(solver,mapf,new_node,constraint)
                 enqueue!(priority_queue, new_node => get_cost(new_node))
             end
         end
@@ -252,135 +251,6 @@ function cbs!(solver,mapf)
     return default_solution(mapf)
 end
 
-function solve!(solver::CBS_Solver, mapf::M where {M<:AbstractMAPF}, path_finder=A_star;verbose=false)
+function solve!(solver::CBSSolver, mapf::M where {M<:AbstractMAPF}, path_finder=a_star;verbose=false)
     cbs!(solver,mapf)
 end
-
-"""
-    MetaAgentCBS_Solver
-
-Path planner that employs Meta Agent Conflict-Based Search
-"""
-@with_kw struct MetaAgentCBS_Solver{L,C} <: AbstractCBSSolver
-    low_level_planner::L    = AStar()
-    logger::SolverLogger{C} = SolverLogger{cost_type(low_level_planner)}()
-    beta::Int               = 1
-end
-MetaAgentCBS_Solver(planner) = MetaAgentCBS_Solver(low_level_planner=planner)
-
-export MetaSolution
-
-"""
-    MetaSolution{S}
-
-Wrapper for a LowLevelSolution that allows for keeping track of groups.
-"""
-struct MetaSolution{S}
-    solution::S
-    group_idxs::Vector{Vector{Int}}
-end
-MetaSolution(mapf::AbstractMAPF) = MetaSolution(
-    get_initial_solution(mapf),
-    map(i->[i],1:num_agents(mapf))
-    )
-for op in [
-    :state_type,
-    :action_type,
-    :cost_type,
-    :get_paths,
-    :get_path_costs,
-    :get_cost,
-    :get_cost_model,
-    :set_solution_path!,
-    :set_path_cost!,
-    :set_cost!,
-    :is_consistent,
-    :is_valid,
-    ]
-    @eval $op(s::MetaSolution,args...) = $op(s.solution,args...)
-end
-Base.copy(solution::L) where {L<:MetaSolution} = L(
-    copy(solution.solution),
-    deepcopy(solution.group_idxs)
-    )
-
-function initialize_root_node(solver::MetaAgentCBS_Solver,mapf::AbstractMAPF,solution=MetaSolution(mapf))
-    initialize_root_node(mapf,solution)
-end
-
-"""
-    `combine_agents(conflict_table, groups::Vector{Vector{Int}})`
-
-    Helper for merging two (meta) agents into a meta-agent
-"""
-function combine_agents!(solver, node)
-    groups = node.solution.group_idxs
-    N = length(groups)
-    conflict_counts = zeros(Int,N,N)
-    for (i,idxs1) in enumerate(groups)
-        for (j,idxs2) in enumerate(groups)
-            conflict_counts[i,j] += count_conflicts(node.conflict_table,idxs1,idxs2)
-        end
-    end
-    idx = argmax(conflict_counts).I
-    i = minimum(idx)
-    j = maximum(idx)
-    if conflict_counts[i,j] > solver.beta
-        log_info(1,solver,"Conflict Limit exceeded. Merging agents ", groups[i], " and ", groups[j],"\n")
-        groups = deepcopy(groups)
-        groups[i] = [groups[i]..., groups[j]...]
-        deleteat!(groups, j)
-        node.groups = groups
-        return groups, i
-    end
-    return groups, -1
-end
-
-function get_group_index(groups, agent_idx)
-    group_idx = -1
-    for i in 1:length(groups)
-        if agent_idx in groups[i]
-            group_idx = i
-            break
-        end
-    end
-    return group_idx
-end
-function get_group_index(solution::MetaSolution, agent_idx)
-    get_group_index(solution.group_idxs,agent_idx)
-end
-
-function cbs_bypass!(solver::MetaAgentCBS_Solver,mapf,node,priority_queue)
-    groups, group_idx = combine_agents!(solver, node)
-    if group_idx > 0 # New Meta Agent has been constructed
-        new_node = initialize_child_search_node(node)
-        low_level_search!(solver, mapf, new_node, [group_idx])
-        for agent_id in node.groups[group_idx]
-            detect_conflicts!(new_node.conflict_table,new_node.solution,agent_id)
-        end
-        if is_valid(new_node.solution, mapf)
-            enqueue!(priority_queue, new_node => get_cost(new_node))
-        end
-        return true
-    end
-    return false
-end
-
-function CRCBS.low_level_search!(solver::MetaAgentCBS_Solver,mapf,node,idxs=collect(1:num_agents(mapf)))
-    group_idxs = union(map(i->get_group_index(node.solution,i), idxs))
-    low_level_search!(low_level(solver),mapf,node,group_idxs)
-end
-
-function detect_conflicts!(conflict_table,solution::MetaSolution,
-        group_idxs=collect(1:length(solution.group_idxs)),
-        args...;
-        kwargs...
-    )
-    for group_idx in group_idxs
-        for idx in solution.group_idxs[group_idx]
-            detect_conflicts!(conflict_table,solution.solution,idx,args...;kwargs...)
-        end
-    end
-end
-
-solve!(solver::MetaAgentCBS_Solver, mapf) = cbs!(solver,mapf)

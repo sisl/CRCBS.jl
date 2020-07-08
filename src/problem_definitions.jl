@@ -1,16 +1,16 @@
 export
     AbstractMAPF,
+    MAPF,
+    action_type,
+    state_type,
+    cost_type,
     num_agents,
     num_goals,
     get_starts,
     get_goals,
     get_start,
     get_goal,
-
-    MAPF,
-    MultiMAPF,
-    MetaMAPF
-    # PC_TAPF
+    get_start
 
 abstract type AbstractMAPF end
 
@@ -40,18 +40,4 @@ get_goals(mapf::MAPF)           = mapf.goals
 get_start(mapf::MAPF, i)        = get_starts(mapf)[i]
 get_goal(mapf::MAPF, i)         = get_goals(mapf)[i]
 get_start(mapf::MAPF, env, i)   = get_start(mapf,i)
-
-"""
-    MetaMAPF
-
-A wrapper that allows agents to be combined for MetaAgent CBS
-TODO: maybe this functionality belongs in the solver--not the problem statement.
-"""
-struct MetaMAPF{M} <: AbstractMAPF
-    mapf::M
-end
-for op in [:action_type,:state_type,:cost_type,
-            :num_agents,:num_goals,:get_starts,
-            :get_goals,:get_start,:get_goal,:get_start,]
-    @eval $op(mapf::MetaMAPF,args...) = $op(mapf.mapf,args...)
-end
+# TODO implement a check to be sure that no two agents have the same goal

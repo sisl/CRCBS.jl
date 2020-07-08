@@ -30,8 +30,8 @@ end
 end #module
 
 let
-    S = CBS.State
-    A = CBS.Action
+    S = GraphEnv.State
+    A = GraphEnv.Action
     P = PathNode{S,A}
     vtx_grid = initialize_dense_vtx_grid(4,4)
     # 1  5   9  13
@@ -39,16 +39,16 @@ let
     # 3  7  11  15
     # 4  8  12  16
     G = initialize_grid_graph_from_vtx_grid(vtx_grid)
-    starts = [CBS.State(1,0),CBS.State(2,0)]
-    goals = [CBS.State(vtx=5),CBS.State(vtx=6)]
+    starts = [GraphEnv.State(1,0),GraphEnv.State(2,0)]
+    goals = [GraphEnv.State(vtx=5),GraphEnv.State(vtx=6)]
     heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
-    env = CBS.LowLevelEnv(graph=G,heuristic=heuristic)
+    env = GraphEnv.LowLevelEnv(graph=G,heuristic=heuristic)
     mapf = MAPF(env,starts,goals)
     let
         root_node = initialize_root_node(mapf)
         paths = [
             Path([P(S(1,0),A(Edge(1,2),0),S(2,1))]),
-            Path([P(S(2,0),A(Edge(1,2),0),S(2,1))]),
+            Path([P(S(2,0),A(Edge(2,2),0),S(2,1))]),
         ]
         set_solution_path!(root_node.solution,paths[1],1)
         set_solution_path!(root_node.solution,paths[2],2)
@@ -76,7 +76,8 @@ let
             get_paths(root_node.solution)[1]
             )
 
-        reset_conflict_table!(child1,1,2)
+        detect_conflicts!(child1,[1])
+        # reset_conflict_table!(child1,1,2)
         @test count_conflicts(child1) == 0
     end
 end
@@ -105,17 +106,17 @@ let
                 P(State(3),Action(3),State(4))
                 ]),
             ]
-        @test is_valid(paths[1],starts[1],goals[1])
-        @test is_valid(paths,starts,goals)
+        @test CRCBS.is_valid(paths[1],starts[1],goals[1])
+        @test CRCBS.is_valid(paths,starts,goals)
     end
     let
         conflict = Conflict{P,P}()
         CommonTests.test_conflict(conflict)
-        @test !is_valid(conflict)
+        @test !CRCBS.is_valid(conflict)
 
         conflict = DefaultConflict()
         CommonTests.test_conflict(conflict)
-        @test !is_valid(conflict)
+        @test !CRCBS.is_valid(conflict)
         @test !(DefaultConflict() < DefaultConflict())
     end
     let

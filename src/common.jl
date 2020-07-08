@@ -1,9 +1,6 @@
 ###############################################################################
 ################################## Conflicts ###################################
 ################################################################################
-
-abstract type CBSConflict end
-
 export
     ConflictType,
         NULL_CONFLICT,
@@ -66,14 +63,6 @@ is_valid(conflict::C) where {C<:Conflict} = ((conflict_type(conflict) != NULL_CO
                                 && (agent1_id(conflict) != agent2_id(conflict))
                                 && (agent1_id(conflict) != -1)
                                 && (agent2_id(conflict) != -1))
-# """
-#     Reset conflict table (clear all conflicts between agent i and agent j)
-# """
-# function reset_conflict_table!(conflict_table,i::Int,j::Int)
-#     error("reset_conflict_table!(conflict_table, i,j) not yet implemented \n
-#         for conflict_table::",typeof(conflict_table), ". \n Aborting.")
-#     return conflict_table
-# end
 
 export
     detect_conflicts!,
@@ -91,7 +80,7 @@ end
 """
     detect conflicts between paths
 """
-function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int;t0::Int=1) where {P1<:Path,P2<:Path}
+function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int,t0::Int=1) where {P1<:Path,P2<:Path}
     # print("detect_conflicts!(conflict_table,path1::Path,path2::Path,i::Int,j::Int)\n")
     if length(path1) > length(path2)
         path2 = extend_path(path2,length(path1))
@@ -119,7 +108,7 @@ end
     - idxs                  (optional) a list of agent ids for which to check
                             collisions against all other agents
 """
-function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths));kwargs...) where {P<:Path}
+function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths)),args...) where {P<:Path}
     # print("detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     for (i,path1) in enumerate(paths)
         for (j,path2) in enumerate(paths)
@@ -127,15 +116,15 @@ function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:leng
                 continue
             end
             if (i in idxs) || (j in idxs) # save time by working only on the upper triangle
-                detect_conflicts!(conflict_table,path1,path2,i,j;kwargs...)
+                detect_conflicts!(conflict_table,path1,path2,i,j,args...)
             end
         end
     end
     return conflict_table
 end
 
-function detect_conflicts!(conflict_table, solution::L, idxs=collect(1:length(get_paths(solution)));kwargs...) where {L <: LowLevelSolution}
-    detect_conflicts!(conflict_table,get_paths(solution),idxs;kwargs...)
+function detect_conflicts!(conflict_table, solution::L, args...) where {L <: LowLevelSolution}
+    detect_conflicts!(conflict_table,get_paths(solution),args...)
 end
 
 export
@@ -327,16 +316,16 @@ end
 #     - idxs                  (optional) a list of agent ids for which to check
 #                             collisions against all other agents
 # """
-function detect_conflicts(paths::Vector{P}, idxs=collect(1:length(paths))) where {P <: Path}
+function detect_conflicts(paths::Vector{P}, idxs=collect(1:length(paths)),args...) where {P <: Path}
     # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     conflict_table = ConflictTable{SymmetricConflict{node_type(P())}}()
-    detect_conflicts!(conflict_table,paths,idxs)
+    detect_conflicts!(conflict_table,paths,idxs,args...)
     conflict_table
 end
-function detect_conflicts(solution::L, idxs=collect(1:length(get_paths(solution)))) where {L<:LowLevelSolution}
+function detect_conflicts(solution::L, idxs=collect(1:length(get_paths(solution))),args...) where {L<:LowLevelSolution}
     # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     conflict_table = ConflictTable{SymmetricConflict{node_type(P())}}()
-    detect_conflicts!(conflict_table,solution,idxs)
+    detect_conflicts!(conflict_table,solution,idxs,args...)
     conflict_table
 end
 
@@ -490,6 +479,7 @@ end
 
 export
     ConstraintTreeNode,
+    solution_type,
     initialize_root_node,
     initialize_child_search_node,
     get_constraints,
@@ -501,32 +491,32 @@ const DefaultSolution = LowLevelSolution{DefaultState,DefaultAction,Float64,Trav
     A node of a constraint tree. Each node has a set of constraints, a candidate
     solution (set of robot paths), and a cost
 """
-@with_kw mutable struct ConstraintTreeNode{S,T,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
+# @with_kw mutable struct ConstraintTreeNode{S,T,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
+@with_kw mutable struct ConstraintTreeNode{S,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
     # set of paths (one per agent) through graph
-    solution        ::S                     = DefaultSolution()
+    solution        ::S = DefaultSolution()
     # maps agent_id to the set of constraints involving that agent
     constraints     ::C = Dict{Int,ConstraintTable{node_type(solution)}}()
     # meta-agent groups
-    groups          ::Vector{Vector{Int}}  = Vector{Vector{Int}}()
+    # groups          ::Vector{Vector{Int}}  = Vector{Vector{Int}}()
     # maintains a list of all conflicts
     conflict_table  ::D = ConflictTable{SymmetricConflict{node_type(solution)}}()
     # cost = sum([length(path) for path in solution])
-    cost            ::T                    = get_cost(solution)
+    # cost            ::T                    = get_cost(solution)
     # index of parent node
-    parent          ::Int                  = -1
+    parent          ::Int = -1
     # indices of two child nodes
-    children        ::Tuple{Int,Int}       = (-1,-1)
+    children        ::Tuple{Int,Int} = (-1,-1)
     # unique id
-    id              ::Int                  = -1
+    id              ::Int = -1
 end
-action_type(node::N) where {N <: ConstraintTreeNode} = action_type(node.solution)
-state_type(node::N) where {N <: ConstraintTreeNode} = state_type(node.solution)
-cost_type(node::N) where {N <: ConstraintTreeNode} = cost_type(node.solution)
-get_cost(node::N) where {N <: ConstraintTreeNode} = get_cost(node.solution)
-function set_cost!(node::N,cost) where {N <: ConstraintTreeNode}
-    set_cost!(node.solution,cost)
-    node.cost = cost
+for op in [
+    :cost_type,:state_type,:action_type,:path_type,:get_cost,:get_paths,
+    :get_path_costs,:set_cost!,:set_solution_path!,:set_path_cost!,
+    ]
+    @eval $op(node::ConstraintTreeNode,args...) = $op(node.solution,args...)
 end
+solution_type(node::ConstraintTreeNode{S,C,D}) where {S,C,D} = S
 
 """
     `initialize_root_node`
@@ -536,7 +526,7 @@ end
 function initialize_root_node(mapf::AbstractMAPF,solution=get_initial_solution(mapf))
     ConstraintTreeNode(
         solution    = solution,
-        cost        = get_cost(solution),
+        # cost        = get_cost(solution),
         constraints = Dict(
             i=>ConstraintTable{node_type(solution)}(a=i) for i in 1:num_agents(mapf)
             ),
@@ -555,9 +545,9 @@ end
 function initialize_child_search_node(parent_node::N, solution=copy(parent_node.solution)) where {N<:ConstraintTreeNode}
     N(
         solution        = solution,
-        cost            = deepcopy(get_cost(solution)),
+        # cost            = deepcopy(get_cost(solution)),
         constraints     = deepcopy(parent_node.constraints),
-        groups          = deepcopy(parent_node.groups),
+        # groups          = deepcopy(parent_node.groups),
         conflict_table  = deepcopy(parent_node.conflict_table),
         parent          = parent_node.id
     )
@@ -581,15 +571,12 @@ end
     adds a `StateConstraint` to a ConstraintTreeNode
 """
 function add_constraint!(node::N,constraint::CBSConstraint) where {N<:ConstraintTreeNode}
-    # Constraint is not legal if it prevents an agent from reaching its goal
-    # if !(states_match(get_s(constraint.v), mapf.goals[get_agent_id(constraint)])
-    #     || states_match(get_sp(constraint.v), mapf.goals[get_agent_id(constraint)]))
     add_constraint!(get_constraints(node, get_agent_id(constraint)), constraint)
     return true
 end
 
-function detect_conflicts!(node::ConstraintTreeNode, args...;kwargs...)
-    detect_conflicts!(node.conflict_table,node.solution,args...;kwargs...)
+function detect_conflicts!(node::ConstraintTreeNode, args...)
+    detect_conflicts!(node.conflict_table,node.solution,args...)
 end
 for op in [:count_conflicts,:get_next_conflict,:reset_conflict_table!,:get_conflicts]
     @eval $op(node::ConstraintTreeNode,args...) = $op(node.conflict_table,args...)
@@ -608,13 +595,6 @@ end
 #     constraints2 = union([collect(keys(v)) for (k,v) in node2.constraints])
 #     return length(setdiff(constraints1,constraints2)) == 0
 # end
-
-"""
-    Helper function to get the cost of a particular node
-"""
-function get_cost(node::N) where {N <: ConstraintTreeNode}
-    return get_cost(node.solution)
-end
 
 """
     generates a Vector of (State or Action) Constraints from a conflict

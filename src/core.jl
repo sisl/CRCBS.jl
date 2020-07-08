@@ -38,6 +38,7 @@ export
     get_s,
     get_a,
     get_sp
+
 """
     `PathNode{S,A}`
 
@@ -98,7 +99,7 @@ function Base.push!(p::P,n::N) where {P<:Path,N<:PathNode}
     push!(p.path_nodes,n)
 end
 get_cost(p::P) where {P<:Path}              = p.cost
-function set_cost!(p::P) where {P<:Path}
+function set_cost!(p::P,cost) where {P<:Path}
     p.cost = cost
 end
 Base.copy(p::P) where {P<:Path}             = Path(s0=p.s0,path_nodes=copy(p.path_nodes),cost=p.cost)
@@ -139,27 +140,6 @@ get_start_index(path::P) where {S<:TimeIndexedState,A,C,P<:Path{S,A,C}} = 1 - ge
 
     Assumes that all paths start at t = 1
 """
-# function get_path_node(path::P,t::Int) where {P<:Path}
-#     if t <= length(path)
-#         return path[t]
-#     else
-#         t₀ = length(path)
-#         if t₀ == 0
-#             sp = get_initial_state(path)
-#         else
-#             node = get(path,length(path),node_type(path)())
-#             s = get_s(node)
-#             a = get_a(node)
-#             sp = get_sp(node)
-#         end
-#         for τ in length(path)+1:t
-#             s = sp
-#             a = wait(s)
-#             sp = get_next_state(s,a)
-#         end
-#         return PathNode(s,a,sp)
-#     end
-# end
 function get_path_node(path::P,t::Int) where {P<:Path}
     t_idx = get_index_from_time(path,t)
     if 1 <= t_idx <= length(path)
@@ -246,6 +226,7 @@ cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
 
 export
     LowLevelSolution,
+    path_type,
     get_paths,
     get_path_costs,
     set_solution_path!,
@@ -274,6 +255,7 @@ end
 state_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}    = S
 action_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}   = A
 cost_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}     = T
+path_type(s::LowLevelSolution) = Path{state_type(s),action_type(s),cost_type(s)}
 Base.copy(solution::L) where {L <: LowLevelSolution} = L(
     paths=copy(solution.paths), # NOTE don't want to needlessly copy paths between search nodes
     cost_model=deepcopy(solution.cost_model),
@@ -290,6 +272,7 @@ function set_solution_path!(solution::L, path::P, idx::Int) where {L<:LowLevelSo
 end
 function set_path_cost!(solution::L, cost::C, idx::Int) where {L<:LowLevelSolution,C}
     solution.costs[idx] = cost
+    solution.paths[idx].cost = cost
     return solution
 end
 function set_cost!(solution::L,cost) where {L<:LowLevelSolution}

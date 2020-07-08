@@ -2,6 +2,7 @@ using Test
 using Logging
 # Package Under Test
 using CRCBS
+using JuMP
 using LightGraphs, MetaGraphs
 using Parameters
 using GraphUtils
@@ -36,8 +37,9 @@ end
     end
 end
 
+set_global_verbosity!(0)
 # Define package tests
-@time @testset "CRCBS Package Tests" begin
+@time @testset "CRCBS.Package Tests" begin
     testdir = joinpath(dirname(@__DIR__), "test")
     @time @testset "CRCBS.ProblemDefinitionTests" begin
         include(joinpath(testdir, "unit_tests/test_problem_definitions.jl"))
@@ -66,7 +68,7 @@ end
     @time @testset "CRCBS.CBSTests" begin
         include(joinpath(testdir, "unit_tests/test_cbs.jl"))
     end
-    @time @testset "CRCBS.MultiStageCBSTests" begin
+    @time @testset "CRCBS.MultiStageCBS.ests" begin
         include(joinpath(testdir, "unit_tests/test_multi_stage_cbs.jl"))
     end
     @time @testset "CRCBS.MetaAgentCBSTests" begin

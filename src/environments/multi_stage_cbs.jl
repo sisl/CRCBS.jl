@@ -31,8 +31,32 @@ Base.string(a::Action) = "(e=$(a.e.src) → $(a.e.dst))"
     cost_model::C                   = SumOfTravelTime()
     heuristic::H                    = NullHeuristic() # MultiStagePerfectHeuristic(graph,Vector{Vector{Int}}())
 end
+CRCBS.get_possible_actions(env::LowLevelEnv,s::State) = map(v->Action(e=Edge(s.vtx,v)),outneighbors(env.graph,s.vtx))
+function CRCBS.get_next_state(s::State,a::Action)
+    @assert(is_valid(s))
+    @assert(s.vtx == a.e.src)
+    State(a.e.dst, s.stage, s.t+a.Δt)
+end
+function CRCBS.get_next_state(env::E,s::State,a::Action) where {E<:LowLevelEnv}
+    @assert(is_valid(s))
+    @assert(s.stage <= length(env.goal_sequence))
+    stage = s.stage
+    if states_match(s, env.goal_sequence[s.stage])
+        stage = min(stage+1, length(env.goal_sequence))
+    end
+    return State(a.e.dst, stage, s.t+a.Δt)
+end
+CRCBS.wait(s::State) = Action(e=Edge(s.vtx,s.vtx))
+CRCBS.wait(env::E,s::State) where {E<:LowLevelEnv} = Action(e=Edge(s.vtx,s.vtx))
 CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
+function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
+    cost_type(c)(a.Δt)
+end
 CRCBS.get_heuristic_model(env::E) where {E<:LowLevelEnv} = env.heuristic
+CRCBS.get_heuristic_cost(env::E,s::State) where {E<:LowLevelEnv} = CRCBS.get_heuristic_cost(env,get_heuristic_model(env),s)
+function CRCBS.get_heuristic_cost(env::E,h::MultiStagePerfectHeuristic,s::State) where {E<:LowLevelEnv}
+    get_heuristic_cost(h, env.agent_idx, s.stage, s.vtx)
+end
 ################################################################################
 ######################## Low-Level (Independent) Search ########################
 ################################################################################
@@ -59,10 +83,6 @@ function CRCBS.build_env(mapf::MAPF{E,S,G}, node::N, idx::Int)  where {S,G,E <: 
         )
 end
 # heuristic
-CRCBS.get_heuristic_cost(env::E,s::State) where {E<:LowLevelEnv} = CRCBS.get_heuristic_cost(env,get_heuristic_model(env),s)
-function CRCBS.get_heuristic_cost(env::E,h::MultiStagePerfectHeuristic,s::State) where {E<:LowLevelEnv}
-    get_heuristic_cost(h, env.agent_idx, s.stage, s.vtx)
-end
 # states_match
 CRCBS.states_match(s1::State,s2::State) = (s1.vtx == s2.vtx)
 function CRCBS.is_consistent(path::Path,start::State,goals::Vector{State})
@@ -89,78 +109,12 @@ function CRCBS.is_goal(env::E,s::State) where {E<:LowLevelEnv}
             if s.t >= env.goal_sequence[s.stage].t
                 return true
             end
-            # ###########################
-            # # Cannot terminate if there is a constraint on the goal state in the
-            # # future (e.g. the robot will need to move out of the way so another
-            # # robot can pass)
-            # if s.stage == length(env.goal_sequence) # terminal goal state
-            #     for constraint in env.constraints.sorted_state_constraints
-            #         if s.t < get_time_of(constraint)
-            #             if states_match(s, get_sp(constraint.v))
-            #                 # @show s.t, get_time_of(constraint)
-            #                 return false
-            #             end
-            #         end
-            #     end
-            #     return true # done!
-            # else
-            #     return false # not done yet!
-            # end
-            ###########################
         end
     end
     return false
 end
-# check_termination_criteria
-# CRCBS.check_termination_criteria(env::E,cost,path,s) where {E<:LowLevelEnv} = false
-# CRCBS.check_termination_criteria(solver,env::E,cost,s) where {E<:LowLevelEnv} = false
-# wait
-CRCBS.wait(s::State) = Action(e=Edge(s.vtx,s.vtx))
-CRCBS.wait(env::E,s::State) where {E<:LowLevelEnv} = Action(e=Edge(s.vtx,s.vtx))
-# get_possible_actions
-struct ActionIter
-    # env::LowLevelEnv
-    s::Int # source state
-    neighbor_list::Vector{Int} # length of target edge list
-end
-struct ActionIterState
-    idx::Int # idx of target node
-end
-function Base.iterate(it::ActionIter)
-    iter_state = ActionIterState(0)
-    return iterate(it,iter_state)
-end
-function Base.iterate(it::ActionIter, iter_state::ActionIterState)
-    iter_state = ActionIterState(iter_state.idx+1)
-    if iter_state.idx > length(it.neighbor_list)
-        return nothing
-    end
-    Action(e=Edge(it.s,it.neighbor_list[iter_state.idx])), iter_state
-end
-Base.length(iter::ActionIter) = length(iter.neighbor_list)
-CRCBS.get_possible_actions(env::E,s::State) where {E<:LowLevelEnv} = ActionIter(s.vtx,outneighbors(env.graph,s.vtx))
-# get_next_state
-function CRCBS.get_next_state(s::State,a::Action)
-    @assert(is_valid(s))
-    @assert(s.vtx == a.e.src)
-    State(a.e.dst, s.stage, s.t+a.Δt)
-end
-function CRCBS.get_next_state(env::E,s::State,a::Action) where {E<:LowLevelEnv}
-    @assert(is_valid(s))
-    @assert(s.stage <= length(env.goal_sequence))
-    stage = s.stage
-    if states_match(s, env.goal_sequence[s.stage])
-        stage = min(stage+1, length(env.goal_sequence))
-    end
-    return State(a.e.dst, stage, s.t+a.Δt)
-end
-# get_transition_cost
-function CRCBS.get_transition_cost(env::E,c::TravelTime,s::State,a::Action,sp::State) where {E<:LowLevelEnv}
-    cost_type(c)(a.Δt)
-end
 # violates_constraints
 function CRCBS.violates_constraints(env::E, s::State, a::Action, sp::State) where {E<:LowLevelEnv}
-    # t = length(path) + 1
     t = sp.t
     if StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t) in env.constraints.state_constraints
         return true
@@ -168,34 +122,6 @@ function CRCBS.violates_constraints(env::E, s::State, a::Action, sp::State) wher
         return true
     end
     return false
-
-    # cs = StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
-    # constraints = env.constraints.sorted_state_constraints
-    # idx = max(1, find_index_in_sorted_array(constraints, cs)-1)
-    # for i in idx:length(constraints)
-    #     c = constraints[i]
-    #     if c == cs
-    #         @show s,a,sp
-    #         return true
-    #     end
-    #     if c.t < cs.t
-    #         break
-    #     end
-    # end
-    # ca = StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
-    # constraints = env.constraints.sorted_action_constraints
-    # idx = max(1, find_index_in_sorted_array(constraints, ca)-1)
-    # for i in idx:length(constraints)
-    #     c = constraints[i]
-    #     if c == ca
-    #         @show s,a,sp
-    #         return true
-    #     end
-    #     if c.t < ca.t
-    #         break
-    #     end
-    # end
-    # return false
 end
 
 ################################################################################

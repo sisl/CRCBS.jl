@@ -3,7 +3,6 @@ export
     NullHeuristic,
     PerfectHeuristic,
     DefaultPerfectHeuristic,
-    # DeadlineHeuristic,
     MultiStagePerfectHeuristic,
     ConflictTableHeuristic,
     HardConflictHeuristic,

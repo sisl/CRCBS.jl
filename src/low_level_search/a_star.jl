@@ -1,6 +1,6 @@
 export
-    A_star_impl!,
-    A_star
+    a_star_impl!,
+    a_star
 
 check_termination_criteria(solver,env,cost_so_far,path,s) = check_termination_criteria(env,cost_so_far,path,s)
 
@@ -52,7 +52,7 @@ end
     # h(n) = heuristic estimate of cost from n to goal
     # f(n) = g(n) + h(n)
 """
-function A_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S}, heuristic::Function;verbose=false) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
+function a_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S}) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
     logger_enter_a_star!(solver)
     cost_map = Dict{S,T}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
     predecessor_map = Dict{S,PathNode{S,A}}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
@@ -81,7 +81,7 @@ function A_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S
                 if new_cost < get(cost_map, sp, default_cost)
                     cost_map[sp] = new_cost
                     predecessor_map[sp] = PathNode(s, a, sp) # track predecessor
-                    h_cost = add_heuristic_cost(env, new_cost, heuristic(env,sp))
+                    h_cost = add_heuristic_cost(env, new_cost, get_heuristic_cost(env,sp))
                     logger_enqueue_a_star!(solver,env,s,a,sp,h_cost)
                     enqueue!(frontier, (new_cost, sp) => h_cost)
                 end
@@ -98,7 +98,7 @@ end
 
 
 """
-    `A_star(env,start_state,heuristic)`
+    `a_star(env,start_state)`
 
     A generic implementation of the [A* search algorithm](http://en.wikipedia.org/wiki/A%2A_search_algorithm)
     that operates on an Environment and initial state.
@@ -116,20 +116,20 @@ end
     - get_transition_cost(env::E,s::S,a::A)
     - violates_constraints(env::E,s::S,path::Path{S,A,C})
 """
-function A_star(solver, env::E,path::P,heuristic::Function,initial_cost::T=get_cost(path);verbose=false) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+function a_star(solver, env::E,path::P,initial_cost::T=get_cost(path)) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     frontier = PriorityQueue{Tuple{T, S}, T}()
     enqueue!(frontier, (initial_cost, get_final_state(path))=>initial_cost)
     explored = Set{S}()
-    A_star_impl!(solver,env,path,frontier,explored,heuristic;verbose=verbose)
+    a_star_impl!(solver,env,path,frontier,explored)
 end
-function A_star(env::E,path::P,heuristic::Function,initial_cost::T=get_cost(path);verbose=false) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    A_star(NullSolver(),env,path,heuristic,initial_cost;verbose=verbose)
+function a_star(env::E,path::P,initial_cost::T=get_cost(path)) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+    a_star(NullSolver(),env,path,initial_cost)
 end
-function A_star(solver, env::E,start_state::S,heuristic::Function,initial_cost::T=get_initial_cost(env);verbose=false) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+function a_star(solver, env::E,start_state::S,initial_cost::T=get_initial_cost(env)) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     path = Path{S,A,T}(s0=start_state,cost=initial_cost)
-    A_star(solver,env,path,heuristic,initial_cost;verbose=verbose)
+    a_star(solver,env,path,initial_cost)
 end
-function A_star(env::E,start_state::S,heuristic::Function,initial_cost::T=get_initial_cost(env);verbose=false) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+function a_star(env::E,start_state::S,initial_cost::T=get_initial_cost(env)) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     path = Path{S,A,T}(s0=start_state,cost=initial_cost)
-    A_star(env,path,heuristic,initial_cost;verbose=verbose)
+    a_star(env,path,initial_cost)
 end

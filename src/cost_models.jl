@@ -124,7 +124,7 @@ function construct_composite_cost_model(args...)
     cost_types = map(m->cost_type(m),models)
     CompositeCostModel{typeof(models),Tuple{cost_types...}}(models)
 end
-function get_transition_cost(env::E,model::C,s,a,sp) where {S,A,C<:CompositeCostModel,E<:AbstractLowLevelEnv{S,A,C}}
+function get_transition_cost(env::E,model::C,s,a,sp) where {C<:CompositeCostModel,E<:AbstractLowLevelEnv}
     cost_type(model)(map(m->get_transition_cost(env,m,s,a,sp), model.cost_models))
 end
 function accumulate_cost(model::C, cost::T, transition_cost::T) where {T,M,C<:CompositeCostModel{M,T}}
@@ -325,7 +325,7 @@ function set_deadline!(m::M,t_max) where {M<:MultiDeadlineCost}
     return m
 end
 add_heuristic_cost(m::C, cost, h_cost) where {C<:MultiDeadlineCost} = m.f(m.weights .* max.(0.0, cost .+ h_cost .- m.deadlines)) # assumes heuristic is PerfectHeuristic
-aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(m.tF[m.root_nodes] .* m.weights) # TODO this is why A_star is failing on MetaEnv!
+aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(m.tF[m.root_nodes] .* m.weights) # TODO this is why a_star is failing on MetaEnv!
 aggregate_costs_meta(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = maximum(costs)
 
 # MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(maximum,model)

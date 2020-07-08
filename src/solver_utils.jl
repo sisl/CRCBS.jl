@@ -44,7 +44,7 @@ export
     start_time,
     runtime_limit,
     deadline,
-    lower_bound,
+    # lower_bound,
     best_cost,
     verbosity,
     debug
@@ -55,8 +55,7 @@ max_iterations(logger)    = get_logger(logger).max_iterations
 start_time(logger)        = get_logger(logger).start_time
 runtime_limit(logger)     = get_logger(logger).runtime_limit
 deadline(logger)          = get_logger(logger).deadline
-# JuMP.lower_bound(logger)  = get_logger(logger).lower_bound
-lower_bound(logger)       = get_logger(logger).lower_bound
+JuMP.lower_bound(logger)  = get_logger(logger).lower_bound
 best_cost(logger)         = get_logger(logger).best_cost
 verbosity(logger)         = get_logger(logger).verbosity
 debug(logger)             = get_logger(logger).DEBUG
@@ -105,11 +104,14 @@ function set_lower_bound!(logger::SolverLogger{T},val::R) where {T<:Tuple,R<:Rea
     set_lower_bound!(logger,v)
 end
 function set_best_cost!(solver,val)
-	get_logger(solver).best_cost = val
+	set_best_cost!(get_logger(solver), val)
 end
-function set_best_cost!(logger::SolverLogger{C},val::C) where {C}
+function set_best_cost!(logger::SolverLogger,val)
     logger.best_cost = val
 end
+# function set_best_cost!(logger::SolverLogger{C},val::C) where {C}
+#     logger.best_cost = val
+# end
 function set_best_cost!(logger::SolverLogger{NTuple{N,T}},val::R) where {N,T<:Real,R<:Real}
     logger.best_cost = NTuple{N,T}((T(val),zeros(T,N-1)...))
 end
@@ -126,9 +128,11 @@ end
 
 export
     optimality_gap,
-    increment_iteration_count!,
-    reset_solver!,
-    hard_reset_solver!
+	check_time,
+	check_iterations,
+	enforce_time_limit,
+	enforce_iteration_limit,
+    increment_iteration_count!
 
 optimality_gap(logger) = best_cost(logger) .- lower_bound(logger)
 function check_time(logger)
@@ -156,6 +160,11 @@ function increment_iteration_count!(logger::SolverLogger)
     logger.iterations += 1
     set_max_iterations!(logger,max(iterations(logger),max_iterations(logger)))
 end
+increment_iteration_count!(solver)  = increment_iteration_count!(get_logger(solver))
+
+export
+    reset_solver!,
+    hard_reset_solver!
 
 """
     reset_solver!(solver)
@@ -186,10 +195,28 @@ hard_reset_solver!(solver)          = hard_reset_solver!(get_logger(solver))
 get_infeasible_cost(logger::SolverLogger{C}) where {C} = typemax(C)
 get_infeasible_cost(solver) = get_infeasible_cost(get_logger(solver))
 
-increment_iteration_count!(solver)  = increment_iteration_count!(get_logger(solver))
 
 export
-    log_info
+    global_verbosity,
+    set_global_verbosity!
+
+global VERBOSITY = 0
+
+"""
+	global_verbosity()
+
+Query the global verbosity setting (VERBOSITY ∈ [0,])
+"""
+global_verbosity() = copy(VERBOSITY)
+
+"""
+	global_verbosity()
+
+Set the global verbosity to val
+"""
+set_global_verbosity!(val::Int) = begin VERBOSITY = val end
+
+export log_info
 
 """
     log_info
@@ -197,7 +224,7 @@ export
 A helper function for printing at various verbosity levels
 """
 function log_info(limit::Int,verbosity::Int,msg...)
-    if verbosity > limit
+    if verbosity > limit || global_verbosity() > limit
         println("[ logger ]: ",msg...)
     end
 end

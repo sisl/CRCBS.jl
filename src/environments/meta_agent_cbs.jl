@@ -19,22 +19,27 @@ Base.:(==)(s1::S,s2::S) where {S<:State} = hash(s1) == hash(s2)
 
 @with_kw struct LowLevelEnv{S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} <: AbstractLowLevelEnv{State{S},Action{A},MetaCostModel{T,C}}
     envs::Vector{E}             = Vector{E}()
+    agent_idxs::Vector{Int}     = Vector{Int}()
     cost_model::MetaCostModel{T,C} = MetaCostModel(
         FullCostModel(sum,TravelTime()),length(envs))
 end
-function construct_meta_env(envs::Vector{E}) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
-    LowLevelEnv{S,A,T,C,E}(envs=envs)
+function construct_meta_env(envs::Vector{E},idxs::Vector{Int}) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
+    LowLevelEnv{S,A,T,C,E}(envs=envs,agent_idxs=idxs)
 end
-function construct_meta_env(envs::Vector{E},c_model::C) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
+function construct_meta_env(envs::Vector{E},idxs::Vector{Int},c_model::C) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
     model = MetaCostModel(c_model,length(envs))
-    LowLevelEnv{S,A,T,C,E}(envs=envs,cost_model=model)
+    LowLevelEnv{S,A,T,C,E}(envs=envs,agent_idxs=idxs,cost_model=model)
 end
-function build_env(solver::MetaAgentCBS_Solver, mapf, node, i)
+function CRCBS.build_env(solver::MetaAgentCBS_Solver, mapf, node, i)
+    group = node.solution.group_idxs[i]
     construct_meta_env(
         [build_env(mapf, node, j) for j in group],
+        group,
         get_cost_model(mapf.env)
         )
 end
+CRCBS.get_start(mapf::MAPF,env::LowLevelEnv,i) = State([get_start(mapf,e,j) for (e,j) in zip(env.envs, env.agent_idxs)])
+
 CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
 ################################################################################
 ################################################################################
@@ -63,47 +68,16 @@ function split_path(path::Path{State{S},Action{A},MetaCost{C}}) where {S,A,C}
     end
     return paths
 end
-function set_solution_path!(solution::MetaSolution, meta_path, group_idx)
+function CRCBS.set_solution_path!(solution::MetaSolution, meta_path, group_idx)
     for (idx,path) in zip(solution.group_idxs[group_idx],split_path(meta_path))
         set_solution_path!(solution.solution, path, idx)
     end
 end
-function set_path_cost!(solution::MetaSolution, meta_cost, group_idx)
+function CRCBS.set_path_cost!(solution::MetaSolution, meta_cost, group_idx)
     for (idx,cost) in zip(solution.group_idxs[group_idx],meta_cost.independent_costs)
         set_path_cost!(solution.solution, cost, idx)
     end
 end
-# 
-# function CRCBS.low_level_search!(
-#     solver::MetaAgentCBS_Solver,
-#     mapf::M,
-#     node::N,
-#     idxs::Vector{Int}=collect(1:num_agents(mapf));
-#     heuristic=get_heuristic_cost,
-#     path_finder=A_star,
-#     verbose=false) where {M<:AbstractMAPF,N<:ConstraintTreeNode}
-#     # Only compute a path for the indices specified by idxs
-#     for i in idxs
-#         group = node.groups[i]
-#         env = construct_meta_env(
-#             [build_env(mapf, node, j) for j in group],
-#             get_cost_model(mapf.env)
-#             )
-#         start = State([get_start(mapf,j) for j in group])
-#
-#         path, cost = path_finder(env, start, heuristic)
-#         paths = split_path(path)
-#         for (idx,j) in enumerate(group)
-#             set_solution_path!(node.solution, paths[idx], j)
-#             set_path_cost!(node.solution, cost.independent_costs[idx], j)
-#         end
-#     end
-#     node.solution.cost = aggregate_costs(get_cost_model(mapf.env),get_path_costs(node.solution))
-#     node.cost = get_cost(node.solution)
-#     # TODO check if solution is valid
-#     return true
-# end
-
 function CRCBS.get_heuristic_cost(env::E,state::S) where {E<:LowLevelEnv,S <: State}
     c = [get_heuristic_cost(e,s) for (e,s) in zip(env.envs, state.states)]
 end
@@ -184,7 +158,5 @@ function CRCBS.violates_constraints(env::E, s::State, a::Action, sp::State) wher
     end
     return false
 end
-# CRCBS.check_termination_criteria(env::E,cost,path,s) where {E<:LowLevelEnv} = false
-# CRCBS.check_termination_criteria(solver,env::E,cost,s) where {E<:LowLevelEnv} = false
 
 end

@@ -42,8 +42,8 @@ let
         )
         env = MultiStageCBS.LowLevelEnv(graph=G,heuristic=heuristic)
         mapf = MAPF(env,starts,goals)
-        solver = CBS_Solver(AStar{cost_type(mapf)}())
-        set_verbosity!(solver,2)
+        solver = CBSSolver(AStar{cost_type(mapf)}())
+        set_verbosity!(solver,global_verbosity())
         set_iteration_limit!(solver,10)
         node = initialize_root_node(mapf)
         @test low_level_search!(solver,mapf,node)
@@ -55,8 +55,8 @@ let
         )
         env = MultiStageCBS.LowLevelEnv(graph=G,heuristic=heuristic)
         mapf = MAPF(env,starts,goals)
-        solver = CBS_Solver(AStar{cost_type(mapf)}())
-        set_verbosity!(solver,2)
+        solver = CBSSolver(AStar{cost_type(mapf)}())
+        set_verbosity!(solver,global_verbosity())
         set_iteration_limit!(solver,10)
         node = initialize_root_node(mapf)
         solution, cost = CRCBS.solve!(solver,mapf)
@@ -76,15 +76,15 @@ let
             )
         mapf = MAPF(env,starts,goals)
         node = initialize_root_node(mapf)
-        solver = CBS_Solver(AStar{cost_type(mapf)}())
-        set_verbosity!(solver,2)
+        solver = CBSSolver(AStar{cost_type(mapf)}())
+        set_verbosity!(solver,global_verbosity())
         set_iteration_limit!(solver,10)
         solution, cost = CRCBS.solve!(solver,mapf);
         # @test cost[2] == 16
     end
 end
 let
-    # solver = MultiStageCBS.CBS_Solver()
+    # solver = MultiStageCBS.CBSSolver()
     vtx_grid = initialize_regular_vtx_grid(;n_obstacles_x=2,n_obstacles_y=2,obs_offset = [1;1])
     #  1   2   3   4   5   6   7   8   9  10
     # 11  12  13  14  15  16  17  18  19  20
@@ -117,8 +117,8 @@ let
         )
         env = MultiStageCBS.LowLevelEnv(graph=G,heuristic=heuristic)
         mapf = MAPF(env,starts,goals)
-        solver = CBS_Solver(AStar{cost_type(mapf)}())
-        set_verbosity!(solver,2)
+        solver = CBSSolver(AStar{cost_type(mapf)}())
+        set_verbosity!(solver,global_verbosity())
         set_iteration_limit!(solver,10)
         node = initialize_root_node(mapf)
         solution, cost = CRCBS.solve!(solver,mapf)
@@ -137,8 +137,8 @@ let
             )
         mapf = MAPF(env,starts,goals)
         node = initialize_root_node(mapf)
-        solver = CBS_Solver(AStar{cost_type(mapf)}())
-        set_verbosity!(solver,2)
+        solver = CBSSolver(AStar{cost_type(mapf)}())
+        set_verbosity!(solver,global_verbosity())
         set_iteration_limit!(solver,10)
         solution, cost = CRCBS.solve!(solver,mapf);
     end
