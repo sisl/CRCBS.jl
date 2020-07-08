@@ -1,8 +1,44 @@
+################################################################################
+##############################    Tuple Stuff    ###############################
+################################################################################
+for op in [:typemin,:typemax]
+    @eval Base.$op(::Type{Tuple{A,B,C,D,E,F}}) where {A,B,C,D,E,F}    = map(i->$op(i),(A,B,C,D,E,F))
+    @eval Base.$op(::Type{Tuple{A,B,C,D,E}}) where {A,B,C,D,E}        = map(i->$op(i),(A,B,C,D,E))
+    @eval Base.$op(::Type{Tuple{A,B,C,D}}) where {A,B,C,D}            = map(i->$op(i),(A,B,C,D))
+    @eval Base.$op(::Type{Tuple{A,B,C}}) where {A,B,C}                = map(i->$op(i),(A,B,C))
+    @eval Base.$op(::Type{Tuple{A,B}}) where {A,B}                    = map(i->$op(i),(A,B))
+    @eval Base.$op(::Type{Tuple{A}}) where {A}                        = map(i->$op(i),(A,))
+end
+Base.Tuple{A,B,C,D,E,F}() where {A,B,C,D,E,F}    = map(i->i(0),(A,B,C,D,E,F))
+Base.Tuple{A,B,C,D,E}() where {A,B,C,D,E}        = map(i->i(0),(A,B,C,D,E))
+Base.Tuple{A,B,C,D}() where {A,B,C,D}            = map(i->i(0),(A,B,C,D))
+Base.Tuple{A,B,C}() where {A,B,C}                = map(i->i(0),(A,B,C))
+Base.Tuple{A,B}() where {A,B}                    = map(i->i(0),(A,B))
+Base.Tuple{A}() where {A}                        = map(i->i(0),(A))
+
+Base.typemin(::Type{NTuple{N,R}}) where {N,R} = NTuple{N,R}(map(i->typemin(R),1:N))
+Base.typemax(::Type{NTuple{N,R}}) where {N,R} = NTuple{N,R}(map(i->typemax(R),1:N))
+Base.NTuple{N,R}() where {N,R} = NTuple{N,R}(map(i->R(0), 1:N))
+Base.typemin(c::Tuple) = typemin(typeof(c))
+Base.typemax(c::Tuple) = typemax(typeof(c))
+
+for op = (:(>), :(<), :(>=), :(<=))
+    eval(quote
+        Base.$op(a::T,b::R) where {N,T<:Tuple,R<:Real} = $op(a[1],b)
+        Base.$op(b::R,a::T) where {N,T<:Tuple,R<:Real} = $op(b,a[1])
+    end)
+end
+
+################################################################################
+###############################    Path Stuff    ###############################
+################################################################################
+
 export
     PathNode,
     get_s,
     get_a,
     get_sp
+
 """
     `PathNode{S,A}`
 
@@ -18,11 +54,13 @@ get_a(p::P) where {P<:PathNode} = p.a
 get_sp(p::P) where {P<:PathNode} = p.sp
 state_type(p::PathNode{S,A}) where {S,A} = S
 action_type(p::PathNode{S,A}) where {S,A} = A
+Base.string(p::PathNode) = "$(string(get_s(p))) -- $(string(get_a(p))) -- $(string(get_sp(p)))"
 
 export
     Path,
     node_type,
     get_cost,
+    set_cost!,
     get_initial_state,
     get_final_state,
     get_start_time,
@@ -48,7 +86,7 @@ Path(v::Vector{P}) where {P<:PathNode}      = Path(path_nodes=v,s0=get_s(get(v,1
 state_type(p::Path{S,A,C}) where {S,A,C}    = S
 action_type(p::Path{S,A,C}) where {S,A,C}   = A
 cost_type(p::Path{S,A,C}) where {S,A,C}     = C
-node_type(p::Path{S,A,C}) where {S,A,C}     = PathNode{S,A}
+node_type(p) = PathNode{state_type(p),action_type(p)}
 Base.cat(p::P,x::N,i...) where {P<:Path,N<:PathNode} = P(s0=p.s0,path_nodes=cat(p.path_nodes,x,dims=1),cost=p.cost)
 Base.get(p::P,i,default=node_type(p)) where {P<:Path}    = get(p.path_nodes,i,default)
 Base.getindex(p::P,i) where {P<:Path}       = getindex(p.path_nodes,i)
@@ -61,28 +99,10 @@ function Base.push!(p::P,n::N) where {P<:Path,N<:PathNode}
     push!(p.path_nodes,n)
 end
 get_cost(p::P) where {P<:Path}              = p.cost
-Base.copy(p::P) where {P<:Path}             = Path(s0=p.s0,path_nodes=copy(p.path_nodes),cost=p.cost)
-
-for op in [:typemin,:typemax]
-    @eval Base.$op(::Type{Tuple{A,B,C,D,E,F}}) where {A,B,C,D,E,F}    = map(i->$op(i),(A,B,C,D,E,F))
-    @eval Base.$op(::Type{Tuple{A,B,C,D,E}}) where {A,B,C,D,E}        = map(i->$op(i),(A,B,C,D,E))
-    @eval Base.$op(::Type{Tuple{A,B,C,D}}) where {A,B,C,D}            = map(i->$op(i),(A,B,C,D))
-    @eval Base.$op(::Type{Tuple{A,B,C}}) where {A,B,C}                = map(i->$op(i),(A,B,C))
-    @eval Base.$op(::Type{Tuple{A,B}}) where {A,B}                    = map(i->$op(i),(A,B))
-    @eval Base.$op(::Type{Tuple{A}}) where {A}                        = map(i->$op(i),(A,))
+function set_cost!(p::P,cost) where {P<:Path}
+    p.cost = cost
 end
-Base.Tuple{A,B,C,D,E,F}() where {A,B,C,D,E,F}    = map(i->i(0),(A,B,C,D,E,F))
-Base.Tuple{A,B,C,D,E}() where {A,B,C,D,E}        = map(i->i(0),(A,B,C,D,E))
-Base.Tuple{A,B,C,D}() where {A,B,C,D}            = map(i->i(0),(A,B,C,D))
-Base.Tuple{A,B,C}() where {A,B,C}                = map(i->i(0),(A,B,C))
-Base.Tuple{A,B}() where {A,B}                    = map(i->i(0),(A,B))
-Base.Tuple{A}() where {A}                        = map(i->i(0),(A))
-
-Base.typemin(::Type{NTuple{N,R}}) where {N,R} = NTuple{N,R}(map(i->typemin(R),1:N))
-Base.typemax(::Type{NTuple{N,R}}) where {N,R} = NTuple{N,R}(map(i->typemax(R),1:N))
-Base.NTuple{N,R}() where {N,R} = NTuple{N,R}(map(i->R(0), 1:N))
-Base.typemin(c::Tuple) = typemin(typeof(c))
-Base.typemax(c::Tuple) = typemax(typeof(c))
+Base.copy(p::P) where {P<:Path}             = Path(s0=p.s0,path_nodes=copy(p.path_nodes),cost=p.cost)
 
 function get_initial_state(path::P) where {P<:Path}
     if length(path) > 0
@@ -120,27 +140,6 @@ get_start_index(path::P) where {S<:TimeIndexedState,A,C,P<:Path{S,A,C}} = 1 - ge
 
     Assumes that all paths start at t = 1
 """
-# function get_path_node(path::P,t::Int) where {P<:Path}
-#     if t <= length(path)
-#         return path[t]
-#     else
-#         t₀ = length(path)
-#         if t₀ == 0
-#             sp = get_initial_state(path)
-#         else
-#             node = get(path,length(path),node_type(path)())
-#             s = get_s(node)
-#             a = get_a(node)
-#             sp = get_sp(node)
-#         end
-#         for τ in length(path)+1:t
-#             s = sp
-#             a = wait(s)
-#             sp = get_next_state(s,a)
-#         end
-#         return PathNode(s,a,sp)
-#     end
-# end
 function get_path_node(path::P,t::Int) where {P<:Path}
     t_idx = get_index_from_time(path,t)
     if 1 <= t_idx <= length(path)
@@ -218,19 +217,21 @@ end
 export
     AbstractCostModel,
     cost_type
+
 """
     `AbstractCostModel{T}`
 """
 abstract type AbstractCostModel{T} end
-get_cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
+cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
 
 export
     LowLevelSolution,
+    path_type,
     get_paths,
     get_path_costs,
-    get_cost,
     set_solution_path!,
     set_path_cost!
+
 """
     `LowLevelSolution{S,A,T,C}`
 
@@ -251,8 +252,12 @@ export
     costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(cost_model),1:length(paths)))
     cost::T                     = get_initial_cost(cost_model)
 end
+state_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}    = S
+action_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}   = A
+cost_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}     = T
+path_type(s::LowLevelSolution) = Path{state_type(s),action_type(s),cost_type(s)}
 Base.copy(solution::L) where {L <: LowLevelSolution} = L(
-    paths=copy(solution.paths),
+    paths=copy(solution.paths), # NOTE don't want to needlessly copy paths between search nodes
     cost_model=deepcopy(solution.cost_model),
     costs=copy(solution.costs),
     cost=deepcopy(solution.cost),
@@ -267,6 +272,11 @@ function set_solution_path!(solution::L, path::P, idx::Int) where {L<:LowLevelSo
 end
 function set_path_cost!(solution::L, cost::C, idx::Int) where {L<:LowLevelSolution,C}
     solution.costs[idx] = cost
+    solution.paths[idx].cost = cost
+    return solution
+end
+function set_cost!(solution::L,cost) where {L<:LowLevelSolution}
+    solution.cost = cost
     return solution
 end
 
@@ -276,7 +286,8 @@ export
     state_type,
     get_cost_model,
     get_heuristic_model,
-    get_cost_type
+    cost_type
+
 """
     `AbstractLowLevelEnv{S,A,C}`
 
@@ -293,10 +304,11 @@ export
 abstract type AbstractLowLevelEnv{S,A,C} end
 action_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = A
 state_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = S
+cost_type(env::E) where {E<:AbstractLowLevelEnv} = cost_type(get_cost_model(env))
 """ Override this method for when the cost model has arguments """
 get_cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
 function get_heuristic_model end
-get_cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
+cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
 
 
 export

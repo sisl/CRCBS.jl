@@ -18,7 +18,7 @@ matrix:
     - julia: nightly
 
 script:
-  - julia --project --check-bounds=yes -e 'import Pkg; Pkg.build(); Pkg.test("CRCBS"; coverage=true)'
+  - julia --project --check-bounds=yes -e 'import Pkg; Pkg.build(); Pkg.test("CRCBS.; coverage=true)'
 
 # After successfuly build submit coverage report and deploy updated documentation
 # But limit deployment to the linux worker so this is done only once.
