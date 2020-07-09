@@ -64,6 +64,21 @@ CRCBS.states_match(env::LowLevelEnv,s1,s2) = (get_vtx(s1) == get_vtx(s2))
 ################################################################################
 ######################## Low-Level (Independent) Search ########################
 ################################################################################
+CRCBS.serialize(env::LowLevelEnv,s::State,t)            = get_vtx(s), t
+CRCBS.deserialize(env::LowLevelEnv,s::State,idx::Int,t) = State(vtx=idx,t=t), t
+function CRCBS.serialize(env::LowLevelEnv,a::Action,t)
+    (get_e(a).src-1)*num_states(env)+get_e(a).dst, t
+end
+function CRCBS.deserialize(env::LowLevelEnv,s::Action,idx::Int,t)
+    Action(e = Edge(
+        div(idx-1,num_states(env))+1,
+        mod(idx-1,num_states(env))+1)
+        ), t
+end
+CRCBS.num_states(env::LowLevelEnv)              = nv(env.graph)
+CRCBS.num_actions(env::LowLevelEnv)             = num_states(env)^2
+CRCBS.state_space_trait(env::LowLevelEnv)       = DiscreteSpace()
+CRCBS.action_space_trait(env::LowLevelEnv)      = DiscreteSpace()
 # is_goal
 function CRCBS.is_goal(env::LowLevelEnv,s)
     if states_match(s, env.goal)
@@ -75,28 +90,30 @@ function CRCBS.is_goal(env::LowLevelEnv,s)
 end
 function CRCBS.violates_constraints(env::LowLevelEnv, s, a, sp)
     t = get_t(sp)
-    if StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t) in env.constraints.state_constraints
+    if has_constraint(env,env.constraints,
+        StateConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
+        )
         return true
-    elseif ActionConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t) in env.constraints.action_constraints
+    elseif has_constraint(env,env.constraints,
+        ActionConstraint(get_agent_id(env.constraints),PathNode(s,a,sp),t)
+        )
         return true
     end
     return false
 end
 function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) where {S,G,E<:LowLevelEnv}
     t_goal = -1
-    for constraint in sorted_state_constraints(get_constraints(node,idx))
-        sp = get_sp(constraint.v)
-        if states_match(mapf.goals[idx], sp)
-            # @show get_t(s), get_time_of(constraint)
-            t_goal = max(t_goal,get_t(sp)+1)
-        end
+    n = PathNode{State,Action}(sp=mapf.goals[idx])
+    s_constraints, _ = search_constraints(mapf.env,get_constraints(node,idx),n)
+    for c in s_constraints
+        t_goal = max(t_goal,get_time_of(c)+1)
     end
     typeof(mapf.env)(
         graph = mapf.env.graph,
         constraints = get_constraints(node,idx),
         goal = State(mapf.goals[idx],t=t_goal),
         agent_idx = idx,
-        cost_model = get_cost_model(mapf.env)
+        cost_model = get_cost_model(mapf.env),
         heuristic = get_heuristic_model(mapf.env),
         )
 end

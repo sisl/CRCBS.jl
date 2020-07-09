@@ -122,10 +122,10 @@ function logger_cbs_add_constraint!(solver,node,constraint,mapf)
         println("\t",string(constraint))
         println("CBS: constraints in node:")
         for i in 1:num_agents(mapf)
-            for constraint in sorted_state_constraints(node,i)
+            for constraint in sorted_state_constraints(mapf,node,i)
                 println("\t",string(constraint))
             end
-            for constraint in sorted_action_constraints(node,i)
+            for constraint in sorted_action_constraints(mapf,node,i)
                 println("\t",string(constraint))
             end
         end
@@ -206,7 +206,7 @@ function cbs_branch!(solver,mapf,node,conflict,priority_queue)
     constraints = generate_constraints_from_conflict(conflict)
     for constraint in constraints
         new_node = initialize_child_search_node(solver,mapf,node)
-        if add_constraint!(new_node,constraint)
+        if add_constraint!(mapf,new_node,constraint)
             logger_cbs_add_constraint!(solver,new_node,constraint,mapf)
             consistent_flag = low_level_search!(solver, mapf, new_node,[get_agent_id(constraint)])
             if consistent_flag

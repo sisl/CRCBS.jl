@@ -207,6 +207,34 @@ let
         @test length(conflict_table.state_conflicts[(1,2)]) == 0
         @test length(conflict_table.action_conflicts[(1,2)]) == 0
     end
+end
+let
+    S = GraphEnv.State
+    A = GraphEnv.Action
+    P = PathNode{S,A}
+
+    vtx_grid = initialize_dense_vtx_grid(4,4)
+    # 1  5   9  13
+    # 2  6  10  14
+    # 3  7  11  15
+    # 4  8  12  16
+    G = initialize_grid_graph_from_vtx_grid(vtx_grid)
+    env = GraphEnv.LowLevelEnv(graph=G,agent_idx=1)
+    isa(state_space_trait(env),DiscreteSpace)
+    let
+        for v in vertices(G)
+            s = S(v,1)
+            idx,t = serialize(env,s,s.t)
+            sp, _ = deserialize(env,S(),idx,t)
+            @test s == sp
+        end
+        for e in edges(G)
+            a = A(e,1)
+            idx,t = serialize(env,a,1)
+            ap, _ = deserialize(env,A(),idx,t)
+            @test a == ap
+        end
+    end
     let
         state_constraint = StateConstraint(1,2,3)
         @test CRCBS.get_agent_id(state_constraint) == state_constraint.a
@@ -214,23 +242,46 @@ let
         @test CRCBS.get_agent_id(action_constraint) == action_constraint.a
     end
     let
-        constraints = ConstraintTable{P}(a = 1)
-        @test get_agent_id(constraints) == constraints.a
-        # add a constraint whose agent id does not match (should throw an error)
-        @test_throws AssertionError add_constraint!(constraints, StateConstraint(get_agent_id(constraints)+1,P(),2))
-        @test length(constraints.state_constraints) == 0
-        @test length(constraints.action_constraints) == 0
-        # add a constraint whose agent id DOES match
-        add_constraint!(constraints, StateConstraint(get_agent_id(constraints),P(),1))
-        @test length(constraints.state_constraints) == 1
-        @test length(constraints.action_constraints) == 0
-        # add a constraint whose agent id DOES match
-        add_constraint!(constraints, ActionConstraint(get_agent_id(constraints),P(),1))
-        @test length(constraints.action_constraints) == 1
+        for constraints in [
+            DiscreteConstraintTable(env,1),
+            ConstraintTable{P}(a = 1)
+            ]
+            # add a constraint whose agent id does not match (should throw an error)
+            s = S(1,1)
+            a = A(Edge(1,2),1)
+            sp = S(2,2)
+            c = StateConstraint(get_agent_id(constraints)+1,P(),2)
+            @test_throws AssertionError add_constraint!(env,constraints,c)
+            @test_throws AssertionError CRCBS.has_constraint(env,constraints,c)
+            # add a constraint whose agent id DOES match
+            c = StateConstraint(get_agent_id(constraints),P(s,a,sp),2)
+            add_constraint!(env,constraints,c)
+            @test CRCBS.has_constraint(env,constraints,c)
+            sc,ac = CRCBS.search_constraints(env,constraints,get_path_node(c))
+            @test length(sc) == 1
+            @test length(ac) == 0
+            # # add a constraint whose agent id DOES match
+            c = ActionConstraint(get_agent_id(constraints),P(s,a,sp),2)
+            add_constraint!(env,constraints,c)
+            @test CRCBS.has_constraint(env,constraints,c)
+            sc,ac = CRCBS.search_constraints(env,constraints,get_path_node(c))
+            @test length(sc) == 1
+            @test length(ac) == 1
+            # # query sorted constraints
+            c = sorted_state_constraints(env,constraints)[1]
+            @test get_sp(c) == sp
+            c = sorted_action_constraints(env,constraints)[1]
+            @test get_a(c) == a
+        end
     end
+end
+let
+    S = CommonTests.State
+    A = CommonTests.Action
+    P = PathNode{S,A}
     let
         conflict = Conflict{P,P}(
-            STATE_CONFLICT,1,2,P(State(1),Action(1),State(1)),P(State(1),Action(1),State(1)),1
+            STATE_CONFLICT,1,2,P(S(1),A(1),S(1)),P(S(1),A(1),S(1)),1
         )
         constraints = generate_constraints_from_conflict(conflict)
         @test length(constraints) == 2
@@ -238,7 +289,7 @@ let
             @test typeof(c) <: StateConstraint
         end
         conflict = Conflict{P,P}(
-            ACTION_CONFLICT,1,2,P(State(1),Action(1),State(1)),P(State(1),Action(1),State(1)),1
+            ACTION_CONFLICT,1,2,P(S(1),A(1),S(1)),P(S(1),A(1),S(1)),1
         )
         constraints = generate_constraints_from_conflict(conflict)
         @test length(constraints) == 2

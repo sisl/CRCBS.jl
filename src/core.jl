@@ -307,8 +307,8 @@ state_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = S
 cost_type(env::E) where {E<:AbstractLowLevelEnv} = cost_type(get_cost_model(env))
 """ Override this method for when the cost model has arguments """
 get_cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
-function get_heuristic_model end
 cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
+function get_heuristic_model end
 
 
 export
