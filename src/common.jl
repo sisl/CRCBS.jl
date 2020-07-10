@@ -31,25 +31,26 @@ export
     t               ::Int           = typemax(Int)
 end
 const SymmetricConflict{N} = Conflict{N,N}
-conflict_type(conflict::Conflict)   = conflict.conflict_type
-agent1_id(conflict::Conflict)       = conflict.agent1_id
-agent2_id(conflict::Conflict)       = conflict.agent2_id
-node1(conflict::Conflict)           = conflict.node1
-node2(conflict::Conflict)           = conflict.node2
-state1(conflict::Conflict)          = get_s(node1(conflict))
-state2(conflict::Conflict)          = get_s(node2(conflict))
-action1(conflict::Conflict)         = get_a(node1(conflict))
-action2(conflict::Conflict)         = get_a(node2(conflict))
-next_state1(conflict::Conflict)     = get_sp(node1(conflict))
-next_state2(conflict::Conflict)     = get_sp(node2(conflict))
-time_of(conflict::Conflict)         = conflict.t
-Base.string(conflict::Conflict) = string(
-    "conflict type: ",conflict_type(conflict),
-    ": agent1=",agent1_id(conflict),
-    ", agent2=", agent2_id(conflict),
-    ", v1=(",get_s(node1(conflict)).vtx,",",get_sp(node1(conflict)).vtx,")",
-    ", v2=(",get_s(node2(conflict)).vtx,",",get_sp(node2(conflict)).vtx,")",
-    ", t=",get_s(node1(conflict)).t)
+conflict_type(c::Conflict)   = c.conflict_type
+agent1_id(c::Conflict)       = c.agent1_id
+agent2_id(c::Conflict)       = c.agent2_id
+node1(c::Conflict)           = c.node1
+node2(c::Conflict)           = c.node2
+state1(c::Conflict)          = get_s(node1(c))
+state2(c::Conflict)          = get_s(node2(c))
+action1(c::Conflict)         = get_a(node1(c))
+action2(c::Conflict)         = get_a(node2(c))
+next_state1(c::Conflict)     = get_sp(node1(c))
+next_state2(c::Conflict)     = get_sp(node2(c))
+time_of(c::Conflict)         = c.t
+Base.string(c::Conflict) = string(
+    "conflict type: ",conflict_type(c),
+    ": agent1=",agent1_id(c),
+    ", agent2=", agent2_id(c),
+    ", v1=(",get_s(node1(c)).vtx,",",get_sp(node1(c)).vtx,")",
+    ", v2=(",get_s(node2(c)).vtx,",",get_sp(node2(c)).vtx,")",
+    ", t=",get_s(node1(c)).t)
+is_state_conflict(c::Conflict) = conflict_type(c) == STATE_CONFLICT
 
 """ Default (invalid) conflict """
 const DefaultConflict = Conflict{DefaultPathNode,DefaultPathNode}
@@ -59,10 +60,10 @@ Base.isless(c1::C,c2::C) where {C<:Conflict} = (
 )
 
 """ Checks if a conflict is valid """
-is_valid(conflict::C) where {C<:Conflict} = ((conflict_type(conflict) != NULL_CONFLICT)
-                                && (agent1_id(conflict) != agent2_id(conflict))
-                                && (agent1_id(conflict) != -1)
-                                && (agent2_id(conflict) != -1))
+is_valid(c::C) where {C<:Conflict} = ((conflict_type(c) != NULL_CONFLICT)
+                                && (agent1_id(c) != agent2_id(c))
+                                && (agent1_id(c) != -1)
+                                && (agent2_id(c) != -1))
 
 export
     detect_conflicts!,
@@ -363,17 +364,16 @@ export
     CBSConstraint,
     get_agent_id,
     get_time_of,
-    StateConstraint,
-    ActionConstraint
+    state_constraint,
+    action_constraint,
+    is_state_constraint
 
-
-abstract type CBSConstraint end
-# struct CBSConstraint{N}
-#     a::Int # agent ID
-#     v::N   # PathNode
-#     t::Int # time ID
-#     type::Symbol
-# end
+struct CBSConstraint{N}
+    a::Int # agent ID
+    v::N   # PathNode
+    t::Int # time ID
+    type::Symbol
+end
 get_agent_id(c::CBSConstraint) = c.a
 get_time_of(c::CBSConstraint) = c.t
 get_path_node(c::CBSConstraint) = c.v
@@ -390,40 +390,9 @@ function Base.string(c::CBSConstraint)
         "$(string(get_s(p))) -- $(string(get_a(p))) -- X$(string(get_sp(p)))X"
         )
 end
-# StateConstraint(args...) = CBSConstraint(args...,:StateConstraint)
-# ActionConstraint(args...) = CBSConstraint(args...,:ActionConstraint)
-
-
-"""
-    Encodes a constraint that agent `a` may not occupy vertex `v` at time `t`
-"""
-struct StateConstraint{N} <: CBSConstraint
-    a::Int # agent ID
-    v::N   # PathNode
-    t::Int # time ID
-end
-function Base.string(c::StateConstraint)
-    p = get_path_node(c)
-    string(
-    "StateConstraint: agent_id=$(get_agent_id(c)), t=$(get_time_of(c)), ",
-    "$(string(get_s(p))) -- $(string(get_a(p))) -- X$(string(get_sp(p)))X")
-end
-
-"""
-    Encodes a constraint that agent `a` may not traverse `Edge(v1,v2)` at time
-    step `t`
-"""
-struct ActionConstraint{N} <: CBSConstraint
-    a::Int  # agent ID
-    v::N    # PathNode
-    t::Int  # time ID
-end
-function Base.string(c::ActionConstraint)
-    p = get_path_node(c)
-    string(
-    "StateConstraint: agent_id=$(get_agent_id(c)), t=$(get_time_of(c)), ",
-    "$(string(get_s(p))) -- X$(string(get_a(p)))X -- $(string(get_sp(p)))")
-end
+state_constraint(args...) = CBSConstraint(args...,:StateConstraint)
+action_constraint(args...) = CBSConstraint(args...,:ActionConstraint)
+is_state_constraint(c::CBSConstraint) = get_constraint_type(c) == :StateConstraint
 
 ################################################################################
 ############################## Constraint Tables ###############################
@@ -440,6 +409,7 @@ export
 Encodes a state as an integer
 """
 function serialize end
+serialize(mapf::MAPF,args...) = serialize(mapf.env,args...)
 
 """
     deserialize(env,idx,t)
@@ -447,6 +417,7 @@ function serialize end
 Decodes an integer encoding of a state of type `state_type(env)`
 """
 function deserialize end
+deserialize(mapf::MAPF,args...) = deserialize(mapf.env)
 
 """
     num_states(env)
@@ -508,13 +479,16 @@ struct DiscreteConstraintTable
     action_constraints::SparseMatrixCSC{Bool,Int}
     agent_id::Int
 end
-function DiscreteConstraintTable(env,agent_id=-1,tf=num_states(env))
-    @assert isa(state_space_trait(env),DiscreteSpace)
+function DiscreteConstraintTable(n_states::Int,n_actions::Int,agent_id::Int=-1,tf::Int=n_states*4)
     DiscreteConstraintTable(
-        sparse(zeros(Bool,num_states(env),tf)),
-        sparse(zeros(Bool,num_actions(env),tf)),
+        sparse(zeros(Bool,n_states,tf)),
+        sparse(zeros(Bool,n_actions,tf)),
         agent_id
         )
+end
+function DiscreteConstraintTable(env,agent_id=-1,tf=num_states(env)*4)
+    @assert isa(state_space_trait(env),DiscreteSpace)
+    DiscreteConstraintTable(num_states(env),num_actions(env),agent_id,tf)
 end
 
 export
@@ -529,86 +503,78 @@ state_constraints(c::DiscreteConstraintTable)           = c.state_constraints
 action_constraints(c::DiscreteConstraintTable)          = c.action_constraints
 function sorted_state_constraints(env,table::DiscreteConstraintTable)
     row_idxs, col_idxs, _ = findnz(table.state_constraints)
-    s_constraints = Vector{StateConstraint{node_type(env)}}()
+    s_constraints = Vector{CBSConstraint{node_type(env)}}()
     for (idx,t) in zip(row_idxs,col_idxs)
         sp,_ = deserialize(env,state_type(env)(),idx,t)
         n = node_type(env)(sp=sp)
-        push!(s_constraints,StateConstraint(get_agent_id(table),n,t))
+        push!(s_constraints,state_constraint(get_agent_id(table),n,t))
     end
     return s_constraints
 end
 function sorted_action_constraints(env,table::DiscreteConstraintTable)
     row_idxs, col_idxs, _ = findnz(table.action_constraints)
-    constraints = Vector{ActionConstraint{node_type(env)}}()
+    constraints = Vector{CBSConstraint{node_type(env)}}()
     for (idx,t) in zip(row_idxs,col_idxs)
         a,_ = deserialize(env,action_type(env)(),idx,t)
         n = node_type(env)(a=a)
-        push!(constraints,ActionConstraint(get_agent_id(table),n,t))
+        push!(constraints,action_constraint(get_agent_id(table),n,t))
     end
     return constraints
 end
 """
     search_constraints(env,table,n::PathNode)
 
-    Returns all `StateConstraint`s and `ActionConstraint`s that match `n`,
+    Returns all `CBSConstraint`s and `CBSConstraint`s that match `n`,
     regardless of time.
 """
 function search_constraints(env,table::DiscreteConstraintTable,n::N) where {N<:PathNode}
     idx,_ = serialize(env,get_sp(n),-1)
     row_idxs, col_idxs, _ = findnz(table.state_constraints)
-    s_constraints = Vector{StateConstraint{node_type(env)}}()
+    s_constraints = Vector{CBSConstraint{node_type(env)}}()
     for (i,(r,t)) in enumerate(zip(row_idxs,col_idxs))
         if r == idx
-            push!(s_constraints,StateConstraint(get_agent_id(table),n,t))
+            push!(s_constraints,state_constraint(get_agent_id(table),n,t))
         end
     end
     idx,_ = serialize(env,get_a(n),-1)
     row_idxs, col_idxs, _ = findnz(table.action_constraints)
-    a_constraints = Vector{ActionConstraint{node_type(env)}}()
+    a_constraints = Vector{CBSConstraint{node_type(env)}}()
     for (i,(r,t)) in enumerate(zip(row_idxs,col_idxs))
         if r == idx
-            push!(a_constraints,ActionConstraint(get_agent_id(table),n,t))
+            push!(a_constraints,action_constraint(get_agent_id(table),n,t))
         end
     end
     return s_constraints, a_constraints
 end
 
 """
-    Adds a `StateConstraint` to a DiscreteConstraintTable
+    Adds a `CBSConstraint` to a DiscreteConstraintTable
 """
-function add_constraint!(env,table::DiscreteConstraintTable,c::StateConstraint)
+function add_constraint!(env,table::DiscreteConstraintTable,c::CBSConstraint)
     @assert get_agent_id(table) == get_agent_id(c)
-    idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
-    table.state_constraints[idx,t] = true
-    table
+    if is_state_constraint(c)
+        idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
+        table.state_constraints[idx,t] = true
+    else
+        idx,t = serialize(env,get_a(get_path_node(c)),get_time_of(c))
+        table.action_constraints[idx,t] = true
+    end
+    return table
 end
 
 """
-    Adds an `ActionConstraint` to a DiscreteConstraintTable
+    has_constraint(env,table,c::CBSConstraint)
 """
-function add_constraint!(env,table::DiscreteConstraintTable,c::ActionConstraint)
+function has_constraint(env,table::DiscreteConstraintTable,c::CBSConstraint)
     @assert get_agent_id(table) == get_agent_id(c)
-    idx,t = serialize(env,get_a(get_path_node(c)),get_time_of(c))
-    table.action_constraints[idx,t] = true
-    table
-end
-
-"""
-    has_constraint(env,table,c::StateConstraint)
-"""
-function has_constraint(env,table::DiscreteConstraintTable,c::StateConstraint)
-    @assert get_agent_id(table) == get_agent_id(c)
-    idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
-    return table.state_constraints[idx,t]
-end
-
-"""
-    has_constraint(env,table,c::ActionConstraint)
-"""
-function has_constraint(env,table::DiscreteConstraintTable,c::ActionConstraint)
-    @assert get_agent_id(table) == get_agent_id(c)
-    idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
-    return table.action_constraints[idx,t]
+    if is_state_constraint(c)
+        idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
+        return table.state_constraints[idx,t]
+    else
+        idx,t = serialize(env,get_a(get_path_node(c)),get_time_of(c))
+        # @show idx,t,table.action_constraints
+        return table.action_constraints[idx,t]
+    end
 end
 
 export
@@ -625,11 +591,11 @@ export
 """
 @with_kw struct ConstraintTable{N}
     # Sets
-    state_constraints::Set{StateConstraint{N}} = Set{StateConstraint{N}}()
-    action_constraints::Set{ActionConstraint{N}} = Set{ActionConstraint{N}}()
+    state_constraints::Set{CBSConstraint{N}} = Set{CBSConstraint{N}}()
+    action_constraints::Set{CBSConstraint{N}} = Set{CBSConstraint{N}}()
     # Vectors
-    sorted_state_constraints::Vector{StateConstraint{N}} = Vector{StateConstraint{N}}()
-    sorted_action_constraints::Vector{ActionConstraint{N}} = Vector{ActionConstraint{N}}()
+    sorted_state_constraints::Vector{CBSConstraint{N}} = Vector{CBSConstraint{N}}()
+    sorted_action_constraints::Vector{CBSConstraint{N}} = Vector{CBSConstraint{N}}()
     a::Int = -1 # agent_id
 end
 get_agent_id(c::ConstraintTable) = c.a
@@ -639,7 +605,7 @@ sorted_state_constraints(env,c::ConstraintTable) = c.sorted_state_constraints
 sorted_action_constraints(env,c::ConstraintTable) = c.sorted_action_constraints
 function search_constraints(env,table::ConstraintTable,n::N) where {N<:PathNode}
     idx,_ = serialize(env,get_sp(n),-1)
-    s_constraints = Vector{StateConstraint{node_type(env)}}()
+    s_constraints = Vector{CBSConstraint{node_type(env)}}()
     for constraint in sorted_state_constraints(env,table)
         sp = get_sp(get_path_node(constraint))
         idxp, _ = serialize(env,sp,-1)
@@ -648,7 +614,7 @@ function search_constraints(env,table::ConstraintTable,n::N) where {N<:PathNode}
         end
     end
     idx,_ = serialize(env,get_a(n),-1)
-    a_constraints = Vector{ActionConstraint{node_type(env)}}()
+    a_constraints = Vector{CBSConstraint{node_type(env)}}()
     for constraint in sorted_action_constraints(env,table)
         a = get_a(get_path_node(constraint))
         idxp, _ = serialize(env,a,-1)
@@ -658,55 +624,28 @@ function search_constraints(env,table::ConstraintTable,n::N) where {N<:PathNode}
     end
     return s_constraints, a_constraints
 end
-# """ Helper function to merge two instances of `ConstraintTable` """
-# function Base.merge(d1::ConstraintTable,d2::ConstraintTable)
-#     @assert(get_agent_id(d1)==get_agent_id(d2))
-#     ConstraintTable(
-#         merge(d1.state_constraints,d2.state_constraints),
-#         merge(d1.action_constraints,d2.action_constraints),
-#         get_agent_id(d1)
-#     )
-# end
-#
-# """
-#      Combines two `Dict`s of `ConstraintTable`s into a single `Dict` of
-#      `ConstraintTable`s where the value associated with each key in the
-#      resulting dictionary is the union of the values for the input dictionaries
-#      at that key
-# """
-# function Base.merge(dict1::Dict{K,ConstraintTable},dict2::Dict{K,ConstraintTable}) where K
-#     new_dict = typeof(dict1)()
-#     for k in union(collect(keys(dict1)),collect(keys(dict2)))
-#         new_dict[k] = merge(get(dict1,k,ConstraintTable()), get(dict1,k,ConstraintTable()))
-#     end
-#     return new_dict
-# end
 
 """
-    Adds a `StateConstraint` to a ConstraintTable
+    Adds a `CBSConstraint` to a ConstraintTable
 """
-function add_constraint!(env,constraint_dict::ConstraintTable,constraint::StateConstraint)
-    @assert get_agent_id(constraint_dict) == get_agent_id(constraint)
-    push!(constraint_dict.state_constraints, constraint)
-    insert_to_sorted_array!(constraint_dict.sorted_state_constraints, constraint)
-end
-
-"""
-    Adds an `ActionConstraint` to a ConstraintTable
-"""
-function add_constraint!(env,constraint_dict::ConstraintTable,constraint::ActionConstraint)
-    @assert get_agent_id(constraint_dict) == get_agent_id(constraint)
-    push!(constraint_dict.action_constraints, constraint)
-    insert_to_sorted_array!(constraint_dict.sorted_action_constraints, constraint)
-end
-
-function has_constraint(env,table::ConstraintTable,c::StateConstraint)
+function add_constraint!(env,table::ConstraintTable,c::CBSConstraint)
     @assert get_agent_id(table) == get_agent_id(c)
-    return (c in table.state_constraints)
+    if is_state_constraint(c)
+        push!(table.state_constraints, c)
+        insert_to_sorted_array!(table.sorted_state_constraints, c)
+    else
+        push!(table.action_constraints, c)
+        insert_to_sorted_array!(table.sorted_action_constraints, c)
+    end
 end
-function has_constraint(env,table::ConstraintTable,c::ActionConstraint)
+
+function has_constraint(env,table::ConstraintTable,c::CBSConstraint)
     @assert get_agent_id(table) == get_agent_id(c)
-    return (c in table.action_constraints)
+    if is_state_constraint(c)
+        return (c in table.state_constraints)
+    else
+        return (c in table.action_constraints)
+    end
 end
 
 export
@@ -723,7 +662,6 @@ const DefaultSolution = LowLevelSolution{DefaultState,DefaultAction,Float64,Trav
     A node of a constraint tree. Each node has a set of constraints, a candidate
     solution (set of robot paths), and a cost
 """
-# @with_kw mutable struct ConstraintTreeNode{S,T,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
 @with_kw mutable struct ConstraintTreeNode{S,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
     # set of paths (one per agent) through graph
     solution        ::S = DefaultSolution()
@@ -759,7 +697,8 @@ function initialize_root_node(mapf::AbstractMAPF,solution=get_initial_solution(m
     ConstraintTreeNode(
         solution    = solution,
         constraints = Dict(
-            i=>ConstraintTable{node_type(solution)}(a=i) for i in 1:num_agents(mapf)
+            # i=>ConstraintTable{node_type(solution)}(a=i) for i in 1:num_agents(mapf)
+            i=>DiscreteConstraintTable(mapf,i) for i in 1:num_agents(mapf)
             ),
         id = 1)
 end
@@ -792,15 +731,18 @@ end
     retrieve constraints corresponding to this node and this path
 """
 function get_constraints(node::N, path_id::Int) where {N<:ConstraintTreeNode}
-    return get(node.constraints, path_id,
-        ConstraintTable{node_type(node)}(a = path_id))
+    @assert haskey(node.constraints,path_id)
+    return node.constraints[path_id]
+    # return get(node.constraints, path_id,
+    #     valtype(node.constraints)())
+        # valtype(node.constraints)(a = path_id))
 end
 
 """
-    adds a `StateConstraint` to a ConstraintTreeNode
+    adds a `CBSConstraint` to a ConstraintTreeNode
 """
-function add_constraint!(env,node::N,constraint::CBSConstraint) where {N<:ConstraintTreeNode}
-    add_constraint!(env,get_constraints(node, get_agent_id(constraint)), constraint)
+function add_constraint!(env,node::N,c::CBSConstraint) where {N<:ConstraintTreeNode}
+    add_constraint!(env, get_constraints(node, get_agent_id(c)), c)
     return true
 end
 
@@ -815,42 +757,32 @@ for op in [:state_constraints, :action_constraints, :sorted_state_constraints, :
     @eval $op(env,node::ConstraintTreeNode,idx) = $op(get_constraints(node,idx))
 end
 
-# """
-#     checks to see if two `ConstraintTreeNode`s are identical (in terms of their
-#     constraints)
-# """
-# function compare_constraint_nodes(node1::ConstraintTreeNode,node2::ConstraintTreeNode)
-#     constraints1 = union([collect(keys(v)) for (k,v) in node1.constraints])
-#     constraints2 = union([collect(keys(v)) for (k,v) in node2.constraints])
-#     return length(setdiff(constraints1,constraints2)) == 0
-# end
-
 """
     generates a Vector of (State or Action) Constraints from a conflict
 """
-function generate_constraints_from_conflict(conflict::Conflict)
+function generate_constraints_from_conflict(c::Conflict)
     constraints = Vector{CBSConstraint}()
-    if conflict_type(conflict) == STATE_CONFLICT
-        push!(constraints, StateConstraint(
-            agent1_id(conflict),
-            node1(conflict),
-            time_of(conflict)
+    if is_state_conflict(c)
+        push!(constraints, state_constraint(
+            agent1_id(c),
+            node1(c),
+            time_of(c)
         ))
-        push!(constraints, StateConstraint(
-            agent2_id(conflict),
-            node2(conflict),
-            time_of(conflict)
+        push!(constraints, state_constraint(
+            agent2_id(c),
+            node2(c),
+            time_of(c)
         ))
-    elseif conflict_type(conflict) == ACTION_CONFLICT
-        push!(constraints, ActionConstraint(
-            agent1_id(conflict),
-            node1(conflict),
-            time_of(conflict)
+    else
+        push!(constraints, action_constraint(
+            agent1_id(c),
+            node1(c),
+            time_of(c)
         ))
-        push!(constraints, ActionConstraint(
-            agent2_id(conflict),
-            node2(conflict),
-            time_of(conflict)
+        push!(constraints, action_constraint(
+            agent2_id(c),
+            node2(c),
+            time_of(c)
         ))
     end
     return constraints

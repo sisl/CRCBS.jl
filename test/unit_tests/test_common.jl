@@ -30,8 +30,8 @@ end
 end #module
 
 let
-    S = GraphEnv.State
-    A = GraphEnv.Action
+    S = CBSEnv.State
+    A = CBSEnv.Action
     P = PathNode{S,A}
     vtx_grid = initialize_dense_vtx_grid(4,4)
     # 1  5   9  13
@@ -39,10 +39,10 @@ let
     # 3  7  11  15
     # 4  8  12  16
     G = initialize_grid_graph_from_vtx_grid(vtx_grid)
-    starts = [GraphEnv.State(1,0),GraphEnv.State(2,0)]
-    goals = [GraphEnv.State(vtx=5),GraphEnv.State(vtx=6)]
+    starts = [CBSEnv.State(1,0),CBSEnv.State(2,0)]
+    goals = [CBSEnv.State(vtx=5),CBSEnv.State(vtx=6)]
     heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
-    env = GraphEnv.LowLevelEnv(graph=G,heuristic=heuristic)
+    env = CBSEnv.LowLevelEnv(graph=G,heuristic=heuristic)
     mapf = MAPF(env,starts,goals)
     let
         root_node = initialize_root_node(mapf)
@@ -209,8 +209,8 @@ let
     end
 end
 let
-    S = GraphEnv.State
-    A = GraphEnv.Action
+    S = CBSEnv.State
+    A = CBSEnv.Action
     P = PathNode{S,A}
 
     vtx_grid = initialize_dense_vtx_grid(4,4)
@@ -219,27 +219,26 @@ let
     # 3  7  11  15
     # 4  8  12  16
     G = initialize_grid_graph_from_vtx_grid(vtx_grid)
-    env = GraphEnv.LowLevelEnv(graph=G,agent_idx=1)
+    env = CBSEnv.LowLevelEnv(graph=G,agent_idx=1)
     isa(state_space_trait(env),DiscreteSpace)
     let
         for v in vertices(G)
             s = S(v,1)
             idx,t = serialize(env,s,s.t)
             sp, _ = deserialize(env,S(),idx,t)
-            @test s == sp
+            @test get_vtx(s) == get_vtx(sp)
         end
         for e in edges(G)
             a = A(e,1)
             idx,t = serialize(env,a,1)
             ap, _ = deserialize(env,A(),idx,t)
-            @test a == ap
+            @test get_e(a) == get_e(ap)
         end
     end
     let
-        state_constraint = StateConstraint(1,2,3)
-        @test CRCBS.get_agent_id(state_constraint) == state_constraint.a
-        action_constraint = ActionConstraint(1,2,3)
-        @test CRCBS.get_agent_id(action_constraint) == action_constraint.a
+        for c in [state_constraint(1,2,3),action_constraint(1,2,3)]
+            @test CRCBS.get_agent_id(c) == c.a
+        end
     end
     let
         for constraints in [
@@ -250,18 +249,18 @@ let
             s = S(1,1)
             a = A(Edge(1,2),1)
             sp = S(2,2)
-            c = StateConstraint(get_agent_id(constraints)+1,P(),2)
+            c = state_constraint(get_agent_id(constraints)+1,P(),2)
             @test_throws AssertionError add_constraint!(env,constraints,c)
             @test_throws AssertionError CRCBS.has_constraint(env,constraints,c)
             # add a constraint whose agent id DOES match
-            c = StateConstraint(get_agent_id(constraints),P(s,a,sp),2)
+            c = state_constraint(get_agent_id(constraints),P(s,a,sp),2)
             add_constraint!(env,constraints,c)
             @test CRCBS.has_constraint(env,constraints,c)
             sc,ac = CRCBS.search_constraints(env,constraints,get_path_node(c))
             @test length(sc) == 1
             @test length(ac) == 0
             # # add a constraint whose agent id DOES match
-            c = ActionConstraint(get_agent_id(constraints),P(s,a,sp),2)
+            c = action_constraint(get_agent_id(constraints),P(s,a,sp),2)
             add_constraint!(env,constraints,c)
             @test CRCBS.has_constraint(env,constraints,c)
             sc,ac = CRCBS.search_constraints(env,constraints,get_path_node(c))
@@ -286,7 +285,7 @@ let
         constraints = generate_constraints_from_conflict(conflict)
         @test length(constraints) == 2
         for c in constraints
-            @test typeof(c) <: StateConstraint
+            @test is_state_constraint(c)
         end
         conflict = Conflict{P,P}(
             ACTION_CONFLICT,1,2,P(S(1),A(1),S(1)),P(S(1),A(1),S(1)),1
@@ -294,7 +293,7 @@ let
         constraints = generate_constraints_from_conflict(conflict)
         @test length(constraints) == 2
         for c in constraints
-            @test typeof(c) <: ActionConstraint
+            @test !is_state_constraint(c)
         end
     end
 end

@@ -85,8 +85,8 @@ end
 Path(v::Vector{P}) where {P<:PathNode}      = Path(path_nodes=v,s0=get_s(get(v,1,P())),cost=0.0)
 state_type(p::Path{S,A,C}) where {S,A,C}    = S
 action_type(p::Path{S,A,C}) where {S,A,C}   = A
-cost_type(p::Path{S,A,C}) where {S,A,C}     = C
 node_type(p) = PathNode{state_type(p),action_type(p)}
+cost_type(p::Path{S,A,C}) where {S,A,C}     = C
 Base.cat(p::P,x::N,i...) where {P<:Path,N<:PathNode} = P(s0=p.s0,path_nodes=cat(p.path_nodes,x,dims=1),cost=p.cost)
 Base.get(p::P,i,default=node_type(p)) where {P<:Path}    = get(p.path_nodes,i,default)
 Base.getindex(p::P,i) where {P<:Path}       = getindex(p.path_nodes,i)

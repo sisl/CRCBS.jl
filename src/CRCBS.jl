@@ -22,6 +22,7 @@ include("solver_utils.jl")
 include("solvers.jl")
 include("solvers/meta_agent_cbs.jl")
 
+include("environments/graph_env.jl")
 include("environments/cbs.jl")
 include("environments/multi_stage_cbs.jl")
 include("environments/meta_agent_cbs.jl")
