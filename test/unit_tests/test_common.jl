@@ -236,11 +236,6 @@ let
         end
     end
     let
-        for c in [state_constraint(1,2,3),action_constraint(1,2,3)]
-            @test CRCBS.get_agent_id(c) == c.a
-        end
-    end
-    let
         for constraints in [
             DiscreteConstraintTable(env,1),
             ConstraintTable{P}(a = 1)
@@ -268,9 +263,9 @@ let
             @test length(ac) == 1
             # # query sorted constraints
             c = sorted_state_constraints(env,constraints)[1]
-            @test get_sp(c) == sp
+            @test get_vtx(get_sp(c)) == get_vtx(sp)
             c = sorted_action_constraints(env,constraints)[1]
-            @test get_a(c) == a
+            @test get_e(get_a(c)) == get_e(a)
         end
     end
 end

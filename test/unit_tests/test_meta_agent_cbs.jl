@@ -1,11 +1,11 @@
 let
     N = 2
-    envs = [GraphEnv.LowLevelEnv() for i in 1:N]
+    envs = [CBSEnv.LowLevelEnv() for i in 1:N]
     idxs = [1,2]
     env = MetaAgentCBS.construct_meta_env(envs,idxs)
     env = MetaAgentCBS.construct_meta_env(envs, idxs,get_cost_model(envs[1]))
-    state = MetaAgentCBS.State([GraphEnv.State() for i in 1:N])
-    action = MetaAgentCBS.Action([GraphEnv.Action() for i in 1:N])
+    state = MetaAgentCBS.State([CBSEnv.State() for i in 1:N])
+    action = MetaAgentCBS.Action([CBSEnv.Action() for i in 1:N])
 
     @test states_match(state, state)
     @test states_match(state, get_next_state(state, CRCBS.wait(state)))
@@ -21,10 +21,10 @@ let
     add_edge!(G,2,2)
     add_edge!(G,2,3)
     add_edge!(G,3,3)
-    cbs_env = GraphEnv.LowLevelEnv(graph=G)
+    cbs_env = CBSEnv.LowLevelEnv(graph=G)
 
     env = MetaAgentCBS.construct_meta_env([cbs_env, cbs_env],[1,2])
-    state = MetaAgentCBS.State([GraphEnv.State(vtx=1), GraphEnv.State(vtx=2)])
+    state = MetaAgentCBS.State([CBSEnv.State(vtx=1), CBSEnv.State(vtx=2)])
     action_count = 0
     for a in get_possible_actions(env, state)
         action_count += 1
@@ -33,17 +33,17 @@ let
 end
 let
     N = 2
-    envs = [GraphEnv.LowLevelEnv() for i in 1:N]
+    envs = [CBSEnv.LowLevelEnv() for i in 1:N]
     env = MetaAgentCBS.construct_meta_env(envs,[1,2], get_cost_model(envs[1]))
     get_cost_model(env)
     get_initial_cost(env)
 end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    starts = [GraphEnv.State(1,0),GraphEnv.State(2,0)]
-    goals = [GraphEnv.State(vtx=6),GraphEnv.State(vtx=5)]
+    starts = [CBSEnv.State(1,0),CBSEnv.State(2,0)]
+    goals = [CBSEnv.State(vtx=6),CBSEnv.State(vtx=5)]
     heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
-    env = GraphEnv.LowLevelEnv(graph=G,heuristic=heuristic)
+    env = CBSEnv.LowLevelEnv(graph=G,heuristic=heuristic)
     mapf = MAPF(env,starts,goals)
     let
         solver = MetaAgentCBS_Solver(beta=0)
@@ -81,10 +81,10 @@ let
 end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
-    starts = [GraphEnv.State(1,0),GraphEnv.State(2,0)]
-    goals = [GraphEnv.State(vtx=6),GraphEnv.State(vtx=5)]
+    starts = [CBSEnv.State(1,0),CBSEnv.State(2,0)]
+    goals = [CBSEnv.State(vtx=6),CBSEnv.State(vtx=5)]
     heuristic = PerfectHeuristic(G,map(s->s.vtx,starts),map(s->s.vtx,goals))
-    env = GraphEnv.LowLevelEnv(graph=G,heuristic=heuristic)
+    env = CBSEnv.LowLevelEnv(graph=G,heuristic=heuristic)
     mapf = MAPF(env,starts,goals)
     solver = MetaAgentCBS_Solver(beta=1)
     set_verbosity!(solver,global_verbosity())

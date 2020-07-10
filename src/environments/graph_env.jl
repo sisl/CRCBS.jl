@@ -1,7 +1,3 @@
-################################################################################
-############################### ENVIRONMENT DEF ################################
-################################################################################
-# AbstractGraphState
 export
     AbstractGraphState,
     GraphState,
@@ -120,22 +116,6 @@ function violates_constraints(env::GraphEnv, s, a, sp)
     end
     return false
 end
-# function build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) where {S,G,E<:GraphEnv}
-#     t_goal = -1
-#     n = PathNode{state_type(mapf),action_type(mapf)}(sp=mapf.goals[idx])
-#     s_constraints, _ = search_constraints(mapf.env,get_constraints(node,idx),n)
-#     for c in s_constraints
-#         t_goal = max(t_goal,get_time_of(c)+1)
-#     end
-#     typeof(mapf.env)(
-#         graph       = mapf.get_graph(env),
-#         constraints = get_constraints(node,idx),
-#         goal        = G(mapf.goals[idx],t=t_goal),
-#         agent_idx   = idx,
-#         cost_model  = get_cost_model(mapf.env),
-#         heuristic   = get_heuristic_model(mapf.env),
-#         )
-# end
 
 ################################################################################
 ###################### Conflict-Based Search (High-Level) ######################
@@ -164,8 +144,3 @@ function convert_to_vertex_lists(path::Path{S,A,C}) where {S<:AbstractGraphState
     end
     vtx_list
 end
-function convert_to_vertex_lists(solution::LowLevelSolution)
-    return [convert_to_vertex_lists(path) for path in get_paths(solution)]
-end
-
-# end

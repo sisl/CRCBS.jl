@@ -15,8 +15,8 @@ let
     add_edge!(G,2,3)
     env = MultiStageCBS.LowLevelEnv(graph=G)
     for a in get_possible_actions(env,MultiStageCBS.State(vtx=2))
-        @test a.e.src == 2
-        @test a.e.dst ∈ [1,2,3]
+        @test get_e(a).src == 2
+        @test get_e(a).dst ∈ [1,2,3]
     end
 end
 let

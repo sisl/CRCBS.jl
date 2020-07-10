@@ -10,72 +10,88 @@ using Parameters, LightGraphs, DataStructures
 ############################### ENVIRONMENT DEF ################################
 ################################################################################
 # state
-@with_kw struct State{S}
-    s::S        = S()
-    stage::Int  = 1 # which stage of the sequence
+@with_kw struct State <: AbstractGraphState
+    vtx::Int    = -1 # vertex of graph
+    stage::Int  = -1 # which stage of the sequence
+    t::Int      = -1
 end
+Base.convert(::Type{State},s::GraphState) = State(vtx=get_vtx(s),t=get_t(s))
+CRCBS.get_vtx(s::State) = s.vtx
+CRCBS.get_t(s::State) = s.t
 get_stage(s::State) = s.stage
-get_state(s) = s
-get_state(s::State) = s.s
-Base.string(s::State) = string("s=",string(get_state(s)),", stage=",get_stage(s))
-CRCBS.is_valid(state::State) = state.vtx > 0
+Base.string(s::State) = "(v=$(get_vtx(s)),stage=$(get_stage(s)),t=$(get_t(s)))"
+CRCBS.is_valid(state::State) = get_vtx(state) > 0
 # action
-@with_kw struct LowLevelEnv{E}
-    envs::Vector{E} = Vector{E}()
+@with_kw struct Action <: AbstractGraphAction
+    e::Edge{Int}    = Edge(-1,-1)
+    dt::Int         = 1
 end
-function first_env(env::LowLevelEnv)
-    @assert(length(env.envs) >= 1)
-    env.envs[get_stage(s)]
+Base.convert(::Type{Action},a::GraphAction) = Action(e=get_e(a),dt=get_dt(a))
+CRCBS.get_e(a::Action) = a.e
+CRCBS.get_dt(a::Action) = a.dt
+Base.string(a::Action) = "(e=$(get_e(a).src) → $(get_e(a).dst))"
+@with_kw struct LowLevelEnv{C<:AbstractCostModel,H<:LowLevelSearchHeuristic,G<:AbstractGraph,T} <: GraphEnv{State,Action,C}
+    graph::G                        = Graph()
+    goal_sequence::Vector{State}    = Vector{State}()
+    agent_idx::Int                  = -1
+    constraints::T                  = DiscreteConstraintTable(nv(graph),nv(graph)^2,agent_idx) # ConstraintTable{PathNode{State,Action}}()
+    cost_model::C                   = SumOfTravelTime()
+    heuristic::H                    = NullHeuristic() # MultiStagePerfectHeuristic(graph,Vector{Vector{Int}}())
 end
-function current_env(env::LowLevelEnv,s::State)
-    @assert(get_stage(s) <= length(env.envs))
-    env.envs[get_stage(s)]
+CRCBS.get_graph(env::LowLevelEnv)            = env.graph
+CRCBS.get_cost_model(env::LowLevelEnv)       = env.cost_model
+CRCBS.get_agent_id(env::LowLevelEnv)         = env.agent_idx
+CRCBS.get_constraints(env::LowLevelEnv)      = env.constraints
+CRCBS.get_goal(env::LowLevelEnv)             = env.goal_sequence
+CRCBS.get_heuristic_model(env::LowLevelEnv)  = env.heuristic
+
+function CRCBS.get_next_state(s::State,a::Action)
+    @assert(is_valid(s))
+    @assert(get_vtx(s) == get_e(a).src)
+    State(get_e(a).dst, get_stage(s), get_t(s)+get_dt(a))
 end
-state_type(env::LowLevelEnv) = State{state_type(first_env(env))}
-action_type(env::LowLevelEnv) = action_type(first_env(env))
-cost_type(env::LowLevelEnv) = cost_type(first_env(env))
-CRCBS.get_possible_actions(env::LowLevelEnv,s::State) = get_possible_actions(current_env(env,s),get_state(s))
-function CRCBS.get_next_state(s::State,a)
-    State(get_next_state(get_state(s),a),get_stage(s))
-end
-function CRCBS.get_next_state(env::LowLevelEnv,s::State,a)
-    sp = get_next_state(current_env(env,s),get_state(s),a)
+function CRCBS.get_next_state(env::E,s::State,a::Action) where {E<:LowLevelEnv}
+    @assert(is_valid(s))
+    @assert(get_stage(s) <= length(env.goal_sequence))
     stage = get_stage(s)
-    if is_goal(current_env(env,s),sp)
+    if states_match(s, env.goal_sequence[get_stage(s)])
         stage = min(stage+1, length(env.goal_sequence))
     end
-    return State(sp,stage)
+    return State(get_e(a).dst, stage, get_t(s)+get_dt(a))
 end
-CRCBS.wait(s::State) = wait(get_state(s))
-CRCBS.wait(env::LowLevelEnv,s::State) = wait(current_env(env,s),get_state(s))
-CRCBS.get_cost_model(env::LowLevelEnv) = get_cost_model(first_env(env))
-CRCBS.get_transition_cost(env::LowLevelEnv,s::State,a,sp::State) = get_transition_cost(current_env(env,s),get_state(s),a,get_state(sp))
-CRCBS.get_heuristic_model(env::LowLevelEnv) = get_heuristic_model(first_env(env))
-CRCBS.get_heuristic_cost(env::LowLevelEnv,s::State) = get_heuristic_cost(current_env(env,s),get_state(s))
-################################################################################
-######################## Low-Level (Independent) Search ########################
-################################################################################
-struct GoalSequence{S}
-    goals::Vector{S}
+CRCBS.get_possible_actions(env::LowLevelEnv,s)  = map(v->Action(e=Edge(get_vtx(s),v)),outneighbors(get_graph(env),get_vtx(s)))
+CRCBS.wait(s::State) = Action(e=Edge(get_vtx(s),get_vtx(s)))
+CRCBS.wait(env::E,s::State) where {E<:LowLevelEnv} = Action(e=Edge(get_vtx(s),get_vtx(s)))
+
+function CRCBS.build_env(mapf::MAPF{E,S,G}, node::N, idx::Int)  where {S,G,E <: LowLevelEnv,N<:ConstraintTreeNode}
+    goals = deepcopy(mapf.goals[idx])
+    g = goals[end]
+    t_goal = -1
+    for constraint in sorted_state_constraints(mapf,get_constraints(node,idx))
+        sp = get_sp(constraint.v)
+        if states_match(g,sp)
+            t_goal = max(t_goal,get_t(sp)+1)
+        end
+    end
+    goals[end] = State(g,t=t_goal)
+    E(
+        graph = get_graph(mapf.env),
+        constraints = get_constraints(node,idx),
+        goal_sequence = goals,
+        agent_idx = idx,
+        cost_model = get_cost_model(mapf.env),
+        heuristic = get_heuristic_model(mapf.env)
+        )
 end
-# build_env
-function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) where {E,S,G<:GoalSequence}
-    goals = mapf.goals[idx].goals
-    envs = map(g->build_env(MAPF(mapf.env,get_starts(mapf),g)), goals)
-    LowLevelEnv(envs)
-end
-# heuristic
-# states_match
-CRCBS.states_match(s1::State,s2::State) = states_match(get_state(s),get_state(s))
-function CRCBS.is_consistent(path::Path,start::S,goals::GoalSequence{S}) where {S}
+function CRCBS.is_consistent(path::Path,start::State,goals::Vector{State})
     valid = true
     stage = 1
-    if states_match(start,goals.goals[stage])
+    if states_match(start,goals[stage])
         stage += 1
     end
     for k in 1:length(path)
         node = get_path_node(path,k)
-        if states_match(get_sp(node),goals.goals[stage])
+        if states_match(get_sp(node),goals[stage])
             stage += 1
         end
         if stage > length(goals)
@@ -84,35 +100,18 @@ function CRCBS.is_consistent(path::Path,start::S,goals::GoalSequence{S}) where {
     end
     return false
 end
-# is_goal
-function CRCBS.is_goal(env::LowLevelEnv,s::State)
-    if s.stage == length(env.goal_sequence)
-        return is_goal(current_env(env,s),get_state(s))
+function CRCBS.is_goal(env::E,s::State) where {E<:LowLevelEnv}
+    if get_stage(s) == length(env.goal_sequence)
+        if states_match(s, env.goal_sequence[get_stage(s)])
+            if get_t(s) >= get_t(env.goal_sequence[get_stage(s)])
+                return true
+            end
+        end
     end
     return false
 end
-# violates_constraints
-CRCBS.violates_constraints(env::LowLevelEnv, s::State, a, sp::State) = violates_constraints(current_env(env,s),get_state(s),a,get_state(sp))
-
-################################################################################
-###################### Conflict-Based Search (High-Level) ######################
-################################################################################
-reduce_node(n::PathNode{State,A}) where {A} = PathNode(
-    get_state(get_s(n)),get_a(n),get_state(get_sp(n)))
-function CRCBS.detect_state_conflict(n1::PathNode{State,A},n2::PathNode{State,A}) where {A}
-    detect_state_conflict(reduce_node(n1),reduce_node(n2))
-end
-function CRCBS.detect_action_conflict(n1::PathNode{State,A},n2::PathNode{State,A}) where {A}
-    detect_action_conflict(reduce_node(n1),reduce_node(n2))
-end
-
-################################################################################
-############################### HELPER FUNCTIONS ###############################
-################################################################################
-""" Helper for displaying Paths """
-function CRCBS.convert_to_vertex_lists(path::Path{State{S},A,C}) where {S,A,C}
-    p = Path{S,A,C}(map(n->reduce_node(n),path.path_nodes))
-    convert_to_vertex_lists(p)
+function CRCBS.get_heuristic_cost(env::E,h::MultiStagePerfectHeuristic,s::State) where {E<:LowLevelEnv}
+    get_heuristic_cost(h, env.agent_idx, s.stage, s.vtx)
 end
 
 end # end module MultiStageCBS

@@ -7,24 +7,20 @@ module CBSEnv
 using ..CRCBS
 using Parameters, LightGraphs, DataStructures
 
-################################################################################
-############################### ENVIRONMENT DEF ################################
-################################################################################
-# State
 @with_kw struct State <: AbstractGraphState
     vtx::Int        = -1 # vertex of graph
     t::Int          = -1
 end
+Base.convert(::Type{State},s::GraphState) = State(vtx=get_vtx(s),t=get_t(s))
 CRCBS.get_vtx(s::State) = s.vtx
 CRCBS.get_t(s::State) = s.t
-# Action
 @with_kw struct Action <: AbstractGraphAction
     e::Edge{Int}    = Edge(-1,-1)
     dt::Int         = 1
 end
+Base.convert(::Type{Action},a::GraphAction) = Action(e=get_e(a),dt=get_dt(a))
 CRCBS.get_e(a::Action) = a.e
 CRCBS.get_dt(a::Action) = a.dt
-# LowLevelEnv
 @with_kw struct LowLevelEnv{C<:AbstractCostModel,H<:AbstractCostModel,G<:AbstractGraph,T} <: GraphEnv{State,Action,C}
     graph::G                    = Graph()
     goal::State                 = State()

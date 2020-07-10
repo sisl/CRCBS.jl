@@ -417,7 +417,7 @@ serialize(mapf::MAPF,args...) = serialize(mapf.env,args...)
 Decodes an integer encoding of a state of type `state_type(env)`
 """
 function deserialize end
-deserialize(mapf::MAPF,args...) = deserialize(mapf.env)
+deserialize(mapf::MAPF,args...) = deserialize(mapf.env,args...)
 
 """
     num_states(env)
