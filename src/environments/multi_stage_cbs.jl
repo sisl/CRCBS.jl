@@ -65,15 +65,13 @@ CRCBS.wait(env::E,s::State) where {E<:LowLevelEnv} = Action(e=Edge(get_vtx(s),ge
 
 function CRCBS.build_env(mapf::MAPF{E,S,G}, node::N, idx::Int)  where {S,G,E <: LowLevelEnv,N<:ConstraintTreeNode}
     goals = deepcopy(mapf.goals[idx])
-    g = goals[end]
-    t_goal = -1
-    for constraint in sorted_state_constraints(mapf,get_constraints(node,idx))
-        sp = get_sp(constraint.v)
-        if states_match(g,sp)
-            t_goal = max(t_goal,get_t(sp)+1)
-        end
+    n = PathNode{State,Action}(sp=goals[end])
+    s_constraints, _ = search_constraints(mapf.env,get_constraints(node,idx),n)
+    t_goal = get_t(get_sp(n))
+    for c in s_constraints
+        t_goal = max(t_goal,get_time_of(c)+1)
     end
-    goals[end] = State(g,t=t_goal)
+    goals[end] = State(get_sp(n),t=t_goal)
     E(
         graph = get_graph(mapf.env),
         constraints = get_constraints(node,idx),

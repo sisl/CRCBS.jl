@@ -2,36 +2,30 @@
 ################################## Conflicts ###################################
 ################################################################################
 export
-    ConflictType,
-        NULL_CONFLICT,
-        STATE_CONFLICT,
-        ACTION_CONFLICT
-
-@enum ConflictType begin
-    NULL_CONFLICT   = 0
-    STATE_CONFLICT  = 1
-    ACTION_CONFLICT = 2
-end
-
-export
     Conflict,
+    state_conflict,
+    action_conflict,
     conflict_type,
     agent1_id,
     agent2_id,
     node1,
     node2,
-    DefaultConflict
+    is_state_conflict,
+    is_action_conflict
 
 @with_kw struct Conflict{P1 <: PathNode,P2 <: PathNode}
-    conflict_type   ::ConflictType  = NULL_CONFLICT
-    agent1_id       ::Int           = -1
-    agent2_id       ::Int           = -1
-    node1           ::P1            = P1()
-    node2           ::P2            = P2()
-    t               ::Int           = typemax(Int)
+    conflict_type   ::Symbol    = :NullConflict
+    agent1_id       ::Int       = -1
+    agent2_id       ::Int       = -1
+    node1           ::P1        = P1()
+    node2           ::P2        = P2()
+    t               ::Int       = -1
 end
-const SymmetricConflict{N} = Conflict{N,N}
+state_conflict(args...) = Conflict(:StateConflict,args...)
+action_conflict(args...) = Conflict(:ActionConflict,args...)
 conflict_type(c::Conflict)   = c.conflict_type
+is_state_conflict(c::Conflict) = conflict_type(c) == :StateConflict
+is_action_conflict(c::Conflict) = conflict_type(c) == :ActionConflict
 agent1_id(c::Conflict)       = c.agent1_id
 agent2_id(c::Conflict)       = c.agent2_id
 node1(c::Conflict)           = c.node1
@@ -50,17 +44,15 @@ Base.string(c::Conflict) = string(
     ", v1=(",get_s(node1(c)).vtx,",",get_sp(node1(c)).vtx,")",
     ", v2=(",get_s(node2(c)).vtx,",",get_sp(node2(c)).vtx,")",
     ", t=",get_s(node1(c)).t)
-is_state_conflict(c::Conflict) = conflict_type(c) == STATE_CONFLICT
 
-""" Default (invalid) conflict """
-const DefaultConflict = Conflict{DefaultPathNode,DefaultPathNode}
+const SymmetricConflict{N} = Conflict{N,N}
 
 Base.isless(c1::C,c2::C) where {C<:Conflict} = (
-    [c1.t,c1.agent1_id,c1.agent2_id,c1.conflict_type] < [c2.t,c2.agent1_id,c2.agent2_id,c2.conflict_type]
+    [c1.t,c1.agent1_id,c1.agent2_id,is_state_conflict(c1)] < [c2.t,c2.agent1_id,c2.agent2_id,is_state_conflict(c2)]
 )
 
 """ Checks if a conflict is valid """
-is_valid(c::C) where {C<:Conflict} = ((conflict_type(c) != NULL_CONFLICT)
+is_valid(c::C) where {C<:Conflict} = ((is_state_conflict(c) || is_action_conflict(c))
                                 && (agent1_id(c) != agent2_id(c))
                                 && (agent1_id(c) != -1)
                                 && (agent2_id(c) != -1))
@@ -185,6 +177,7 @@ export
     action_conflicts::Dict{Tuple{Int,Int},Vector{C}} = Dict{Tuple{Int,Int},Vector{C}}()
     # TODO sorted_conflict_list
 end
+default_conflict(table::ConflictTable{C}) where {C} = C()
 
 """ helper for retrieving conflicts associated with agents i and j """
 function get_conflicts(conflict_table::ConflictTable,i::Int,j::Int)
@@ -240,27 +233,24 @@ end
 """
     helper to insert conflicts into ConflictTable
 """
-function add_conflict!(conflict_table::ConflictTable,conflict)
-    if !is_valid(conflict)
+function add_conflict!(conflict_table::ConflictTable,c)
+    @assert is_valid(c)
+    if !is_valid(c)
         return
     end
-    i = agent1_id(conflict)
-    j = agent2_id(conflict)
+    i = agent1_id(c)
+    j = agent2_id(c)
     @assert i < j
-    if conflict_type(conflict) == STATE_CONFLICT
+    if is_state_conflict(c)
         tab = conflict_table.state_conflicts
-    elseif conflict_type(conflict) == ACTION_CONFLICT
+    else
         tab = conflict_table.action_conflicts
     end
     vec = get!(tab, (i,j), valtype(conflict_table.state_conflicts)())
-    push!(vec, conflict)
-    # tab[(i,j)] = vec
-    # elseif conflict_type(conflict) == ACTION_CONFLICT
-    #     vec = get!(conflict_table.action_conflicts, (i,j), valtype(conflict_table.action_conflicts)())
-    #     push!(vec, conflict)
-    #     conflict_table.action_conflicts[(i,j)] = vec
-    # end
-    # insert_to_sorted_array!(conflict_table.conflict_list, conflict)
+    insert!(vec, searchsortedfirst(vec, c), c)
+    @assert issorted(vec)
+    # push!(vec, c)
+    conflict_table
 end
 
 """
@@ -268,20 +258,24 @@ end
 
     Returns the next conflict (temporally) that occurs in a conflict table
 """
-function get_next_conflict(conflict_table::ConflictTable)
-    conflict = DefaultConflict()
-    for (k,v) in conflict_table.state_conflicts
-        sort!(v)
-        candidate = get(v,1,DefaultConflict())
-        if time_of(candidate) < time_of(conflict)
-            conflict = candidate
+function get_next_conflict(table::ConflictTable)
+    conflict = default_conflict(table)
+    for (k,v) in table.state_conflicts
+        if ~isempty(v)
+            # sort!(v)
+            candidate = v[1]
+            if time_of(candidate) < time_of(conflict) || !is_valid(conflict)
+                conflict = candidate
+            end
         end
     end
-    for (k,v) in conflict_table.action_conflicts
-        sort!(v)
-        candidate = get(v,1,DefaultConflict())
-        if time_of(candidate) < time_of(conflict)
-            conflict = candidate
+    for (k,v) in table.action_conflicts
+        if ~isempty(v)
+            # sort!(v)
+            candidate = v[1]
+            if time_of(candidate) < time_of(conflict) || !is_valid(conflict)
+                conflict = candidate
+            end
         end
     end
     return conflict
@@ -318,13 +312,11 @@ end
 #                             collisions against all other agents
 # """
 function detect_conflicts(paths::Vector{P}, idxs=collect(1:length(paths)),args...) where {P <: Path}
-    # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     conflict_table = ConflictTable{SymmetricConflict{node_type(P())}}()
     detect_conflicts!(conflict_table,paths,idxs,args...)
     conflict_table
 end
 function detect_conflicts(solution::L, idxs=collect(1:length(get_paths(solution))),args...) where {L<:LowLevelSolution}
-    # print("detect_conflicts(paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     conflict_table = ConflictTable{SymmetricConflict{node_type(P())}}()
     detect_conflicts!(conflict_table,solution,idxs,args...)
     conflict_table
@@ -332,27 +324,11 @@ end
 
 """ add detected conflicts to conflict table """
 function detect_conflicts!(conflicts::ConflictTable,n1::PathNode,n2::PathNode,i::Int,j::Int,t::Int)
-    # print("detect_conflicts!(conflicts::ConflictTable,n1::PathNode,n2::PathNode,i::Int,j::Int,t::Int)\n")
-    # state conflict
     if detect_state_conflict(n1,n2)
-        add_conflict!(conflicts,Conflict(
-            conflict_type = STATE_CONFLICT,
-            agent1_id = i,
-            agent2_id = j,
-            node1 = n1,
-            node2 = n2,
-            t = t
-        ))
+        add_conflict!(conflicts,state_conflict(i,j,n1,n2,t))
     end
     if detect_action_conflict(n1,n2)
-        add_conflict!(conflicts,Conflict(
-            conflict_type = ACTION_CONFLICT,
-            agent1_id = i,
-            agent2_id = j,
-            node1 = n1,
-            node2 = n2,
-            t = t
-        ))
+        add_conflict!(conflicts,action_conflict(i,j,n1,n2,t))
     end
 end
 
@@ -366,7 +342,8 @@ export
     get_time_of,
     state_constraint,
     action_constraint,
-    is_state_constraint
+    is_state_constraint,
+    is_action_constraint
 
 struct CBSConstraint{N}
     a::Int # agent ID
@@ -393,6 +370,7 @@ end
 state_constraint(args...) = CBSConstraint(args...,:StateConstraint)
 action_constraint(args...) = CBSConstraint(args...,:ActionConstraint)
 is_state_constraint(c::CBSConstraint) = get_constraint_type(c) == :StateConstraint
+is_action_constraint(c::CBSConstraint) = get_constraint_type(c) == :ActionConstraint
 
 ################################################################################
 ############################## Constraint Tables ###############################

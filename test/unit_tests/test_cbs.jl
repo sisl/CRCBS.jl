@@ -28,61 +28,6 @@ let
         @test a.e.dst ∈ [1,2,3]
     end
 end
-# test conflict detection
-let
-    path1 = Path{CBSEnv.State,CBSEnv.Action,Float64}()
-    push!(path1,PathNode(
-        CBSEnv.State(1,0),
-        CBSEnv.Action(Edge(1,2),0),
-        CBSEnv.State(2,1)
-    ))
-    # push!(path1,PathNode(
-    #     CBSEnv.State(2,1),
-    #     CBSEnv.Action(Edge(2,3),1),
-    #     CBSEnv.State(3,2)
-    # ))
-    path2 = Path{CBSEnv.State,CBSEnv.Action,Float64}()
-    push!(path2,PathNode(
-        CBSEnv.State(2,1),
-        CBSEnv.Action(Edge(2,3),1),
-        CBSEnv.State(3,2)
-    ))
-    conflict_table = detect_conflicts([path1,path2])
-end
-let
-    # TEST CONSTRAINTS
-    S = CBSEnv.State
-    A = CBSEnv.Action
-    P = PathNode{S,A}
-    G = Graph(3)
-    add_edge!(G,1,2)
-    add_edge!(G,2,2)
-    add_edge!(G,2,3)
-    env = CBSEnv.LowLevelEnv(graph=G)
-
-    paths = [
-        Path{S,A,Float64}()
-    ]
-end
-let
-    P = PathNode{CBSEnv.State,CBSEnv.Action}()
-    id1 = 1
-    id2 = 2
-
-    N = node_type(P)
-    conflict_table = ConflictTable{Conflict{N,N}}()
-    conflict = Conflict(conflict_type=STATE_CONFLICT,agent1_id=id1,agent2_id=id2,node1=P,node2=P)
-    @test CRCBS.is_valid(conflict)
-    add_conflict!(conflict_table,conflict)
-    @test length(conflict_table.state_conflicts) == 1
-    conflict = Conflict(conflict_type=ACTION_CONFLICT,agent1_id=id1,agent2_id=id2,node1=P,node2=P)
-    @test CRCBS.is_valid(conflict)
-    add_conflict!(conflict_table,conflict)
-    @test length(conflict_table.state_conflicts) == 1
-    get_conflicts(conflict_table,id1,id2)
-    conflict = CBSEnv.get_next_conflict(conflict_table)
-    @test !(conflict == nothing)
-end
 let
     CBSEnv.LowLevelEnv(cost_model=SumOfTravelTime())
 end
@@ -96,8 +41,6 @@ let
     T = 10
     n_agents = 2
     env = CBSEnv.LowLevelEnv(graph=G,agent_idx=1,cost_model=HardConflictCost(G,T,n_agents))
-    # path1 = Path{CBSEnv.State,CBSEnv.Action,Float64}(s0=CBSEnv.State(5,0))
-    # path1 = Path{CBSEnv.State,CBSEnv.Action,Float64}(s0=CBSEnv.State(5,0))
     set_path!(get_cost_model(env),2,[2,6,10,14])
     @test get_transition_cost(env,CBSEnv.State(5,0),CBSEnv.Action(Edge(5,6),1),CBSEnv.State(6,1)) == 1
 end
@@ -123,29 +66,11 @@ let
     default_solution(mapf)
     println("Testing CBS")
     # low_level_search
-    # let
-    #     solver = CBSSolver()
-    #     node = CBSEnv.initialize_root_node(mapf)
-    #     initialize_child_search_node(node)
-    #     low_level_search!(solver,mapf,node)
-    # end
     let
-        for v in vertices(G)
-            s = S(v,1)
-            idx,t = serialize(env,s,s.t)
-            @test idx <= num_states(env)
-            sp, _ = deserialize(env,S(),idx,t)
-            @test get_vtx(s) == get_vtx(sp)
-            @test get_t(s) == get_t(sp)
-        end
-        for e in edges(G)
-            a = A(e,1)
-            idx,t = serialize(env,a,1)
-            @test idx <= num_actions(env)
-            ap, _ = deserialize(env,A(),idx,t)
-            @test get_e(a) == get_e(ap)
-            @test get_dt(a) == get_dt(ap)
-        end
+        solver = CBSSolver()
+        node = CBSEnv.initialize_root_node(mapf)
+        initialize_child_search_node(solver,mapf,node)
+        low_level_search!(solver,mapf,node)
     end
     # high_level_search
     let

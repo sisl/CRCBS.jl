@@ -101,7 +101,7 @@ function cbs_bypass!(solver::MetaAgentCBS_Solver,mapf,node,priority_queue)
     groups, group_idx = combine_agents!(solver, node)
     @assert groups == node.solution.group_idxs
     if group_idx > 0 # New Meta Agent has been constructed
-        new_node = initialize_child_search_node(node)
+        new_node = initialize_child_search_node(solver, mapf, node)
         consistent_flag = low_level_search!(solver, mapf, new_node, [group_idx])
         if consistent_flag # is_valid(new_node.solution, mapf)
             # for agent_id in groups[group_idx]
