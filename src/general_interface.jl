@@ -1,4 +1,41 @@
 export
+    AbstractLowLevelEnv,
+    action_type,
+    state_type,
+    get_cost_model,
+    get_heuristic_model,
+    cost_type
+
+"""
+    `AbstractLowLevelEnv{S,A,C}`
+
+    Defines a prototype environment for low level search (searching for a path
+    for a single agent).
+
+    `S` is the State type, `A` is the action type, and `C` is the cost type. All
+    three must be default constructible (i.e. you can call `S()`, `A()` and `C()`
+    without throwing errors)
+
+    In general, a concrete subtype of `AbstractLowLevelEnv` may include a graph
+    whose edges are traversed by agents.
+"""
+abstract type AbstractLowLevelEnv{S,A,C} end
+action_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = A
+state_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = S
+cost_type(env::E) where {E<:AbstractLowLevelEnv} = cost_type(get_cost_model(env))
+""" Override this method for when the cost model has arguments """
+get_cost_model(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = C()
+cost_type(env::E) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} = T
+function get_heuristic_model end
+
+export
+    AbstractMAPFSolver,
+    NullSolver
+
+""" Abstract type for algorithms that solve MAPF instances """
+abstract type AbstractMAPFSolver end
+struct NullSolver <: AbstractMAPFSolver end
+export
     build_env,
     states_match,
     is_goal,

@@ -8,10 +8,10 @@ using NearestNeighbors
 using JuMP
 
 
-include("problem_definitions.jl")
 include("core.jl")
 include("general_interface.jl")
 include("cost_models.jl")
+include("problem_definitions.jl")
 include("heuristics.jl")
 include("core_utils.jl")
 include("common.jl")

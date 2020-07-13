@@ -30,9 +30,10 @@ struct MAPF{E,S,G} <: AbstractMAPF # Multi Agent Path Finding Problem
     starts  ::Vector{S}   # Vector of initial states
     goals   ::Vector{G}   # Vector of goal states
 end
-action_type(mapf::MAPF)         = action_type(mapf.env)
-state_type(mapf::MAPF)          = state_type(mapf.env)
-cost_type(mapf::MAPF)           = cost_type(mapf.env)
+get_env(mapf::MAPF)             = mapf.env
+action_type(mapf::MAPF)         = action_type(get_env(mapf))
+state_type(mapf::MAPF)          = state_type(get_env(mapf))
+cost_type(mapf::MAPF)           = cost_type(get_env(mapf))
 num_agents(mapf::MAPF)          = length(mapf.starts)
 num_goals(mapf::MAPF)           = length(mapf.goals)
 get_starts(mapf::MAPF)          = mapf.starts
@@ -41,3 +42,5 @@ get_start(mapf::MAPF, i)        = get_starts(mapf)[i]
 get_goal(mapf::MAPF, i)         = get_goals(mapf)[i]
 get_start(mapf::MAPF, env, i)   = get_start(mapf,i)
 # TODO implement a check to be sure that no two agents have the same goal
+get_initial_cost(mapf::M) where {M<:AbstractMAPF}           = get_initial_cost(mapf.env)
+get_infeasible_cost(mapf::M) where {M<:AbstractMAPF}        = get_infeasible_cost(mapf.env)

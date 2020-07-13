@@ -29,7 +29,7 @@ end
 function get_heuristic_cost(model::H,args...) where {T,M,H<:CompositeHeuristic{M,T}}
     T(map(h->get_heuristic_cost(h,args...), model.cost_models))
 end
-function get_heuristic_cost(env::E,model::H,args...) where {E<:AbstractLowLevelEnv,T,M,H<:CompositeHeuristic{M,T}}
+function get_heuristic_cost(env,model::H,args...) where {T,M,H<:CompositeHeuristic{M,T}}
     T(map(m->get_heuristic_cost(env,m,args...), model.cost_models))
 end
 
@@ -41,7 +41,7 @@ end
 """
 struct NullHeuristic <: LowLevelSearchHeuristic{Float64} end
 get_heuristic_cost(h::NullHeuristic,args...) = 0.0
-get_heuristic_cost(env::E,h::NullHeuristic,args...) where {E<:AbstractLowLevelEnv} = get_heuristic_cost(h,args...)
+get_heuristic_cost(env,h::NullHeuristic,args...) = get_heuristic_cost(h,args...)
 
 ################################################################################
 ############################### PerfectHeuristic ###############################
