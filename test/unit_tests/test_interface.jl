@@ -19,30 +19,26 @@ let
     @test 0 < (1,0,0,0,0)
 end
 let
-    DefaultState()
-    DefaultAction()
-    p = DefaultPathNode()
-    @test typeof(get_s(p)) == state_type(p) == DefaultState
-    @test typeof(get_a(p)) == action_type(p) == DefaultAction
-    @test typeof(get_sp(p)) == state_type(p) == DefaultState
-end
-let
-    Path([DefaultPathNode()])
-    p = Path{DefaultState,DefaultAction,Float64}(cost=0.0)
-    @test state_type(p) == DefaultState
-    @test action_type(p) == DefaultAction
-    @test node_type(p) == PathNode{state_type(p),action_type(p)}
+    S = GraphState
+    A = GraphAction
+    P = PathNode{S,A}
+
+    Path([P()])
+    p = Path{S,A,Float64}()
+    @test state_type(p) == S
+    @test action_type(p) == A
+    @test node_type(p) == P
     @test cost_type(p) == Float64
     get(p,1,node_type(p))
     get(p,1)
     # @test get_cost(p) == 0
     @test length(p.path_nodes) == 0
-    push!(p,PathNode{DefaultState,DefaultAction}())
+    push!(p,P())
     @test length(p.path_nodes) == 1
-    p = cat(p,DefaultPathNode())
+    p = cat(p,P())
     @test length(p.path_nodes) == 2
-    @test typeof(p[1]) == DefaultPathNode
-    p[1] = DefaultPathNode()
+    @test typeof(p[1]) == P
+    p[1] = P()
     @test length(p) == length(p.path_nodes)
     p1 = copy(p)
     @test get_cost(p1) == get_cost(p)
@@ -57,13 +53,11 @@ let
 
     get_initial_state(p)
     get_final_state(p)
-end
-let
+
     cost_model = TravelTime()
-    # LowLevelSolution{DefaultState,DefaultAction,cost_type(cost_model),TravelTime}()
     solution = LowLevelSolution(
         cost_model = TravelTime(),
-        paths = [Path{DefaultState,DefaultAction,cost_type(cost_model)}()],
+        paths = [Path{S,A,cost_type(cost_model)}()],
         costs = [0.0]
     )
     state_type(solution)

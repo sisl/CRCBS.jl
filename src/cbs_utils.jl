@@ -635,22 +635,16 @@ export
     violates_constraints,
     generate_constraints_from_conflict
 
-const DefaultSolution = LowLevelSolution{DefaultState,DefaultAction,Float64,TravelTime}
 """
     A node of a constraint tree. Each node has a set of constraints, a candidate
     solution (set of robot paths), and a cost
 """
 @with_kw mutable struct ConstraintTreeNode{S,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
-    # set of paths (one per agent) through graph
-    solution        ::S = DefaultSolution()
+    solution        ::S = S()
     # maps agent_id to the set of constraints involving that agent
     constraints     ::C = Dict{Int,ConstraintTable{node_type(solution)}}()
-    # meta-agent groups
-    # groups          ::Vector{Vector{Int}}  = Vector{Vector{Int}}()
     # maintains a list of all conflicts
     conflict_table  ::D = ConflictTable{SymmetricConflict{node_type(solution)}}()
-    # cost = sum([length(path) for path in solution])
-    # cost            ::T                    = get_cost(solution)
     # index of parent node
     parent          ::Int = -1
     # indices of two child nodes

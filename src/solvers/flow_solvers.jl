@@ -3,7 +3,7 @@ export
 
 module FlowProblems
 
-using ..CRCBS
+# using ..CRCBS
 using LightGraphs, MetaGraphs, JuMP
 
 """
@@ -14,7 +14,6 @@ using LightGraphs, MetaGraphs, JuMP
 
 """
 function extend_G_through_time(G,T::Int;render_depth=4)
-    # G = Graph(G)
     N = nv(G)
     Gx = MetaDiGraph(nv(G)*(T+1))
     for v in vertices(G)
@@ -67,8 +66,6 @@ end
 """
 function construct_ILP_flow_model(G,T::Int,starts::Vector{Int},goals::Vector{Int},optimizer;TimeLimit=50, OutputFlag=0)
     Gx = extend_G_through_time(G,T;render_depth=4)
-    # ILP model
-    # optimizer = Gurobi.Optimizer
     model = Model(with_optimizer(optimizer,TimeLimit=TimeLimit,OutputFlag=OutputFlag))
     @variable(model, x[1:ne(Gx)], binary=true)
     M = incidence_matrix(Gx)

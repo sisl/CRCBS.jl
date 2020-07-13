@@ -123,7 +123,7 @@ function a_star(solver, env::E,path::P,initial_cost::T=get_cost(path)) where {S,
     a_star_impl!(solver,env,path,frontier,explored)
 end
 function a_star(env::E,path::P,initial_cost::T=get_cost(path)) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    a_star(NullSolver(),env,path,initial_cost)
+    a_star(nothing,env,path,initial_cost)
 end
 function a_star(solver, env::E,start_state::S,initial_cost::T=get_initial_cost(env)) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     path = Path{S,A,T}(s0=start_state,cost=initial_cost)

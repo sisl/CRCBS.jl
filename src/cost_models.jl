@@ -80,7 +80,7 @@ Part of cost model interface. Defaults to zero.
 get_infeasible_cost(model::AbstractCostModel)  = typemax(cost_type(model))
 
 """
-    get_transition_cost(env,model,s,a,sp)
+    get_transition_cost(model,env,s,a,sp)
     get_transition_cost(env,s,a,sp)
     get_transition_cost(env,s,a)
 
@@ -108,10 +108,10 @@ add_heuristic_cost(m::C, h::H, cost, h_cost) where {C<:AbstractCostModel,H<:Abst
 
 get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(get_cost_model(env))
 get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(get_cost_model(env))
-get_transition_cost(env::E,s,a) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,get_cost_model(env),s,a,get_next_state(env,s,a))
-get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,get_cost_model(env),s,a,sp)
 accumulate_cost(env::E, cost, transition_cost) where {E<:AbstractLowLevelEnv} = accumulate_cost(get_cost_model(env), cost, transition_cost)
 add_heuristic_cost(env::E, cost, h_cost) where {E<:AbstractLowLevelEnv} = add_heuristic_cost(get_cost_model(env),cost,h_cost)
+get_transition_cost(env::E,s,a) where {E<:AbstractLowLevelEnv} = get_transition_cost(get_cost_model(env),env,s,a,get_next_state(env,s,a))
+get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(get_cost_model(env),env,s,a,sp)
 
 """
     aggregate_costs(model, costs::Vector{T}) where {T}
@@ -150,14 +150,18 @@ struct FullCostModel{F,T,M<:AbstractCostModel{T}} <: AbstractCostModel{T}
     f::F        # the aggregation function
     model::M    # the low level cost model
 end
-get_aggregation_function(m::C) where {C<:FullCostModel}             = m.f
-get_cost_model(m::C) where {C<:FullCostModel}                       = m.model
-aggregate_costs(m::C, costs::Vector{T}) where {T,C<:FullCostModel}  = m.f(costs)
-accumulate_cost(model::M, c, c2) where {M<:FullCostModel}           = accumulate_cost(model.model,c,c2)
-get_initial_cost(model::F) where {F<:FullCostModel}                 = get_initial_cost(model.model)
-get_infeasible_cost(model::F) where {F<:FullCostModel}              = get_infeasible_cost(model.model)
-add_heuristic_cost(model::F,cost,h_cost) where {F<:FullCostModel}   = add_heuristic_cost(model.model,cost,h_cost)
-get_transition_cost(env,model::F,s,a,sp) where {F<:FullCostModel}   = get_transition_cost(env,model.model,s,a,sp)
+get_aggregation_function(m::FullCostModel)  = m.f
+aggregate_costs(m::FullCostModel, costs)    = m.f(costs)
+get_cost_model(m::FullCostModel)            = m.model
+for op in [:accumulate_cost,:get_initial_cost,
+    :get_infeasible_cost,:add_heuristic_cost,:get_transition_cost]
+    @eval $op(model::FullCostModel,args...) = $op(model.model,args...)
+end
+# accumulate_cost(model::M, c, c2) where {M<:FullCostModel}           = accumulate_cost(model.model,c,c2)
+# get_initial_cost(model::F) where {F<:FullCostModel}                 = get_initial_cost(model.model)
+# get_infeasible_cost(model::F) where {F<:FullCostModel}              = get_infeasible_cost(model.model)
+# add_heuristic_cost(model::F,cost,h_cost) where {F<:FullCostModel}   = add_heuristic_cost(model.model,cost,h_cost)
+# get_transition_cost(model::F,env,s,a,sp) where {F<:FullCostModel}   = get_transition_cost(model.model,env,s,a,sp)
 
 """
     `CompositeCost{T}`
@@ -173,8 +177,8 @@ function construct_composite_cost_model(args...)
     cost_types = map(m->cost_type(m),models)
     CompositeCostModel{typeof(models),Tuple{cost_types...}}(models)
 end
-function get_transition_cost(env,model::C,s,a,sp) where {C<:CompositeCostModel}
-    cost_type(model)(map(m->get_transition_cost(env,m,s,a,sp), model.cost_models))
+function get_transition_cost(model::C,env,s,a,sp) where {C<:CompositeCostModel}
+    cost_type(model)(map(m->get_transition_cost(m,env,s,a,sp), model.cost_models))
 end
 function accumulate_cost(model::C, cost::T, transition_cost::T) where {T,M,C<:CompositeCostModel{M,T}}
     new_cost = map(x->accumulate_cost(x[1],x[2],x[3]),
@@ -273,7 +277,7 @@ end
     associated LowLevelCostModel.
     The parameter `C` defines the `cost_type` of the objective. The following
     functions must be implemented for a `LowLevelCostModel` to be used:
-    * `get_initial_cost(env,model::LowLevelCostModel)` - returns
+    * `get_initial_cost(model::LowLevelCostModel,env)` - returns
     the initial_cost for a path
     * `get_transition_cost(model::LowLevelCostModel{C},path::Path,s::S,a::A,
         sp::S) where {S,A,C}` - defines the cost associated with taking action
@@ -292,11 +296,15 @@ struct TransformCostModel{T,M<:LowLevelCostModel{T}} <: LowLevelCostModel{T}
     f::Function
     model::M
 end
-get_transition_cost(env,m::TransformCostModel,args...) = m.f(get_transition_cost(env,m.model,args...))
-accumulate_cost(m::TransformCostModel, args...)     = accumulate_cost(m.model,args...)
-get_initial_cost(m::TransformCostModel,args...)     = get_initial_cost(m.model,args...)
-get_infeasible_cost(m::TransformCostModel)          = get_infeasible_cost(m.model)
-add_heuristic_cost(m::TransformCostModel,args...)   = add_heuristic_cost(m.model,args...)
+get_transition_cost(m::TransformCostModel,args...) = m.f(get_transition_cost(m.model,args...))
+# accumulate_cost(m::TransformCostModel, args...)     = accumulate_cost(m.model,args...)
+# get_initial_cost(m::TransformCostModel,args...)     = get_initial_cost(m.model,args...)
+# get_infeasible_cost(m::TransformCostModel)          = get_infeasible_cost(m.model)
+# add_heuristic_cost(m::TransformCostModel,args...)   = add_heuristic_cost(m.model,args...)
+for op in [:accumulate_cost,:get_initial_cost,
+    :get_infeasible_cost,:add_heuristic_cost]
+    @eval $op(model::TransformCostModel,args...) = $op(model.model,args...)
+end
 
 struct TravelTime       <: LowLevelCostModel{Float64} end
 accumulate_cost(model::TravelTime,      cost,transition_cost) = cost+transition_cost
@@ -308,7 +316,7 @@ struct FinalTime        <: LowLevelCostModel{Float64} end
 accumulate_cost(model::FinalTime,       cost,transition_cost) = cost+transition_cost
 
 struct NullCost         <: LowLevelCostModel{Float64} end
-get_transition_cost(env,model::F,s,a,sp) where {F<:NullCost} = 0.0
+get_transition_cost(model::F,env,s,a,sp) where {F<:NullCost} = 0.0
 accumulate_cost(model::NullCost,        cost,transition_cost) = cost
 
 export
@@ -345,11 +353,14 @@ function set_deadline!(m::C,args...) where {C<:CompositeCostModel}
         set_deadline!(model,args...)
     end
 end
-get_initial_cost(m::C) where {C<:AbstractDeadlineCost} = get_initial_cost(m.m)
-get_transition_cost(env,model::M,args...) where {M<:AbstractDeadlineCost} = get_transition_cost(env,model.m,args...)
-accumulate_cost(model::C,cost,transition_cost) where {C<:AbstractDeadlineCost} = accumulate_cost(model.m,cost,transition_cost)
+# get_initial_cost(m::C) where {C<:AbstractDeadlineCost} = get_initial_cost(m.m)
+# get_transition_cost(model::M,args...) where {M<:AbstractDeadlineCost} = get_transition_cost(model.m,args...)
+# accumulate_cost(model::C,cost,transition_cost) where {C<:AbstractDeadlineCost} = accumulate_cost(model.m,cost,transition_cost)
 # add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost + m.deadline - m.stage_deadline) # assumes heuristic is PerfectHeuristic
 add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost - m.deadline) # assumes heuristic is PerfectHeuristic
+for op in [:accumulate_cost,:get_initial_cost,:get_transition_cost,]
+    @eval $op(model::AbstractDeadlineCost,args...) = $op(model.m,args...)
+end
 FullDeadlineCost(model::DeadlineCost) = FullCostModel(costs->max(0.0, maximum(costs)),model)
 
 """

@@ -1,8 +1,4 @@
 ################################################################################
-############################### Path Constructors ##############################
-################################################################################
-
-################################################################################
 ######################### LowLevelSolution Constructors ########################
 ################################################################################
 export
@@ -36,7 +32,7 @@ function get_infeasible_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCo
     )
 end
 """
-    `default_solution(solver::AbstractMAPFSolver, mapf::AbstractMAPF)`
+    `default_solution(solver, mapf::AbstractMAPF)`
 
     Defines what is returned by the solver in case of failure to find a feasible
     solution.

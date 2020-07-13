@@ -7,12 +7,12 @@ function solve! end
 function low_level_search! end
 
 """
-    `solve!(solver::AbstractMAPFSolver, args ...)`
+    `solve!(solver, args ...)`
 
     Run the algorithm represented by `solver` on an instance of a Multi-Agent
     Path-Finding problem.
 """
-function solve!(solver::AbstractMAPFSolver, args ...)
+function solve!(solver, args...)
     throw(ArgumentError(string(
         "function CRCBS.solve!(solver::", typeof(solver),",...) not defined.",
         " You must explicitly override CRCBS.solve!() for solvers of type",
@@ -139,8 +139,8 @@ export low_level_search!
 
 """
     `low_level_search!(
-        solver::S where {S<:AbstractMAPFSolver},
-        mapf::M where {M<:AbstractMAPF},
+        solver,
+        mapf::AbstractMAPF,
         node::ConstraintTreeNode,
         idxs=collect(1:num_agents(mapf)),
         path_finder=a_star)`
@@ -149,9 +149,9 @@ export low_level_search!
     function for cost-to-go is user-defined and environment-specific
 """
 function low_level_search!(
-    solver::S, mapf::M, node::N, idxs=collect(1:num_agents(mapf));
+    solver, mapf::M, node::N, idxs=collect(1:num_agents(mapf));
     path_finder=a_star
-    ) where {S,M<:AbstractMAPF,N<:ConstraintTreeNode}
+    ) where {M<:AbstractMAPF,N<:ConstraintTreeNode}
     # Only compute a path for the indices specified by idxs
     for i in idxs
         env = build_env(solver, mapf, node, i)

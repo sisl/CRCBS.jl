@@ -52,24 +52,24 @@ get_goal(env::GraphEnv)             = env.goal
 get_heuristic_model(env::GraphEnv)  = env.heuristic
 
 # get_possible_actions(env::GraphEnv,s) = map(v->GraphAction(e=Edge(get_vtx(s),v)),outneighbors(get_graph(env),get_vtx(s)))
-# get_next_state(s::AbstractGraphState,a::AbstractGraphAction) = GraphState(get_e(a).dst,get_t(s)+get_dt(a))
+get_next_state(s::AbstractGraphState,a::AbstractGraphAction) = GraphState(get_e(a).dst,get_t(s)+get_dt(a))
 # get_next_state(env::GraphEnv,s,a) = get_next_state(s,a)
-# wait(s::AbstractGraphState) = GraphAction(e=Edge(get_vtx(s),get_vtx(s)))
+wait(s::AbstractGraphState) = GraphAction(e=Edge(get_vtx(s),get_vtx(s)))
 # wait(env::GraphEnv,s) = GraphAction(e=Edge(get_vtx(s),get_vtx(s)))
-function get_transition_cost(env::GraphEnv,c::TravelTime,s,a,sp)
+function get_transition_cost(c::TravelTime,env::GraphEnv,s,a,sp)
     return cost_type(c)(get_dt(a))
 end
-function get_transition_cost(env::GraphEnv,c::C,s,a,sp) where {C<:ConflictCostModel}
+function get_transition_cost(c::C,env::GraphEnv,s,a,sp) where {C<:ConflictCostModel}
     return get_conflict_value(c, get_agent_id(env), get_vtx(sp), get_t(sp))
 end
-function get_transition_cost(env::GraphEnv,c::TravelDistance,s,a,sp)
+function get_transition_cost(c::TravelDistance,env::GraphEnv,s,a,sp)
     return (get_vtx(s) == get_vtx(sp)) ? 0.0 : 1.0
 end
-get_heuristic_cost(env::GraphEnv,s) = get_heuristic_cost(env,get_heuristic_model(env),s)
-function get_heuristic_cost(env::GraphEnv,h::H,s) where {H<:Union{PerfectHeuristic,DefaultPerfectHeuristic}}
+get_heuristic_cost(env::GraphEnv,s) = get_heuristic_cost(get_heuristic_model(env),env,s)
+function get_heuristic_cost(h::H,env::GraphEnv,s) where {H<:Union{PerfectHeuristic,DefaultPerfectHeuristic}}
     get_heuristic_cost(h, get_vtx(get_goal(env)), get_vtx(s))
 end
-function get_heuristic_cost(env::GraphEnv,h::H,s) where {E<:GraphEnv, H<:ConflictTableHeuristic}
+function get_heuristic_cost(h::H,env::GraphEnv,s) where {E<:GraphEnv, H<:ConflictTableHeuristic}
     get_heuristic_cost(h, get_agent_id(env), get_vtx(s), get_t(s))
 end
 # states_match
