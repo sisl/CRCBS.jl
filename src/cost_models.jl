@@ -79,15 +79,15 @@ Part of cost model interface. Defaults to zero.
 """
 get_infeasible_cost(model::AbstractCostModel)  = typemax(cost_type(model))
 
-"""
-    get_transition_cost(model,env,s,a,sp)
-    get_transition_cost(env,s,a,sp)
-    get_transition_cost(env,s,a)
-
-Part of cost model interface. Defines the cost of transitioning from state `s`
-to state `sp` via action `a` in environment `env` under cost model `model`.
-"""
-function get_transition_cost end
+# """
+#     get_transition_cost(model,env,s,a,sp)
+#     get_transition_cost(env,s,a,sp)
+#     get_transition_cost(env,s,a)
+#
+# Part of cost model interface. Defines the cost of transitioning from state `s`
+# to state `sp` via action `a` in environment `env` under cost model `model`.
+# """
+# function get_transition_cost end
 
 """
     accumulate_cost(model,current_cost,transition_cost)
@@ -486,9 +486,10 @@ function get_conflict_value(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
         return c
     catch e
         @show vtx,t_idx,size(h.CAT)
-        throw(e)
+        rethrow(e)
     end
 end
+
 """
     `get_conflicting_paths`
 

@@ -445,7 +445,9 @@ action_space_trait(mapf::MAPF) = action_space_trait(mapf.env)
 num_states(mapf::MAPF) = num_states(mapf.env)
 num_actions(mapf::MAPF) = num_actions(mapf.env)
 
-export DiscreteConstraintTable
+export
+    DiscreteConstraintTable,
+    discrete_constraint_table
 
 """
     DiscreteStateTable
@@ -457,16 +459,16 @@ struct DiscreteConstraintTable
     action_constraints::SparseMatrixCSC{Bool,Int}
     agent_id::Int
 end
-function DiscreteConstraintTable(n_states::Int,n_actions::Int,agent_id::Int=-1,tf::Int=n_states*4)
+function discrete_constraint_table(n_states::Int,n_actions::Int,agent_id::Int=-1,tf::Int=n_states*4)
     DiscreteConstraintTable(
         sparse(zeros(Bool,n_states,tf)),
         sparse(zeros(Bool,n_actions,tf)),
         agent_id
         )
 end
-function DiscreteConstraintTable(env,agent_id=-1,tf=num_states(env)*4)
+function discrete_constraint_table(env,agent_id=-1,tf=num_states(env)*4)
     @assert isa(state_space_trait(env),DiscreteSpace)
-    DiscreteConstraintTable(num_states(env),num_actions(env),agent_id,tf)
+    discrete_constraint_table(num_states(env),num_actions(env),agent_id,tf)
 end
 
 export
@@ -639,7 +641,7 @@ export
     A node of a constraint tree. Each node has a set of constraints, a candidate
     solution (set of robot paths), and a cost
 """
-@with_kw mutable struct ConstraintTreeNode{S,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
+@with_kw struct ConstraintTreeNode{S,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
     solution        ::S = S()
     # maps agent_id to the set of constraints involving that agent
     constraints     ::C = Dict{Int,ConstraintTable{node_type(solution)}}()
@@ -670,7 +672,7 @@ function initialize_root_node(mapf::AbstractMAPF,solution=get_initial_solution(m
         solution    = solution,
         constraints = Dict(
             # i=>ConstraintTable{node_type(solution)}(a=i) for i in 1:num_agents(mapf)
-            i=>DiscreteConstraintTable(mapf,i) for i in 1:num_agents(mapf)
+            i=>discrete_constraint_table(mapf,i) for i in 1:num_agents(mapf)
             ),
         id = 1)
 end

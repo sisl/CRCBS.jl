@@ -60,7 +60,21 @@ function get_transition_cost(c::TravelTime,env::GraphEnv,s,a,sp)
     return cost_type(c)(get_dt(a))
 end
 function get_transition_cost(c::C,env::GraphEnv,s,a,sp) where {C<:ConflictCostModel}
-    return get_conflict_value(c, get_agent_id(env), get_vtx(sp), get_t(sp))
+    state_conflict_value = get_conflict_value(c, get_agent_id(env), get_vtx(sp), get_t(sp))
+    edge_conflict_value = min(
+        get_conflict_value(c,get_agent_id(env), get_vtx(sp), get_t(s)),
+        get_conflict_value(c,get_agent_id(env), get_vtx(s), get_t(sp)),
+        )
+    if edge_conflict_value > 0
+        # println("Possible Edge Conflict")
+        edge_conflict_value = 0
+        for (i,p) in enumerate(c.table.paths)
+            if (get_planned_vtx(c.table, i, get_t(s)) == get_vtx(sp)) && (get_planned_vtx(c.table, i, get_t(sp)) == get_vtx(s))
+                edge_conflict_value += 1
+            end
+        end
+    end
+    return state_conflict_value + edge_conflict_value
 end
 function get_transition_cost(c::TravelDistance,env::GraphEnv,s,a,sp)
     return (get_vtx(s) == get_vtx(sp)) ? 0.0 : 1.0

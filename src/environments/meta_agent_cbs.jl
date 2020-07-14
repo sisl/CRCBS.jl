@@ -11,11 +11,13 @@ using Parameters, LightGraphs, DataStructures
 @with_kw struct State{S}
     states::Vector{S} = Vector{S}()
 end
+Base.string(s::MetaAgentCBS.State) = string("(",prod(map(s->"$(string(s)),",s.states)),")")
 @with_kw struct Action{A}
     actions::Vector{A} = Vector{A}()
 end
 Base.hash(s::State{S}) where {S} = hash(s.states)
 Base.:(==)(s1::S,s2::S) where {S<:State} = hash(s1) == hash(s2)
+Base.string(a::MetaAgentCBS.Action) = string("(",prod(map(a->"$(string(a)),",s.actions)),")")
 
 @with_kw struct LowLevelEnv{S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} <: AbstractLowLevelEnv{State{S},Action{A},MetaCostModel{T,C}}
     envs::Vector{E}             = Vector{E}()
@@ -23,6 +25,10 @@ Base.:(==)(s1::S,s2::S) where {S<:State} = hash(s1) == hash(s2)
     cost_model::MetaCostModel{T,C} = MetaCostModel(
         FullCostModel(sum,TravelTime()),length(envs))
 end
+get_envs(env::LowLevelEnv)          = env.envs
+get_agent_idxs(env::LowLevelEnv)    = env.agent_idxs
+CRCBS.get_cost_model(env::LowLevelEnv)    = env.cost_model
+
 function construct_meta_env(envs::Vector{E},idxs::Vector{Int}) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
     LowLevelEnv{S,A,T,C,E}(envs=envs,agent_idxs=idxs)
 end
@@ -39,8 +45,6 @@ function CRCBS.build_env(solver::MetaAgentCBS_Solver, mapf, node, i)
         )
 end
 CRCBS.get_start(mapf::MAPF,env::LowLevelEnv,i) = State([get_start(mapf,e,j) for (e,j) in zip(env.envs, env.agent_idxs)])
-
-CRCBS.get_cost_model(env::E) where {E<:LowLevelEnv} = env.cost_model
 ################################################################################
 ################################################################################
 ################################################################################

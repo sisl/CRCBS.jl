@@ -108,7 +108,7 @@ let
     end
     let
         for constraints in [
-            DiscreteConstraintTable(env,1),
+            discrete_constraint_table(env,1),
             ConstraintTable{P}(a = 1)
             ]
             # add a constraint whose agent id does not match (should throw an error)
