@@ -43,20 +43,30 @@ CRCBS.wait(s::State)                        = Action(e=Edge(get_vtx(s),get_vtx(s
 CRCBS.wait(env::LowLevelEnv,s)              = Action(e=Edge(get_vtx(s),get_vtx(s)))
 
 function CRCBS.build_env(mapf::MAPF{E,S,G}, node::ConstraintTreeNode, idx::Int) where {S,G,E<:LowLevelEnv}
-    t_goal = -1
-    n = PathNode{State,Action}(sp=mapf.goals[idx])
-    s_constraints, _ = search_constraints(mapf.env,get_constraints(node,idx),n)
-    for c in s_constraints
-        t_goal = max(t_goal,get_time_of(c)+1)
+    if idx > 0
+        t_goal = -1
+        n = PathNode{State,Action}(sp=mapf.goals[idx])
+        s_constraints, _ = search_constraints(mapf.env,get_constraints(node,idx),n)
+        for c in s_constraints
+            t_goal = max(t_goal,get_time_of(c)+1)
+        end
+        return typeof(mapf.env)(
+            graph = get_graph(mapf.env),
+            constraints = get_constraints(node,idx),
+            goal = State(mapf.goals[idx],t=t_goal),
+            agent_idx = idx,
+            cost_model = get_cost_model(mapf.env),
+            heuristic = get_heuristic_model(mapf.env),
+            )
+    else
+        return typeof(mapf.env)(
+            graph = get_graph(mapf.env),
+            goal = state_type(mapf)(),
+            agent_idx = idx,
+            cost_model = get_cost_model(mapf.env),
+            heuristic = get_heuristic_model(mapf.env),
+            )
     end
-    typeof(mapf.env)(
-        graph = get_graph(mapf.env),
-        constraints = get_constraints(node,idx),
-        goal = State(mapf.goals[idx],t=t_goal),
-        agent_idx = idx,
-        cost_model = get_cost_model(mapf.env),
-        heuristic = get_heuristic_model(mapf.env),
-        )
 end
 
 end

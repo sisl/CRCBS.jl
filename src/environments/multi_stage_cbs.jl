@@ -6,6 +6,10 @@ module MultiStageCBS
 using ..CRCBS
 using Parameters, LightGraphs, DataStructures
 
+# NOTE MultiStageCBS Could also serve as the definition for "iterative MAPF" as
+# defined in "Priority Inheritance with Backtracking for Iterative Multi-agent
+# Path Finding", Okumura et al, IJCAI 2019
+
 ################################################################################
 ############################### ENVIRONMENT DEF ################################
 ################################################################################

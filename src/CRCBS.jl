@@ -4,7 +4,7 @@ using Parameters
 using DataStructures
 using LightGraphs, MetaGraphs, GraphUtils
 using LinearAlgebra, SparseArrays
-using NearestNeighbors
+# using NearestNeighbors
 using JuMP
 
 include("core.jl")
@@ -18,11 +18,14 @@ include("low_level_search/a_star.jl")
 include("cbs_utils.jl")
 include("solvers.jl")
 include("solvers/meta_agent_cbs.jl")
+include("solvers/pibt.jl")
 include("solvers/flow_solvers.jl")
 
 include("environments/graph_env.jl")
 include("environments/cbs.jl")
 include("environments/multi_stage_cbs.jl")
 include("environments/meta_agent_cbs.jl")
+
+include("helpers/problem_instances.jl")
 
 end # module

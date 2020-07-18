@@ -576,9 +576,9 @@ export
     # Vectors
     sorted_state_constraints::Vector{CBSConstraint{N}} = Vector{CBSConstraint{N}}()
     sorted_action_constraints::Vector{CBSConstraint{N}} = Vector{CBSConstraint{N}}()
-    a::Int = -1 # agent_id
+    agent_id::Int = -1 # agent_id
 end
-get_agent_id(c::ConstraintTable) = c.a
+get_agent_id(c::ConstraintTable) = c.agent_id
 state_constraints(c::ConstraintTable) = c.state_constraints
 action_constraints(c::ConstraintTable) = c.action_constraints
 sorted_state_constraints(env,c::ConstraintTable) = c.sorted_state_constraints
@@ -661,6 +661,7 @@ for op in [
     @eval $op(node::ConstraintTreeNode,args...) = $op(node.solution,args...)
 end
 solution_type(node::ConstraintTreeNode{S,C,D}) where {S,C,D} = S
+constraint_table_type(node::ConstraintTreeNode) = valtype(node.constraints)
 
 """
     `initialize_root_node`
@@ -709,7 +710,7 @@ function get_constraints(node::N, path_id::Int) where {N<:ConstraintTreeNode}
     return node.constraints[path_id]
     # return get(node.constraints, path_id,
     #     valtype(node.constraints)())
-        # valtype(node.constraints)(a = path_id))
+        # valtype(node.constraints)(agent_id = path_id))
 end
 
 """

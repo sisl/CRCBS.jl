@@ -79,6 +79,7 @@ export
 function is_consistent(path::P,start::S,goal::G) where {S,G,P<:Path}
     return (states_match(get_initial_state(path), start)
         && states_match(get_final_state(path), goal))
+
 end
 function is_consistent(paths::Vector{P},starts::Vector{S},goals::Vector{G}) where {S,G,P <: Path}
     for (i,path) in enumerate(paths)

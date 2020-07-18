@@ -16,6 +16,7 @@ abstract type AbstractGraphState end
 end
 get_vtx(s::AbstractGraphState)  = s.vtx
 get_t(s::AbstractGraphState)    = s.t
+is_valid(s::AbstractGraphState) = get_vtx(s) >= 1
 Base.string(s::AbstractGraphState) = "(v=$(get_vtx(s)),t=$(get_t(s)))"
 # AbstractGraphAction
 export AbstractGraphAction
@@ -114,6 +115,8 @@ function is_goal(env::GraphEnv,s)
         if get_t(s) >= get_t(get_goal(env))
             return true
         end
+    elseif !is_valid(get_goal(env))
+        return true
     end
     return false
 end
