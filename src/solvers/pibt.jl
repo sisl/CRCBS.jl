@@ -115,7 +115,9 @@ such agent.
 function get_conflict_index(cache,i,s,a,sp)
     for (k,sk) in enumerate(cache.states)
         if states_match(sp,sk) && k != i
-            return k
+            if k in cache.undecided
+                return k
+            end
         end
     end
     return -1
@@ -140,7 +142,6 @@ agent.
 """
 function pibt_step!(solver,mapf,cache,i,j=-1)
     log_info(3,solver,"pibt_step!( ... i = ",i,", j = ",j," )")
-    setdiff!(cache.undecided,i)
     env = cache.envs[i]
     s = cache.states[i]
     sj = get(cache.states, j, state_type(mapf)())
@@ -156,6 +157,7 @@ function pibt_step!(solver,mapf,cache,i,j=-1)
                 log_info(3,solver,"get_conflict_index( i = ",i,", sp = ",string(sp)," ) : ",k)
                 if pibt_step!(solver,mapf,cache,k,i)
                     set_action!(cache,i,a)
+                    setdiff!(cache.undecided,i)
                     return true
                 else
                     deleteat!(a_list,1)
@@ -163,6 +165,7 @@ function pibt_step!(solver,mapf,cache,i,j=-1)
                 end
             else
                 set_action!(cache,i,a)
+                setdiff!(cache.undecided,i)
                 return true
             end
         else
