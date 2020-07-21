@@ -1,74 +1,48 @@
-using CairoMakie
-CairoMakie.activate!()
-using Makie
-using GraphUtils
+using CRCBS, GraphUtils, CairoMakie, Makie, FactoryRendering
 
-function bbox_corners(pts,pad=0.0)
-    c = [minimum(grid_vtxs) .- pad, maximum(grid_vtxs) .+ pad]
-    [
-        [c[1][1],c[1][2]],
-        [c[1][1],c[2][2]],
-        [c[2][1],c[2][2]],
-        [c[2][1],c[1][2]],
-    ]
-end
-function env_state_snapshot(paths::Vector{Vector{T}},t,scale=1,offset=[0.0,0.0]) where {T}
-    positions = map(p -> offset .+ scale*interpolate(p,t), paths)
-end
-function plot_grid_world!(scene,grid_vtxs)
-    x_grid = map(v->v[1],grid_vtxs)
-    y_grid = map(v->v[2],grid_vtxs)
-    scene = scatter!(scene, x_grid, y_grid, marker=:rect, markersize=1.25, color=:white)
-end
-function plot_positions!(scene,paths,t)
-    positions = env_state_snapshot(paths,t)
-    x = map(p->p[1],positions)
-    y = map(p->p[2],positions)
-    scatter!(scene, x, y, marker=:circle, markersize=1, color=:red)
-end
-function plot_positions(paths,t)
-    positions = env_state_snapshot(paths,t)
-    x = map(p->p[1],positions)
-    y = map(p->p[2],positions)
-    scatter(x, y, marker=:circle, markersize=1, color=:red)
-end
-function plot_solution!(scene,grid_vtxs,paths,t)
-    scene = plot_grid_world!(scene,grid_vtxs)
-    scene = plot_positions!(scene,paths,t)
-end
-function update_solution!(scene,paths,t)
-    positions = env_state_snapshot(paths,t)
-    x = map(p->p[1],positions)
-    y = map(p->p[2],positions)
+vtx_grid = initialize_dense_vtx_grid(4,4)
+#  1   2   3   4
+#  5   6   7   8
+#  9  10  11  12
+# 13  14  15  16
+starts = [1,2,3,4,5,6,7,8]
+goals = [13,14,15,16,9,10,11,12]
+# graph = initialize_grid_graph_from_vtx_grid(vtx_grid)
+graph = construct_factory_env_from_vtx_grid(vtx_grid)
+mapf = init_mapf_problem(graph,starts,goals)
 
-    plt = scene.plots[end]
-    plt.input_args[1][] = x
-    plt.input_args[2][] = y
-    scene
-end
+solver = PIBTPlanner{Float64}()
+set_iteration_limit!(solver,10)
+set_verbosity!(solver,4)
+solution, valid = pibt!(solver, mapf)
+@show valid, convert_to_vertex_lists(solution)
 
+vtx_lists = convert_to_vertex_lists(solution)
+grid_vtxs = map(v->[v[1],v[2]], mapf.env.graph.vtxs)
+paths = map(p->map(v->grid_vtxs[v],p),vtx_lists)
 # scene = Scene()
-scene = Scene(show_axis=false)
-# background
-grid_vtxs = [[1,1],[1,2],[2,1],[2,2]]
-paths = [
-    [[1,1],[1,2],[2,2]],
-    [[2,2],[2,1],[1,1]]
-    ]
-t = 0.0
+scene = Scene(show_axis=false,scale_plot=false,resolution=(200,200))
+t0 = 0.0
+tf = length(paths[1]) + 1.0
 pad = 0.75
-corners = bbox_corners(grid_vtxs,pad)
+corners = FactoryRendering.bbox_corners(grid_vtxs,pad)
 poly!(scene,Point2f0.(corners), color=:gray)
-scene = plot_solution!(scene,grid_vtxs,paths,t)
+scene = FactoryRendering.plot_grid_world!(scene,grid_vtxs)
 
-# xlims!(scene,(0.5,2.5))
-# ylims!(scene,(0.5,2.5))
-# scene
-# axis = scene[Axis]
-# axis[:showticks] = false
-# axis[:showtickmarks] = false
-# scene[Axis].attributes[:visible] = false
+t = Node(t0) # This is the life signal
+positions = lift(t->FactoryRendering.env_state_snapshot(paths,t),t)
+x = lift(positions->map(p->p[1],positions),positions)
+y = lift(positions->map(p->p[2],positions),positions)
+text_positions = map(i->lift(positions->tuple(positions[i]...),positions),1:length(paths))
+scatter!(scene,x,y,marker=:circle,markersize=0.8,color=:red)
+for i in 1:length(paths)
+    text!(scene,string(i),textsize=0.4,align=(:center,:center), position=text_positions[i])
+end
+for (i,g) in enumerate(goals)
+    text!(scene,string(i),textsize=0.2,align=(:left,:top),position=tuple((grid_vtxs[g] .+ [-0.45,0.48])...),overdraw=true)
+end
+scene
 
-record(scene, "robots_moving.mp4", 0:0.1:4.0; framerate = 20) do dt
-    update_solution!(scene,paths,t+dt)
+record(scene, "robots_moving.webm", 0:0.1:tf; framerate = 20) do dt
+    t[] = t0 + dt
 end

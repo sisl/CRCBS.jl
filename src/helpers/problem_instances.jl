@@ -40,7 +40,7 @@ function init_mapf_2(args...)
     # 13  14  15  16
     starts = [1,4]
     goals = [4,1]
-    graph = initialize_grid_graph_from_vtx_grid(vtx_grid)
+    graph = construct_factory_env_from_vtx_grid(vtx_grid)
     init_mapf_problem(graph,starts,goals,args...)
 end
 
@@ -55,6 +55,6 @@ function init_mapf_3(args...)
     # 13  14  15  16
     starts = [1,2,3,4,5,6,7,8]
     goals = [13,14,15,16,9,10,11,12]
-    graph = initialize_grid_graph_from_vtx_grid(vtx_grid)
+    graph = construct_factory_env_from_vtx_grid(vtx_grid)
     init_mapf_problem(graph,starts,goals,args...)
 end
