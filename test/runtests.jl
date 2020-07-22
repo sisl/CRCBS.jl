@@ -68,6 +68,9 @@ set_global_verbosity!(0)
     @time @testset "CRCBS.CBSTests" begin
         include(joinpath(testdir, "unit_tests/test_cbs.jl"))
     end
+    @time @testset "CRCBS.CBSTests" begin
+        include(joinpath(testdir, "unit_tests/test_cbs.jl"))
+    end
     @time @testset "CRCBS.MultiStageCBS.ests" begin
         include(joinpath(testdir, "unit_tests/test_multi_stage_cbs.jl"))
     end

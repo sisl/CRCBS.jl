@@ -109,7 +109,7 @@ let
     let
         for constraints in [
             discrete_constraint_table(env,1),
-            ConstraintTable{P}(a = 1)
+            ConstraintTable{P}(agent_id = 1)
             ]
             # add a constraint whose agent id does not match (should throw an error)
             s = S(1,1)

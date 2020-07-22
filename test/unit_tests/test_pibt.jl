@@ -18,9 +18,10 @@ let
     mapf = init_mapf_2()
     solver = PIBTPlanner{Float64}()
     set_iteration_limit!(solver,10)
-    set_verbosity!(solver,4)
+    set_verbosity!(solver,0)
     solution, valid = pibt!(solver, mapf)
-    @show valid, convert_to_vertex_lists(solution)
+    @test valid
+    # @show valid, convert_to_vertex_lists(solution)
 end
 let
     mapf = init_mapf_3()
@@ -28,5 +29,6 @@ let
     set_iteration_limit!(solver,1000)
     set_verbosity!(solver,0)
     solution, valid = pibt!(solver, mapf)
-    @show valid, convert_to_vertex_lists(solution)
+    @test valid
+    # @show valid, convert_to_vertex_lists(solution)
 end
