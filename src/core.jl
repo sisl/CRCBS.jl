@@ -31,7 +31,6 @@ export
     get_start_time,
     get_end_time,
     get_path_node,
-    get_action,
     extend_path!,
     extend_path
 
@@ -103,12 +102,14 @@ get_start_index(path::P) where {S<:TimeIndexedState,A,C,P<:Path{S,A,C}} = 1 - ge
     If `t` is greater than the length of `path`, the `PathNode` returned
     is (s,wait(s),s) corresponding to waiting at that node of the path.
 
-    Assumes that all paths start at t = 1
+    path[t] is the path node that begins at t-1 and terminates at t
 """
 function get_path_node(path::P,t::Int) where {P<:Path}
     t_idx = get_index_from_time(path,t)
     if 1 <= t_idx <= length(path)
         return path[t_idx]
+    elseif t_idx == 0
+        return node_type(path)(sp=get_initial_state(path))
     else
         t₀ = get_index_from_time(path,get_end_index(path))
         if t₀ <= 0
@@ -131,17 +132,18 @@ function get_path_node(path::P,t::Int) where {P<:Path}
     end
 end
 
-"""
-    `get_action(path,t)`
+# """
+#     `get_a(path,t)`
+#
+#     Returns the action at time `t`.
+#
+#     If `t` is greater than the length of `path`, the returned action defaults to
+#     a `wait` action.
+# """
+get_s(path::P, t::Int) where {P<:Path} = get_s(get_path_node(path,t))
+get_a(path::P, t::Int) where {P<:Path} = get_a(get_path_node(path,t))
+get_sp(path::P, t::Int) where {P<:Path} = get_sp(get_path_node(path,t))
 
-    Returns the action at time `t`.
-
-    If `t` is greater than the length of `path`, the returned action defaults to
-    a `wait` action.
-"""
-function get_action(path::P, t::Int) where {P<:Path}
-    get_a(get_path_node(path,t))
-end
 
 """
     extend_path!(path,T)

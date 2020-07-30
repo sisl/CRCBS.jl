@@ -3,16 +3,16 @@ let
     mapf = init_mapf_1()
     solver = PIBTPlanner{Float64}()
     cache = CRCBS.pibt_init_cache(solver,mapf)
-    for i in 1:num_agents(mapf)
-        @test states_match(cache.states[i],get_start(mapf,i))
-        env = cache.envs[i]
-        s = cache.states[i]
-        a = CRCBS.wait(env,s)
-        sp = get_next_state(env,s,a)
-        CRCBS.reserve!(cache,env,s,a,sp)
-        @test CRCBS.is_reserved(cache,env,s,a,sp)
-        @test length(cache.occupied) == i
-    end
+    # for i in 1:num_agents(mapf)
+    #     @test states_match(cache.states[i],get_start(mapf,i))
+    #     env = cache.envs[i]
+    #     s = cache.states[i]
+    #     a = CRCBS.wait(env,s)
+    #     sp = get_next_state(env,s,a)
+    #     CRCBS.reserve!(cache,env,s,a,sp)
+    #     @test CRCBS.is_reserved(cache,env,s,a,sp)
+    #     @test length(cache.occupied) == i
+    # end
 end
 # test PIBT on mapf test problems
 let
@@ -37,11 +37,23 @@ let
         solution, valid = pibt!(solver, mapf)
         @test valid
         # remove the path of robot 1 and replan
-        p1 = get_paths(solution,1)
+        p1 = get_paths(solution)[1]
+        @show length(p1)
+        # for i in reverse(2:length(p1))
+        #     deleteat!(p1.path_nodes,i)
+        # end
         empty!(p1.path_nodes)
         set_cost!(p1,get_initial_cost(mapf))
-        p2 = deepcopy(get_paths(solution,2))
+        p2 = deepcopy(get_paths(solution)[2])
         # replan with the ragged plan
+        reset_solver!(solver)
+        # cache = CRCBS.pibt_init_cache(solver,mapf,solution)
+        # @show map(string, cache.states)
+        # @show map(string, cache.actions)
+        # @show cache.active_countdowns
+        # CRCBS.pibt_update_cache!(solver,mapf,cache)
+        # @show cache.active_countdowns
+        # @show map(p->length(p), get_paths(cache.solution))
         solution, valid = pibt!(solver, mapf)
         @test valid
         p2b = get_paths(solution)[2]

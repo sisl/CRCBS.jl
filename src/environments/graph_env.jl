@@ -28,6 +28,7 @@ abstract type AbstractGraphAction end
 end
 get_e(a::AbstractGraphAction)   = a.e
 get_dt(a::AbstractGraphAction)  = a.dt
+Base.reverse(a::AbstractGraphAction) = typeof(a)(a,e=reverse(a.e))
 Base.string(a::AbstractGraphAction) = "(e=$(get_e(a).src) → $(get_e(a).dst))"
 # GraphEnv
 abstract type GraphEnv{S,A,C} <: AbstractLowLevelEnv{S,A,C} end

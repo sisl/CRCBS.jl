@@ -46,7 +46,7 @@ let
 
     get_path_node(p,1)
     get_path_node(p,5)
-    get_action(p,1)
+    get_a(p,1)
     @test length(extend_path(p,5)) == 5
     extend_path!(p,5)
     @test length(p) == 5
