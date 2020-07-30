@@ -214,7 +214,7 @@ export
 @with_kw mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
     paths::Vector{Path{S,A,T}}  = Vector{Path{S,A,T}}()
     cost_model::C               = C() # TODO C() is a problem
-    costs::Vector{T}            = Vector{T}(map(i->get_initial_cost(cost_model),1:length(paths)))
+    costs::Vector{T}            = Vector{cost_type(cost_model)}(map(i->get_initial_cost(cost_model),1:length(paths)))
     cost::T                     = get_initial_cost(cost_model)
 end
 state_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}    = S

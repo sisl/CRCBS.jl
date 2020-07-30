@@ -706,11 +706,9 @@ end
     retrieve constraints corresponding to this node and this path
 """
 function get_constraints(node::N, path_id::Int) where {N<:ConstraintTreeNode}
-    @assert haskey(node.constraints,path_id)
+    @assert haskey(node.constraints,path_id) 
     return node.constraints[path_id]
-    # return get(node.constraints, path_id,
-    #     valtype(node.constraints)())
-        # valtype(node.constraints)(agent_id = path_id))
+    # return get(node.constraints, path_id, valtype(node.constraints)())
 end
 
 """

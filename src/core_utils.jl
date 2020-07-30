@@ -41,6 +41,18 @@ function default_solution(mapf::M) where {M<:AbstractMAPF}
     return get_infeasible_solution(mapf), get_infeasible_cost(mapf.env)
 end
 
+"""
+    add_to_path!(path,env,s,a,sp)
+
+Adds the new (s,a,sp) tuple and its cost (under env) to path.
+"""
+function add_to_path!(path::Path,env,s,a,sp)
+    push!(path,PathNode(s,a,sp))
+    set_cost!(path,accumulate_cost(env,get_cost(path),
+        get_transition_cost(env,s,a,sp)))
+    path
+end
+
 ################################################################################
 ################################# Extend Paths #################################
 ################################################################################
@@ -61,6 +73,21 @@ function extend_path(env::E,path::P,args...) where {E<:AbstractLowLevelEnv,P<:Pa
     new_path = copy(path)
     extend_path!(new_path,args...)
     return new_path
+end
+
+export sorted_actions
+
+"""
+    sorted_actions(env,s)
+
+Return a vector of actions sorted lowest cost to highest cost.
+"""
+function sorted_actions(env,s)
+    f = (s,a,sp)->add_heuristic_cost(env,get_transition_cost(env,s,a,sp),get_heuristic_cost(env,sp))
+    sort(
+        collect(get_possible_actions(env,s)),
+        by=a->f(s,a,get_next_state(env,s,a))
+    )
 end
 
 ################################################################################

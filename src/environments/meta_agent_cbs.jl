@@ -26,6 +26,7 @@ abstract type AbstractMetaEnv{S,A,T,C} <: AbstractLowLevelEnv{State{S},Action{A}
     cost_model::MetaCostModel{T,C} = MetaCostModel(
         FullCostModel(sum,TravelTime()),length(envs))
 end
+# CRCBS.state_type(env::AbstractMetaEnv{S,A,T,C}) where {S,A,T,C} = State{S}
 """
     TeamMetaEnv{S,A,T,C,E}
 
@@ -103,7 +104,7 @@ function CRCBS.set_path_cost!(solution::MetaSolution, meta_cost, group_idx)
         set_path_cost!(solution.solution, cost, idx)
     end
 end
-function CRCBS.get_heuristic_cost(env::E,state::S) where {E<:AbstractMetaEnv,S <: State}
+function CRCBS.get_heuristic_cost(env::E,state::State) where {E<:AbstractMetaEnv}
     c = [get_heuristic_cost(e,s) for (e,s) in zip(get_envs(env), state.states)]
 end
 function CRCBS.states_match(s1::State,s2::State)

@@ -41,6 +41,7 @@ get_goals(mapf::MAPF)           = mapf.goals
 get_start(mapf::MAPF, i)        = get_starts(mapf)[i]
 get_goal(mapf::MAPF, i)         = get_goals(mapf)[i]
 get_start(mapf::MAPF, env, i)   = get_start(mapf,i)
+base_env_type(mapf::MAPF)       = typeof(mapf.env)
 # TODO implement a check to be sure that no two agents have the same goal
 get_initial_cost(mapf::M) where {M<:AbstractMAPF}           = get_initial_cost(mapf.env)
 get_infeasible_cost(mapf::M) where {M<:AbstractMAPF}        = get_infeasible_cost(mapf.env)

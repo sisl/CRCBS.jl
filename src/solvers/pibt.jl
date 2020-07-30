@@ -7,6 +7,10 @@ export PIBTPlanner
     logger::SolverLogger{C} = SolverLogger{C}()
 end
 
+abstract type AbstractPIBTCache end
+
+export PIBTCache
+
 """
     PIBTCache{S,A}
 
@@ -19,8 +23,10 @@ Info to be stored:
 - the search environment for each agent, which contains e.g., the agent's goal,
     cost_model, heuristic_model, etc.
 - a conflict table of sorts to indicate which states/actions are reserved
+- countdown flags that identify timers
 """
-struct PIBTCache{E,S,A}
+struct PIBTCache{T,E,S,A} <: AbstractPIBTCache
+    solution::T
     envs::Vector{E}
     states::Vector{S}
     actions::Vector{A}
@@ -28,94 +34,45 @@ struct PIBTCache{E,S,A}
     undecided::Set{Int} # agent ids
     occupied::Set{Int}
     timers::Vector{Int}
+    # active_countdowns::Vector{Int}
 end
-function init_cache(solver::PIBTPlanner,mapf::MAPF)
-    node = initialize_root_node(solver,mapf)
-    envs = map(i->build_env(solver,mapf,node,i), 1:num_agents(mapf))
-    states = map(i->get_start(mapf,i), 1:num_agents(mapf))
-    actions = map(i->wait(envs[i],states[i]), 1:num_agents(mapf))
-    priorities = collect(1:num_agents(mapf))
-    undecided = Set(collect(1:num_agents(mapf)))
-    occupied = Set{Int}()
-    timers = zeros(Int,num_agents(mapf))
-    PIBTCache(
-        envs,states,actions,priorities,undecided,occupied,timers
-    )
-end
-function update_solution!(solver::PIBTPlanner,solution,cache)
-    for (p,env,s,a) in zip(get_paths(solution),cache.envs,cache.states,cache.actions)
-        sp = get_next_state(env,s,a)
-        push!(p,PathNode(s,a,sp))
-    end
-    solution
-end
-function set_priorities!(solver::PIBTPlanner,cache)
-    cache.priorities .= reverse(sortperm(
-        map(i->(cache.timers[i],i), 1:length(cache.timers))
-        ))
-    log_info(3,solver,"priorities: ", cache.priorities)
-    return cache
-end
-function update_cache!(solver::PIBTPlanner,mapf,cache,solution)
-    union!(cache.undecided,Set(collect(1:num_agents(mapf))))
-    empty!(cache.occupied)
-    for (i,p) in enumerate(get_paths(solution))
-        s = get_final_state(p)
-        cache.states[i] = s
-        cache.actions[i] = wait(cache.envs[i],cache.states[i])
-        if is_goal(cache.envs[i],s) && is_valid(get_goal(cache.envs[i]))
-            node = initialize_root_node(solver,mapf)
-            cache.envs[i] = build_env(mapf,node,-1)
-            cache.timers[i] = 0
-        else
-            cache.timers[i] += 1
-        end
-    end
-    if any(cache.timers .== 0)
-        set_priorities!(solver,cache)
-    end
-    return cache
-end
+get_envs(cache::PIBTCache) = cache.envs
+get_solution(cache::PIBTCache) = cache.solution
+get_states(cache::PIBTCache) = cache.states
+get_actions(cache::PIBTCache) = cache.actions
+get_priorities(cache::PIBTCache) = cache.priorities
+get_undecided(cache::PIBTCache) = cache.undecided # agent ids
+get_occupied(cache::PIBTCache) = cache.occupied
+get_timers(cache::PIBTCache) = cache.timers
 
-function get_next_agent_id(solver,cache::PIBTCache)
-    for i in sortperm(cache.priorities)
-        if i in cache.undecided
-            return i
-        end
-    end
-    return -1
-end
-
-function sorted_actions(env,s)
-    f = (s,a,sp)->add_heuristic_cost(env,get_transition_cost(env,s,a,sp),get_heuristic_cost(env,sp))
-    sort(
-        collect(get_possible_actions(env,s)),
-        by=a->f(s,a,get_next_state(env,s,a))
-    )
-end
+get_cost_model(cache::PIBTCache) = get_cost_model(cache.envs[1])
 
 function is_reserved(cache::PIBTCache,env,s,a,sp)
     idx,_ = serialize(env,sp,-1)
-    return (idx in cache.occupied)
+    return (idx in get_occupied(cache))
 end
 function reserve!(cache::PIBTCache,env,s,a,sp)
     idx,_ = serialize(env,sp,-1)
-    push!(cache.occupied,idx)
+    push!(get_occupied(cache),idx)
     return cache
 end
 function set_action!(cache::PIBTCache,i,a)
-    cache.actions[i] = a
+    get_actions(cache)[i] = a
 end
+function is_active(cache::PIBTCache,i)
+    return true
+end
+
 """
     get_conflict_index(cache,i,s,a,sp)
 
 Returns the index of an agent that currently occupies `sp`, or -1 if there is no
 such agent.
 """
-function get_conflict_index(cache,i,s,a,sp)
-    for (k,sk) in enumerate(cache.states)
+function get_conflict_index(cache::PIBTCache,i,s,a,sp)
+    for (k,sk) in enumerate(get_states(cache))
         if states_match(sp,sk) && k != i
-            if k in cache.undecided
+            if k in get_undecided(cache)
                 return k
             end
         end
@@ -124,12 +81,84 @@ function get_conflict_index(cache,i,s,a,sp)
 end
 
 function is_consistent(cache::PIBTCache,mapf)
-    for (env,s) in zip(cache.envs,cache.states)
+    for (env,s) in zip(get_envs(cache),get_states(cache))
         if !is_goal(env,s)
             return false
         end
     end
     return true
+end
+
+function pibt_init_cache(solver,mapf)
+    N = num_agents(mapf)
+    solution = get_initial_solution(mapf)
+    node = initialize_root_node(solver,mapf)
+    envs = Vector{base_env_type(mapf)}(map(i->build_env(solver,mapf,node,i), 1:N))
+    states = map(p->get_final_state(p), get_paths(solution))
+    actions = map(i->wait(envs[i],states[i]), 1:N)
+    priorities = collect(1:N)
+    undecided = Set(collect(1:N))
+    occupied = Set{Int}()
+    timers = zeros(Int,N)
+    PIBTCache(
+        solution,envs,states,actions,priorities,undecided,occupied,timers
+    )
+end
+function pibt_set_priorities!(solver,mapf,cache)
+    get_priorities(cache) .= reverse(sortperm(
+        [(t,i) for (i,t) in enumerate(get_timers(cache))]
+        ))
+    log_info(3,solver,"priorities: ", get_priorities(cache))
+    return cache
+end
+
+function pibt_update_solution!(solver,solution,cache)
+    for (i,(p,env,s,a)) in enumerate(zip(get_paths(solution),get_envs(cache),get_states(cache),get_actions(cache)))
+        sp = get_next_state(env,s,a)
+        add_to_path!(p,env,s,a,sp)
+        set_path_cost!(solution,get_cost(p),i)
+    end
+    set_cost!(solution, aggregate_costs(
+        get_cost_model(cache),
+        get_path_costs(solution)
+        ))
+    solution
+end
+function pibt_update_env!(solver,mapf,cache,i)
+    node = initialize_root_node(solver,mapf)
+    get_envs(cache)[i] = build_env(solver,mapf,node,-1)
+end
+function pibt_update_envs!(solver,mapf,cache)
+    for (i,(s,env)) in enumerate(zip(get_states(cache),get_envs(cache)))
+        if is_goal(env,s) && is_valid(get_goal(env))
+            pibt_update_env!(solver,mapf,cache,i)
+            get_timers(cache)[i] = 0
+        end
+    end
+end
+function pibt_update_cache!(solver,mapf,cache)
+    pibt_update_solution!(solver,get_solution(cache),cache)
+    union!(get_undecided(cache),Set(collect(1:num_agents(mapf))))
+    empty!(get_occupied(cache))
+    get_timers(cache) .+= 1
+    for (i,p) in enumerate(get_paths(get_solution(cache)))
+        s = get_final_state(p)
+        get_states(cache)[i] = s
+        get_actions(cache)[i] = wait(get_envs(cache)[i],s)
+    end
+    pibt_update_envs!(solver,mapf,cache)
+    if any(get_timers(cache) .== 0)
+        pibt_set_priorities!(solver,mapf,cache)
+    end
+    return cache
+end
+function pibt_next_agent_id(solver,cache)
+    for i in sortperm(get_priorities(cache))
+        if i in get_undecided(cache)
+            return i
+        end
+    end
+    return -1
 end
 
 export pibt_step!
@@ -142,9 +171,11 @@ agent.
 """
 function pibt_step!(solver,mapf,cache,i,j=-1)
     log_info(3,solver,"pibt_step!( ... i = ",i,", j = ",j," )")
-    env = cache.envs[i]
-    s = cache.states[i]
-    sj = get(cache.states, j, state_type(mapf)())
+    env = get_envs(cache)[i]
+    s = get_states(cache)[i]
+    # TODO if this path is ahead of the current planning time index, skip it
+    # n = get_path_node()
+    sj = get(get_states(cache), j, state_type(mapf)())
     a_list = sorted_actions(env,s) # NOTE does NOT need to exclude wait()
     while ~isempty(a_list)
         a = a_list[1]
@@ -180,9 +211,7 @@ end
 export pibt!
 
 function pibt!(solver, mapf)
-    solution = get_initial_solution(mapf)
-    node = initialize_root_node(mapf)
-    cache = init_cache(solver,mapf)
+    cache = pibt_init_cache(solver,mapf)
     while !is_consistent(cache,mapf)
         try
             increment_iteration_count!(solver)
@@ -191,7 +220,7 @@ function pibt!(solver, mapf)
             if isa(e,SolverException)
                 bt = catch_backtrace()
                 showerror(stdout,e)
-                return solution, is_consistent(cache,mapf)
+                return get_solution(cache), is_consistent(cache,mapf)
             else
                 rethrow(e)
             end
@@ -199,15 +228,14 @@ function pibt!(solver, mapf)
         log_info(3,solver,"PIBT iterations = ",iterations(solver))
         # update cache
         while !isempty(cache.undecided)
-            i = get_next_agent_id(solver,cache)
+            i = pibt_next_agent_id(solver,cache)
             if ~pibt_step!(solver,mapf,cache,i)
-                return solution, false
+                return get_solution(cache), false
             end
         end
-        # update solution with cache
-        update_solution!(solver,solution,cache)
-        log_info(3,solver,"solution: ",convert_to_vertex_lists(solution))
-        update_cache!(solver,mapf,cache,solution)
+        # update cache
+        pibt_update_cache!(solver,mapf,cache)
+        log_info(3,solver,"solution: ",convert_to_vertex_lists(get_solution(cache)))
     end
-    return solution, is_consistent(cache,mapf)
+    return get_solution(cache), is_consistent(cache,mapf)
 end

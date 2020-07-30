@@ -58,3 +58,11 @@ function init_mapf_3(args...)
     graph = construct_factory_env_from_vtx_grid(vtx_grid)
     init_mapf_problem(graph,starts,goals,args...)
 end
+
+export mapf_test_problems
+
+mapf_test_problems() = [
+    init_mapf_1,
+    init_mapf_2,
+    init_mapf_3
+]
