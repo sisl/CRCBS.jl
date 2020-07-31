@@ -53,8 +53,6 @@ get_constraints(env::GraphEnv)      = env.constraints
 get_goal(env::GraphEnv)             = env.goal
 get_heuristic_model(env::GraphEnv)  = env.heuristic
 
-state_type(env::GraphEnv)           = GraphState
-action_type(env::GraphEnv)          = GraphAction
 cost_type(env::GraphEnv)            = cost_type(get_cost_model(env))
 
 is_valid(env::GraphEnv,s::AbstractGraphState) = has_vertex(get_graph(env),get_vtx(s))

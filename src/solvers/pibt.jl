@@ -7,12 +7,6 @@ export PIBTPlanner
     logger::SolverLogger{C} = SolverLogger{C}()
 end
 
-export
-    ReservationTable,
-    reserve!,
-    is_reserved,
-    clear_reservations!
-
 """
     ReservationTable
 """
@@ -27,7 +21,7 @@ function ReservationTable(n_states::Int,n_actions::Int)
         )
 end
 function ReservationTable(env)
-    ReservationTable(num_states(env),num_actions(env))
+    reservation_table(num_states(env),num_actions(env))
 end
 function reserve_state!(table::ReservationTable,env,s)
     idx,_ = serialize(env,s,-1)
@@ -49,7 +43,7 @@ function is_reserved(table::ReservationTable,env,s,a,sp)
     a_idx,_ = serialize(env,a,-1)
     return table.state_reservations[s_idx] || table.action_reservations[a_idx]
 end
-function clear_reservations!(table::ReservationTable)
+function reset_reservations!(table::ReservationTable)
     table.state_reservations .= false
     table.action_reservations .= false
     dropzeros!(table.state_reservations)
@@ -84,10 +78,9 @@ struct PIBTCache{T,E,S,A} <: AbstractPIBTCache
     envs::Vector{E}
     states::Vector{S}
     actions::Vector{A}
-    priorities::Vector{Int}
+    ordering::Vector{Int}
     undecided::Set{Int} # agent ids
-    # occupied::Set{Int}
-    occupied::ReservationTable
+    occupied::Set{Int}
     timers::Vector{Int}
     active_countdowns::Vector{Int}
 end
@@ -95,7 +88,7 @@ get_envs(cache::PIBTCache) = cache.envs
 get_solution(cache::PIBTCache) = cache.solution
 get_states(cache::PIBTCache) = cache.states
 get_actions(cache::PIBTCache) = cache.actions
-get_priorities(cache::PIBTCache) = cache.priorities
+get_ordering(cache::PIBTCache) = cache.ordering
 get_undecided(cache::PIBTCache) = cache.undecided # agent ids
 get_occupied(cache::PIBTCache) = cache.occupied
 get_timers(cache::PIBTCache) = cache.timers
@@ -106,28 +99,34 @@ get_inactive_agents(cache::PIBTCache) = findall(get_active_countdowns(cache) .> 
 
 get_cost_model(cache::PIBTCache) = get_cost_model(cache.envs[1])
 
-for op in [:is_reserved,:reserve!,:reserve_state!,:reserve_action!,:clear_reservations!
-    ]
-    @eval $op(cache::PIBTCache,args...) = $op(get_occupied(cache),args...)
-end
-
-"""
-    reset_reservations!
-
-Removes all existing reservations, then inserts all reservations that arise from
-paths that are already planned (non-active).
-"""
+# for op in [:is_reserved,:reserve!,:reserve_state!,:reserve_action!,:reset_res
+#     ]
+#     @eval $op(cache::PIBTCache,args...) = $op(get_occupied(cache),args...)
+# end
+# is_reserved(cache::PIBTCache,args...) = is_reserved(get_occupied(cache),args...)
+# reserve!(cache::PIBTCache,args...) = reserve!(get_occupied(cache),args...)
+# reset_reservations!(cache::PIBTCache) = reset_reservations!(get_occupied(cache))
 function reset_reservations!(cache::PIBTCache)
-    clear_reservations!(cache)
+    empty!(get_occupied(cache))
     for i in get_inactive_agents(cache)
         env = get_envs(cache)[i]
         s = get_states(cache)[i]
         a = get_actions(cache)[i]
         sp = get_next_state(env,s,a)
-        reserve_state!(cache,env,sp)
-        reserve_action!(cache,env,a)
-        reserve_action!(cache,env,reverse(a)) # reserve the action in both directions
+        # reserve_state!(cache,env,sp)
+        # reserve_action!(cache,env,a)
+        # reserve_action!(cache,env,reverse(a))
+        reserve!(cache,env,s,a,sp)
     end
+end
+function is_reserved(cache::PIBTCache,env,s,a,sp)
+    idx,_ = serialize(env,sp,-1)
+    return (idx in get_occupied(cache))
+end
+function reserve!(cache::PIBTCache,env,s,a,sp)
+    idx,_ = serialize(env,sp,-1)
+    push!(get_occupied(cache),idx)
+    return cache
 end
 
 """
@@ -170,11 +169,21 @@ function is_consistent(cache::PIBTCache,mapf)
     return true
 end
 
-function pibt_set_priorities!(solver,mapf,cache)
-    get_priorities(cache) .= reverse(sortperm(
-        [(t,i) for (i,t) in enumerate(get_timers(cache))]
-        ))
-    log_info(3,solver,"priorities: ", get_priorities(cache))
+export pibt_priority_law
+"""
+    pibt_priority_law(solver,mapf,cache,i)
+
+Returns a value that will determine the priority of agent i relative to other
+agents. A lower value means higher priority.
+"""
+pibt_priority_law(solver,mapf,cache,i) = (-get_timers(cache)[i],i)
+
+function pibt_set_ordering!(solver,mapf,cache)
+    get_ordering(cache) .= sortperm(
+        map(i->pibt_priority_law(solver,mapf,cache,i),1:length(get_envs(cache)))
+        # [(t,i) for (i,t) in enumerate(get_timers(cache))]
+        )
+    log_info(3,solver,"ordering: ", get_ordering(cache))
     return cache
 end
 function pibt_init_cache(solver,mapf,
@@ -183,10 +192,9 @@ function pibt_init_cache(solver,mapf,
     N = num_agents(mapf)
     node = initialize_root_node(solver,mapf)
     envs = Vector{base_env_type(mapf)}(map(i->build_env(solver,mapf,node,i), 1:N))
-    priorities = collect(1:N)
+    ordering = collect(1:N)
     undecided = Set{Int}()
-    # occupied = Set{Int}()
-    occupied = ReservationTable(mapf)
+    occupied = Set{Int}()
     timers = zeros(Int,N)
     end_idxs = map(get_end_index, get_paths(solution))
     active_countdowns = end_idxs .- minimum(end_idxs)
@@ -205,13 +213,13 @@ function pibt_init_cache(solver,mapf,
         envs,
         states,
         actions,
-        priorities,
+        ordering,
         undecided,
         occupied,
         timers,
         active_countdowns,
     )
-    pibt_set_priorities!(solver,mapf,cache)
+    pibt_set_ordering!(solver,mapf,cache)
     reset_undecided!(cache)
     reset_reservations!(cache)
     cache
@@ -263,12 +271,13 @@ function pibt_update_cache!(solver,mapf,cache)
     reset_reservations!(cache)
     pibt_update_envs!(solver,mapf,cache)
     if any(get_timers(cache) .== 0)
-        pibt_set_priorities!(solver,mapf,cache)
+        pibt_set_ordering!(solver,mapf,cache)
     end
     return cache
 end
 function pibt_next_agent_id(solver,cache)
-    for i in sortperm(get_priorities(cache))
+    # for i in sortperm(get_ordering(cache))
+    for i in get_ordering(cache)
         if i in get_undecided(cache)
             return i
         end
