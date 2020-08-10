@@ -161,8 +161,10 @@ end
 """ Helper for displaying Paths """
 function convert_to_vertex_lists(path::Path{S,A,C}) where {S<:AbstractGraphState,A<:AbstractGraphAction,C}
     vtx_list = [get_vtx(n.sp) for n in path.path_nodes]
-    if length(path) > 0
-        vtx_list = [get_s(get_path_node(path,1)).vtx, vtx_list...]
-    end
+    # if length(path) > 0
+    #     vtx_list = [get_s(get_path_node(path,1)).vtx, vtx_list...]
+    # else
+        vtx_list = [get_vtx(get_initial_state(path)), vtx_list...]
+    # end
     vtx_list
 end

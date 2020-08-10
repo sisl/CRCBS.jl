@@ -101,6 +101,6 @@ let
     mapf = MAPF(env,starts,goals)
     solver = MetaAgentCBS_Solver(beta=1)
     set_verbosity!(solver,global_verbosity())
-    set_iteration_limit!(solver,10)
+    set_iteration_limit!(solver,20)
     solution, cost = CRCBS.solve!(solver,mapf)
 end

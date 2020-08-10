@@ -41,6 +41,8 @@ function default_solution(mapf::M) where {M<:AbstractMAPF}
     return get_infeasible_solution(mapf), get_infeasible_cost(mapf.env)
 end
 
+export add_to_path!
+
 """
     add_to_path!(path,env,s,a,sp)
 
@@ -73,6 +75,60 @@ function extend_path(env::E,path::P,args...) where {E<:AbstractLowLevelEnv,P<:Pa
     new_path = copy(path)
     extend_path!(new_path,args...)
     return new_path
+end
+
+get_transition_cost(env,n::PathNode) = get_transition_cost(env,get_s(n),get_a(n),get_sp(n))
+
+export recompute_cost
+
+"""
+    recompute_cost
+
+Recompute the cost of `path` (according to `env`), beginning from initial cost
+`c0`.
+"""
+function recompute_cost(env,path,c0=get_initial_cost(env))
+    cost = c0
+    for n in path.path_nodes
+        cost = accumulate_cost(env,cost,get_transition_cost(env,n))
+    end
+    return cost
+end
+
+export trim_path!
+
+"""
+    trim_path!(env,path,T)
+
+Modify `path` to terminate at time step `T`. If `length(path) < T`, the path
+will be extended to time step `T`.
+"""
+function trim_path!(env,path,T)
+    while length(path) > T
+        deleteat!(path.path_nodes,T)
+    end
+    if T > length(path)
+        extend_path!(env,path,T)
+    end
+    set_cost!(path,recompute_cost(env,path))
+    return path
+end
+
+export trim_solution!
+
+"""
+    trim_solution!
+
+Modify `solution` so that all paths terminate at time step `T`.
+"""
+function trim_solution!(env,solution,T)
+    for (agent_id,path) in enumerate(get_paths(solution))
+        trim_path!(env,path,T)
+        set_path_cost!(solution,get_cost(path),agent_id)
+    end
+    set_cost!(solution,
+        aggregate_costs(get_cost_model(env),get_path_costs(solution)))
+    return solution
 end
 
 export sorted_actions

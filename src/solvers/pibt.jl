@@ -8,48 +8,136 @@ export PIBTPlanner
 end
 
 """
-    ReservationTable
+    PIBTReservationTable
 """
-struct ReservationTable
+struct PIBTReservationTable
     state_reservations::SparseVector{Bool,Int}
     action_reservations::SparseVector{Bool,Int}
 end
-function ReservationTable(n_states::Int,n_actions::Int)
-    ReservationTable(
+function PIBTReservationTable(n_states::Int,n_actions::Int)
+    PIBTReservationTable(
         sparse(zeros(Bool,n_states)),
         sparse(zeros(Bool,n_actions)),
         )
 end
-function ReservationTable(env)
-    reservation_table(num_states(env),num_actions(env))
+function PIBTReservationTable(env)
+    PIBTReservationTable(num_states(env),num_actions(env))
 end
-function reserve_state!(table::ReservationTable,env,s)
+function reserve_state!(table::PIBTReservationTable,env,s)
     idx,_ = serialize(env,s,-1)
     table.state_reservations[idx] = true
     table
 end
-function reserve_action!(table::ReservationTable,env,a)
+function reserve_action!(table::PIBTReservationTable,env,a)
     idx,_ = serialize(env,a,-1)
     table.action_reservations[idx] = true
     table
 end
-function reserve!(table::ReservationTable,env,s,a,sp)
+function reserve!(table::PIBTReservationTable,env,s,a,sp)
     reserve_state!(table,env,sp)
     reserve_action!(table,env,a)
     table
 end
-function is_reserved(table::ReservationTable,env,s,a,sp)
+function is_reserved(table::PIBTReservationTable,env,s,a,sp)
     s_idx,_ = serialize(env,sp,-1)
     a_idx,_ = serialize(env,a,-1)
     return table.state_reservations[s_idx] || table.action_reservations[a_idx]
 end
-function reset_reservations!(table::ReservationTable)
+function reset_reservations!(table::PIBTReservationTable)
     table.state_reservations .= false
     table.action_reservations .= false
     dropzeros!(table.state_reservations)
     dropzeros!(table.action_reservations)
     table
 end
+
+# struct TimeInterval{T}
+#     start::T
+#     finish::T
+# end
+# start_time(interval::TimeInterval) = interval.start
+# finish_time(interval::TimeInterval) = interval.finish
+start_time(interval::Tuple{T,T}) where {T} = interval[1]
+finish_time(interval::Tuple{T,T}) where {T} = interval[2]
+
+"""
+    ResourceReservation
+
+`r::ResourceReservation` encodes a that resource `r.resource` is reserved by
+agent `r.agent_id` over time interval `r.interval`.
+"""
+struct ResourceReservation{T<:Real}
+    resource_id::Int
+    agent_id::Int
+    interval::Tuple{T,T}
+end
+resource_id(r::ResourceReservation)     = r.resource_id
+agent_id(r::ResourceReservation)        = r.agent_id
+interval(r::ResourceReservation)        = r.interval
+start_time(r::ResourceReservation)      = start_time(interval(r))
+finish_time(r::ResourceReservation)     = finish_time(interval(r))
+function is_valid(r::ResourceReservation)
+    if resource_id(r) <= 0
+        return false
+    elseif agent_id(r) <= 0
+        return false
+    elseif start_time(r) >= finish_time(r)
+        return false
+    end
+    return true
+end
+
+"""
+    ReservationTable
+
+Data structure for reserving resources over a time interval. The table stores a
+vector of reservations for each resource. When a new reservation is added to the
+table, it is inserted into the reservation vector associated to the requested
+resource.
+"""
+struct ReservationTable{T}
+    reservations::SparseVector{Vector{ResourceReservation{T}}}
+end
+time_type(table::ReservationTable{T}) where {T} = T
+SparseArrays.SparseVector{Tv,Ti}(n::Int) where {Tv,Ti} = SparseVector{Tv,Ti}(n,Ti[],Tv[])
+Base.zero(::Type{Vector{R}}) where {R<:ResourceReservation} = Vector{R}()
+Base.iszero(::Vector{R}) where {R<:ResourceReservation} = false
+ReservationTable{T}(n::Int) where {T} = ReservationTable{T}(
+    SparseVector{Vector{ResourceReservation{T}},Int}(n)
+)
+function is_valid(table::ReservationTable)
+    for (idx,vec) in zip(findnz(table.reservations))
+        t = time_type(0)
+        for reservation in vec
+            if start_time(reservation) < t
+                return false
+            elseif !is_valid(reservation)
+                return false
+            end
+            t = finish_time(reservation)
+        end
+    end
+    return true
+end
+
+function reserve!(table::ReservationTable,res::ResourceReservation)
+    vec = table.reservations[resource_id(res)]
+    if length(vec) > 0
+        start_idx = searchsorted(map(finish_time,vec),start_time(res))
+        stop_idx = searchsorted(map(start_time,vec),finish_time(res))
+        # @show start_idx, stop_idx
+        if start_idx.start == stop_idx.stop
+            insert!(vec,stop_idx.start,res)
+        else
+            return false
+        end
+    else
+        push!(vec,res)
+    end
+    table.reservations[resource_id(res)] = vec
+    return true
+end
+
 
 
 abstract type AbstractPIBTCache end
@@ -178,6 +266,8 @@ agents. A lower value means higher priority.
 """
 pibt_priority_law(solver,mapf,cache,i) = (-get_timers(cache)[i],i)
 
+function pibt_preprocess!(solver,mapf,cache) end
+
 function pibt_set_ordering!(solver,mapf,cache)
     get_ordering(cache) .= sortperm(
         map(i->pibt_priority_law(solver,mapf,cache,i),1:length(get_envs(cache)))
@@ -219,6 +309,7 @@ function pibt_init_cache(solver,mapf,
         timers,
         active_countdowns,
     )
+    pibt_preprocess!(solver,mapf,cache)
     pibt_set_ordering!(solver,mapf,cache)
     reset_undecided!(cache)
     reset_reservations!(cache)
@@ -293,7 +384,7 @@ export pibt_step!
 i is the id of the higher priority agent, j is the index of the lower priority
 agent.
 """
-function pibt_step!(solver,mapf,cache,i,j=-1)
+function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
     log_info(3,solver,"pibt_step!( ... i = ",i,", j = ",j," )")
     env = get_envs(cache)[i]
     s = get_states(cache)[i]
@@ -344,16 +435,14 @@ function pibt!(solver, mapf)
             if isa(e,SolverException)
                 bt = catch_backtrace()
                 showerror(stdout,e)
-                return get_solution(cache), is_consistent(cache,mapf)
+                break
             else
                 rethrow(e)
             end
         end
         log_info(3,solver,"PIBT iterations = ",iterations(solver))
-        # update cache
         while !isempty(cache.undecided)
-            i = pibt_next_agent_id(solver,cache)
-            if ~pibt_step!(solver,mapf,cache,i)
+            if ~pibt_step!(solver,mapf,cache)
                 return get_solution(cache), false
             end
         end
@@ -362,4 +451,14 @@ function pibt!(solver, mapf)
         log_info(3,solver,"solution: ",convert_to_vertex_lists(get_solution(cache)))
     end
     return get_solution(cache), is_consistent(cache,mapf)
+end
+
+function solve!(solver::PIBTPlanner,mapf)
+    solution, valid = pibt!(solver,mapf)
+    if valid
+        set_best_cost!(solver, get_cost(solution))
+    else
+        set_cost!(solution,typemax(cost_type(mapf)))
+    end
+    return solution, best_cost(solver)
 end

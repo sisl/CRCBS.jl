@@ -24,6 +24,9 @@ let
         reset_solver!(solver)
         solution, valid = pibt!(solver, mapf)
         @test valid
+        reset_solver!(solver)
+        solution, cost = solve!(solver, mapf)
+        @test cost != typemax(cost_type(mapf))
     end
 end
 # test PIBT with ragged plans on mapf test problems

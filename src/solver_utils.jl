@@ -144,15 +144,15 @@ function check_time(logger)
 end
 function enforce_time_limit(logger)
     if check_time(logger)
-        throw(SolverException("Solver time limit exceeded!"))
+        throw(SolverException("Solver time limit exceeded! deadline was $(deadline(logger)), runtime_limit was $(runtime_limit(logger))"))
     end
 end
 function check_iterations(logger)
-    iterations(logger) > iteration_limit(logger)
+    iterations(logger) >= iteration_limit(logger)
 end
 function enforce_iteration_limit(logger)
     if check_iterations(logger)
-        throw(SolverException("Solver iterations exceeded!"))
+        throw(SolverException("Solver iterations exceeded! Limit was $(iteration_limit(logger))."))
     end
 end
 
