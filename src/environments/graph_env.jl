@@ -102,17 +102,53 @@ num_states(env::GraphEnv)                           = nv(get_graph(env))
 num_actions(env::GraphEnv)                          = num_states(env)^2 # NOT actually true, but necessary for O(1) serialization
 state_space_trait(env::GraphEnv)                    = DiscreteSpace()
 action_space_trait(env::GraphEnv)                   = DiscreteSpace()
-serialize(env::GraphEnv,s::AbstractGraphState,t)            = get_vtx(s), t
+serialize(env::GraphEnv,s::AbstractGraphState,t=get_t(s))            = get_vtx(s), t
 # NOTE the return type of deserialize doesn't need to match the state/action type of env, since it is only used for constraint checking
-deserialize(env::GraphEnv,s::AbstractGraphState,idx::Int,t) = GraphState(vtx=idx,t=t), t
-function serialize(env::GraphEnv,a::AbstractGraphAction,t)
+deserialize(env::GraphEnv,s::AbstractGraphState,idx::Int,t=-1) = GraphState(vtx=idx,t=t), t
+function serialize(env::GraphEnv,a::AbstractGraphAction,t=-1)
     (get_e(a).src-1)*num_states(env)+get_e(a).dst, t
 end
-function deserialize(env::GraphEnv,s::AbstractGraphAction,idx::Int,t)
+function deserialize(env::GraphEnv,s::AbstractGraphAction,idx::Int,t=get_t(s))
     GraphAction(e = Edge(
         div(idx-1,num_states(env))+1,
         mod(idx-1,num_states(env))+1)
         ), t
+end
+function serialize_jointly(env,a,t=-1)
+    idx, t = serialize(env,a,t)
+    return idx+num_states(env), t
+end
+
+"""
+    create_reservations(env::GraphEnv,s,a,sp,t=-1)
+
+Generates three reservations as follows
+```
+t0 = get_t(s)
+tF = get_t(sp)
+t_mid = (t0+tF)/2
+reservations = [
+    ResourceReservation{Int}(s_idx,get_agent_id(env),   (t0,    t_mid)),
+    ResourceReservation{Int}(a_idx,get_agent_id(env),   (t0,    tF)),
+    ResourceReservation{Int}(sp_idx,get_agent_id(env),  (t_mid, tF)),
+]
+```
+In this way, the reservations for one path node will not interfere with those
+for the next path node.
+"""
+function create_reservations(env::GraphEnv,s,a,sp,t=-1)
+    s_idx,t0    = serialize(env,s)
+    a_idx,_     = serialize_jointly(env,a) # serialize action to not overlap with state serialization space?
+    sp_idx,tF   = serialize(env,sp)
+    t_mid = (t0+tF)/2
+    reservations = [
+        ResourceReservation{Float64}(s_idx,get_agent_id(env),   (t0,    t_mid)),
+        ResourceReservation{Float64}(a_idx,get_agent_id(env),   (t0,    tF)),
+        ResourceReservation{Float64}(sp_idx,get_agent_id(env),  (t_mid, tF)),
+    ]
+end
+function create_reservations(env::GraphEnv,n::PathNode,t=-1)
+    create_reservations(env,get_s(n),get_a(n),get_sp(n),t)
 end
 # is_goal
 function is_goal(env::GraphEnv,s)

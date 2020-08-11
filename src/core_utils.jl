@@ -151,6 +151,7 @@ end
 ################################################################################
 export
     is_consistent,
+    assert_valid,
     is_valid
 
 
@@ -178,7 +179,20 @@ end
 function is_consistent(solution::L,mapf::M) where {L<:LowLevelSolution, M<:AbstractMAPF}
     is_consistent(solution,get_starts(mapf),get_goals(mapf))
 end
-is_valid(args...) = is_consistent(args...)
+assert_valid(args...) = @assert(is_consistent(args...))
+function is_valid(r)
+    try
+        assert_valid(r)
+    catch e
+        if isa(e,AssertionError)
+           showerror(stdout,e)
+           return false
+        else
+           rethrow(e)
+        end
+    end
+    return true
+end
 
 ################################################################################
 ######################### Visualization and Debugging ##########################

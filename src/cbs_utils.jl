@@ -382,7 +382,7 @@ export
     num_actions
 
 """
-    serialize(env,state,t)
+    serialize(env,state,t=-1)
 
 Encodes a state as an integer
 """
@@ -390,7 +390,7 @@ function serialize end
 serialize(mapf::MAPF,args...) = serialize(mapf.env,args...)
 
 """
-    deserialize(env,idx,t)
+    deserialize(env,idx,t=-1)
 
 Decodes an integer encoding of a state of type `state_type(env)`
 """
@@ -508,7 +508,7 @@ end
     regardless of time.
 """
 function search_constraints(env,table::DiscreteConstraintTable,n::N) where {N<:PathNode}
-    idx,_ = serialize(env,get_sp(n),-1)
+    idx,_ = serialize(env,get_sp(n))
     row_idxs, col_idxs, _ = findnz(table.state_constraints)
     s_constraints = Vector{CBSConstraint{node_type(env)}}()
     for (i,(r,t)) in enumerate(zip(row_idxs,col_idxs))
@@ -516,7 +516,7 @@ function search_constraints(env,table::DiscreteConstraintTable,n::N) where {N<:P
             push!(s_constraints,state_constraint(get_agent_id(table),n,t))
         end
     end
-    idx,_ = serialize(env,get_a(n),-1)
+    idx,_ = serialize(env,get_a(n))
     row_idxs, col_idxs, _ = findnz(table.action_constraints)
     a_constraints = Vector{CBSConstraint{node_type(env)}}()
     for (i,(r,t)) in enumerate(zip(row_idxs,col_idxs))
@@ -584,20 +584,20 @@ action_constraints(c::ConstraintTable) = c.action_constraints
 sorted_state_constraints(env,c::ConstraintTable) = c.sorted_state_constraints
 sorted_action_constraints(env,c::ConstraintTable) = c.sorted_action_constraints
 function search_constraints(env,table::ConstraintTable,n::N) where {N<:PathNode}
-    idx,_ = serialize(env,get_sp(n),-1)
+    idx,_ = serialize(env,get_sp(n))
     s_constraints = Vector{CBSConstraint{node_type(env)}}()
     for constraint in sorted_state_constraints(env,table)
         sp = get_sp(get_path_node(constraint))
-        idxp, _ = serialize(env,sp,-1)
+        idxp, _ = serialize(env,sp)
         if idxp == idx
             push!(s_constraints,constraint)
         end
     end
-    idx,_ = serialize(env,get_a(n),-1)
+    idx,_ = serialize(env,get_a(n))
     a_constraints = Vector{CBSConstraint{node_type(env)}}()
     for constraint in sorted_action_constraints(env,table)
         a = get_a(get_path_node(constraint))
-        idxp, _ = serialize(env,a,-1)
+        idxp, _ = serialize(env,a)
         if idxp == idx
             push!(a_constraints,constraint)
         end
@@ -706,7 +706,7 @@ end
     retrieve constraints corresponding to this node and this path
 """
 function get_constraints(node::N, path_id::Int) where {N<:ConstraintTreeNode}
-    @assert haskey(node.constraints,path_id) 
+    @assert haskey(node.constraints,path_id)
     return node.constraints[path_id]
     # return get(node.constraints, path_id, valtype(node.constraints)())
 end
@@ -759,4 +759,202 @@ function generate_constraints_from_conflict(c::Conflict)
         ))
     end
     return constraints
+end
+
+################################################################################
+############################## Reservation Table ###############################
+################################################################################
+export ResourceReservation
+
+"""
+    ResourceReservation
+
+`r::ResourceReservation` encodes a that resource `r.resource` is reserved by
+agent `r.agent_id` over time interval `r.interval`.
+"""
+struct ResourceReservation{T<:Real}
+    resource_id::Int
+    agent_id::Int
+    interval::Tuple{T,T}
+end
+resource_id(r::ResourceReservation)     = r.resource_id
+agent_id(r::ResourceReservation)        = r.agent_id
+interval(r::ResourceReservation)        = r.interval
+start_time(interval::Tuple{T,T}) where {T} = interval[1]
+finish_time(interval::Tuple{T,T}) where {T} = interval[2]
+start_time(r::ResourceReservation)      = start_time(interval(r))
+finish_time(r::ResourceReservation)     = finish_time(interval(r))
+function assert_valid(r::ResourceReservation)
+    @assert resource_id(r) > 0
+    @assert agent_id(r) > 0
+    @assert start_time(r) < finish_time(r)
+end
+
+export ReservationTable
+
+"""
+    ReservationTable
+
+Data structure for reserving resources over a time interval. The table stores a
+vector of reservations for each resource. When a new reservation is added to the
+table, it is inserted into the reservation vector associated to the requested
+resource.
+"""
+struct ReservationTable{T}
+    reservations::SparseVector{Vector{ResourceReservation{T}},Int}
+end
+time_type(table::ReservationTable{T}) where {T} = T
+SparseArrays.SparseVector{Tv,Ti}(n::Int) where {Tv,Ti} = SparseVector{Tv,Ti}(n,Ti[],Tv[])
+Base.zero(::Type{Vector{R}}) where {R<:ResourceReservation} = Vector{R}()
+Base.iszero(::Vector{R}) where {R<:ResourceReservation} = false
+ReservationTable{T}(n::Int) where {T} = ReservationTable{T}(
+    SparseVector{Vector{ResourceReservation{T}},Int}(n)
+)
+# ReservationTable{T}(env) where {T} = ReservationTable{T}(num_states(env)+num_actions(env))
+function assert_valid(table::ReservationTable)
+    idxs,vals = findnz(table.reservations)
+    if length(idxs) > 0
+        for (idx,vec) in zip(idxs,vals)
+            t = time_type(table)(0)
+            for reservation in vec
+                @assert start_time(reservation) >= t
+                @assert is_valid(reservation)
+                # @assert resource_id(reservation) <= length(table.reservations)
+                @assert resource_id(reservation) == idx
+                t = finish_time(reservation)
+            end
+        end
+    end
+end
+
+function spanning_range(vec::Vector{R},res::R) where {R<:ResourceReservation}
+    start_idx = searchsorted(map(finish_time,vec),start_time(res))
+    stop_idx = searchsorted(map(start_time,vec),finish_time(res))
+    i = min(start_idx.start,start_idx.stop) + 1
+    j = max(stop_idx.start,stop_idx.stop) - 1
+    return i:j
+end
+
+
+export create_reservations
+
+"""
+    create_reservation(env,s,a,sp)
+
+Must be overriden for environment env and the relevant state / action types.
+"""
+function create_reservations end
+
+export
+    reserve!,
+    is_reserved
+
+"""
+    reserve!(table,reservation)
+
+Attempts to add a reservation to the table. If the reservation conflicts with
+an existing reservation, does nothing and returns false. If successful, returns
+true.
+"""
+function reserve!(vec::Vector{R},res::R) where {R<:ResourceReservation}
+    if length(vec) > 0
+        idx = spanning_range(vec,res)
+        if idx.start > idx.stop
+            insert!(vec,idx.start,res)
+        else
+            return false # already reserved
+        end
+    else
+        push!(vec,res)
+    end
+    return true
+end
+function reserve!(table::ReservationTable,res::ResourceReservation)
+    @assert is_valid(res)
+    @assert resource_id(res) <= length(table.reservations)
+    vec = table.reservations[resource_id(res)]
+    if reserve!(vec,res)
+        table.reservations[resource_id(res)] = vec
+        return true
+    end
+    return false
+end
+function reserve!(table::ReservationTable,env,s,a,sp,t=-1)
+    valid = true
+    for res in create_reservations(env,s,a,sp,t)
+        valid &= reserve!(table,res)
+    end
+    return valid
+end
+
+function is_reserved(vec::Vector{R},res::R) where {R<:ResourceReservation}
+    if length(vec) > 0
+        idx = spanning_range(vec,res)
+        if idx.start <= idx.stop
+            return true # already reserved
+        end
+    end
+    return false
+end
+function is_reserved(table::ReservationTable,res::ResourceReservation)
+    @assert is_valid(res)
+    @assert resource_id(res) <= length(table.reservations)
+    is_reserved(table.reservations[resource_id(res)],res)
+end
+function is_reserved(table::ReservationTable,env,s,a,sp,t=-1)
+    for res in create_reservations(env,s,a,sp,t)
+        if is_reserved(table,res)
+            return true
+        end
+    end
+    return false
+end
+
+export reserved_by
+
+"""
+    reserved_by
+
+Returns the IDs of agents who have reserved a resource within a specific time
+window.
+"""
+function reserved_by(vec::Vector{R},res::R) where {R<:ResourceReservation}
+    if length(vec) > 0
+        idx = spanning_range(vec,res)
+        if idx.start <= idx.stop
+            # @show interval(res), idx, map(interval,vec)
+            # @show map(interval,vec[idx])
+            return Set{Int}(map(agent_id,vec[idx]))
+        end
+    end
+    return Set{Int}()
+end
+function reserved_by(table::ReservationTable,res::ResourceReservation)
+    @assert is_valid(res)
+    @assert resource_id(res) <= length(table.reservations)
+    reserved_by(table.reservations[resource_id(res)],res)
+end
+function reserved_by(table::ReservationTable,env,s,a,sp)
+    union(map(res->reserved_by(table,res),create_reservations(env,s,a,sp,t))...)
+end
+
+export is_available
+
+"""
+    is_available
+
+Returns false if the proposed reservation is available to any of the agent_ids
+"""
+function is_available(table::ReservationTable,env,s,a,sp)
+    agents = reserved_by(table,env,s,a,sp)
+    if isempty(setdiff(agents,get_agent_id(env)))
+        return true
+    end
+    return false
+end
+
+function reset_reservations!(table::ReservationTable)
+    empty!(table.reservations.nzind)
+    empty!(table.reservations.nzval)
+    table
 end

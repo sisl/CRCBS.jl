@@ -123,7 +123,8 @@ function CRCBS.is_goal(env::E,state::State) where {E<:AbstractMetaEnv}
     end
     return true
 end
-CRCBS.wait(s::State) = Action([CRCBS.wait(s_) for s_ in s.states])
+CRCBS.wait(s::State) = Action(map(CRCBS.wait, s.states))
+CRCBS.wait(env::AbstractMetaEnv,s::State) = Action(map(args->CRCBS.wait(args...),zip(get_envs(env),s.states)))
 # get_possible_actions
 struct ActionIter{A}
     action_lists::Vector{Vector{A}}
@@ -183,6 +184,26 @@ function CRCBS.violates_constraints(env::E, s::State, a::Action, sp::State) wher
         end
     end
     return false
+end
+
+### Reservation Table Interface
+function CRCBS.reserve!(table::PIBTReservationTable,env::MetaAgentCBS.AbstractMetaEnv,s,a,sp,t=-1)
+    valid = true
+    for args in zip(get_envs(env),s.states,a.actions,sp.states)
+        valid &= reserve!(table,args...)
+    end
+    return valid
+end
+function CRCBS.is_reserved(table::PIBTReservationTable,env::MetaAgentCBS.AbstractMetaEnv,s,a,sp,t=-1)
+    for args in zip(get_envs(env),s.states,a.actions,sp.states)
+        if is_reserved(table,args...)
+            return true
+        end
+    end
+    return false
+end
+function CRCBS.create_reservations(env::AbstractMetaEnv,s,a,sp,t=-1)
+    vcat(map(args->create_reservations(args...,t), zip(get_envs(env),s.states,a.actions,sp.states))...)
 end
 
 end
