@@ -33,6 +33,9 @@ Base.string(a::AbstractGraphAction) = "(e=$(get_e(a).src) → $(get_e(a).dst))"
 # GraphEnv
 abstract type GraphEnv{S,A,C} <: AbstractLowLevelEnv{S,A,C} end
 
+# allow paths to start at non-zero start times
+get_start_index(path::Path{S,A,C}) where {S<:AbstractGraphState,A,C} = get_t(get_initial_state(path))
+
 export
     get_graph,
     get_cost_model,

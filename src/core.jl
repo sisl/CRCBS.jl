@@ -157,7 +157,8 @@ get_sp(path::P, t::Int) where {P<:Path} = get_sp(get_path_node(path,t))
 """
 function extend_path!(path::P,T::Int) where {P<:Path}
     # while length(path) < T
-    while get_index_from_time(path,get_end_index(path)) < T
+    # while get_index_from_time(path,get_end_index(path)) < T
+    while get_end_index(path) < T
         s = get_final_state(path)
         a = wait(s)
         push!(path,PathNode(s,wait(s),get_next_state(s,a)))

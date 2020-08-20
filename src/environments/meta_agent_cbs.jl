@@ -19,6 +19,8 @@ Base.hash(s::State{S}) where {S} = hash(s.states)
 Base.:(==)(s1::S,s2::S) where {S<:State} = hash(s1) == hash(s2)
 Base.string(a::Action) = string("(",prod(map(a->"$(string(a)),",s.actions)),")")
 
+get_start_index(path::Path{MS,A,C}) where {S<:AbstractGraphState,MS<:State{S},A,C} = get_t(get_initial_state(path).states[1])
+
 abstract type AbstractMetaEnv{S,A,T,C} <: AbstractLowLevelEnv{State{S},Action{A},MetaCostModel{T,C}} end
 @with_kw struct LowLevelEnv{S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}} <: AbstractMetaEnv{S,A,T,C}
     envs::Vector{E}             = Vector{E}()
@@ -27,6 +29,7 @@ abstract type AbstractMetaEnv{S,A,T,C} <: AbstractLowLevelEnv{State{S},Action{A}
         FullCostModel(sum,TravelTime()),length(envs))
 end
 # CRCBS.state_type(env::AbstractMetaEnv{S,A,T,C}) where {S,A,T,C} = State{S}
+
 """
     TeamMetaEnv{S,A,T,C,E}
 

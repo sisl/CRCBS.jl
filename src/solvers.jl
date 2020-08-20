@@ -89,6 +89,14 @@ Path planner that employs Conflict-Based Search
     logger::SolverLogger{C} = SolverLogger{cost_type(low_level_planner)}()
 end
 CBSSolver(planner) = CBSSolver(low_level_planner=planner)
+for op in [:set_deadline!,:set_runtime_limit!,:set_verbosity!]
+    eval(quote
+        $op(solver::CBSSolver,args...) = begin
+            $op(get_logger(solver),args...)
+            $op(solver.low_level_planner,args...)
+        end
+    end)
+end
 
 ################################################################################
 ############################# CBS Logger Interface #############################

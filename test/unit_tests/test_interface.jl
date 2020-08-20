@@ -43,13 +43,20 @@ let
     p1 = copy(p)
     @test get_cost(p1) == get_cost(p)
     @test length(p1) == length(p)
+end
+let
+    p = Path{S,A,Float64}(
+        s0 = S(1,0)
+    )
 
     get_path_node(p,1)
     get_path_node(p,5)
     get_a(p,1)
     @test length(extend_path(p,5)) == 5
+    @test get_end_index(extend_path(p,5)) == 5
     extend_path!(p,5)
     @test length(p) == 5
+    @test get_end_index(p) == 5
 
     get_initial_state(p)
     get_final_state(p)
