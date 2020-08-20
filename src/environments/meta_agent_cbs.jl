@@ -11,10 +11,12 @@ using Parameters, LightGraphs, DataStructures
 @with_kw struct State{S}
     states::Vector{S} = Vector{S}()
 end
+State(states::T) where {T<:Tuple} = State([states...])
 Base.string(s::State) = string("(",prod(map(s->"$(string(s)),",s.states)),")")
 @with_kw struct Action{A}
     actions::Vector{A} = Vector{A}()
 end
+Action(actions::T) where {T<:Tuple} = Action([actions...])
 Base.hash(s::State{S}) where {S} = hash(s.states)
 Base.:(==)(s1::S,s2::S) where {S<:State} = hash(s1) == hash(s2)
 Base.string(a::Action) = string("(",prod(map(a->"$(string(a)),",s.actions)),")")
@@ -61,6 +63,27 @@ function construct_team_env(envs::Vector{E},idxs::Vector{Int},c_model::C) where 
     model = MetaCostModel(c_model,length(envs))
     TeamMetaEnv{S,A,T,C,E}(envs=envs,agent_idxs=idxs,cost_model=model)
 end
+function construct_meta_path(paths::Vector{P},cost) where {S,A,C,P<:Path{S,A,C}}
+    @assert all(map(length,paths) .- maximum(map(length,paths)) .== 0)
+    starts = map(get_initial_state,paths)
+    costs = map(get_cost, paths)
+    # path_nodes = []
+    path_nodes = Vector{PathNode{State{S},Action{A}}}()
+    for nodes in zip(map(p->p.path_nodes,paths)...)
+        n = PathNode(
+            State(map(get_s, nodes)),
+            Action(map(get_a, nodes)),
+            State(map(get_sp, nodes))
+        )
+        push!(path_nodes, n)
+    end
+    # path_nodes = [path_nodes...]
+    meta_path = Path(
+        path_nodes = path_nodes,
+        s0=State(starts),
+        cost = MetaCost(costs,cost)
+    )
+end
 function CRCBS.build_env(solver::MetaAgentCBS_Solver, mapf, node, i)
     group = node.solution.group_idxs[i]
     construct_meta_env(
@@ -81,7 +104,7 @@ CRCBS.get_start(mapf::MAPF,env::AbstractMetaEnv,i) = State([get_start(mapf,e,j) 
 """
 function split_path(path::Path{State{S},Action{A},MetaCost{C}}) where {S,A,C}
     N = length(get_s(get_path_node(path, 1)).states)
-    paths = [Path{S,A,C}(cost=get_cost(path).independent_costs[i]) for i in 1:N]
+    paths = [Path{S,A,C}(s0=path.s0.states[i],cost=get_cost(path).independent_costs[i]) for i in 1:N]
     for t in 1:length(path)
         path_node = get_path_node(path, t)
         for i in 1:N

@@ -45,6 +45,10 @@ let
     @test length(p1) == length(p)
 end
 let
+    S = GraphState
+    A = GraphAction
+    P = PathNode{S,A}
+    
     p = Path{S,A,Float64}(
         s0 = S(1,0)
     )
