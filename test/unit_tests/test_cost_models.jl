@@ -121,6 +121,16 @@ let
     @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(5,1),1),2) == 0
     cost = get_transition_cost(env,CBSEnv.State(5,0),CBSEnv.Action(Edge(5,1),1),CBSEnv.State(1,1))
     @test cost[2] == 0.0
+
+end
+# test FatPaths
+let
+    mapf = CRCBS.init_fat_path_mapf(CRCBS.init_mapf_4())
+    solver = CBSSolver(AStar{cost_type(mapf)}())
+    solution, cost = solve!(solver,mapf)
+    paths = convert_to_vertex_lists(solution)
+    @test paths[1] == [1,5,9,13,14,15]
+    @test paths[2] == [16,12,8,4,3,2]
 end
 # MetaCost
 let

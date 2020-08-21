@@ -657,6 +657,7 @@ accumulate_cost(h::H,cost,transition_cost) where {H<:ConflictCostModel} = cost +
 
 HardConflictCost(args...) = FullCostModel(sum,ConflictCostModel(HardConflictTable(args...)))
 SoftConflictCost(args...) = FullCostModel(sum,ConflictCostModel(SoftConflictTable(args...)))
+SoftConflictCost(table::SoftConflictTable,args...) = FullCostModel(sum,ConflictCostModel(table))
 
 get_time_horizon(h::H) where {H<:ConflictCostModel} = get_time_horizon(h.table)
 get_planned_vtx(h::H,args...) where {T<:HardConflictTable,H<:ConflictCostModel}  = get_planned_vtx(h.table,args...)

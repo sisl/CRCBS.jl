@@ -984,10 +984,10 @@ function get_level_set_nodes(env,s,threshold,cost=get_initial_cost(env))
         push!(explored,s)
         for a in get_possible_actions(env,s)
             sp = get_next_state(env,s,a)
-            if sp in explored
+            if sp in explored || haskey(frontier,sp)
                 continue
             end
-            c = accumulate_cost(env,cost,get_transition_cost(env,s,a))
+            c = accumulate_cost(env,cost,get_transition_cost(env,s,a,sp))
             h = add_heuristic_cost(env,c,get_heuristic_cost(env,sp))
             if h <= threshold
                 push!(nodes,PathNode(s,a,sp))
@@ -1067,7 +1067,7 @@ function init_fat_path_mapf(mapf)
             graph = mapf.env.graph,
             cost_model = construct_composite_cost_model(
                 SumOfTravelTime(),
-                ConflictCostModel(table)
+                SoftConflictCost(table)
             ),
             heuristic = construct_composite_heuristic(
                 PerfectHeuristic(get_dist_matrix(mapf.env.graph)),
