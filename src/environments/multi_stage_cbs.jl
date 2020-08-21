@@ -48,6 +48,7 @@ CRCBS.get_agent_id(env::LowLevelEnv)         = env.agent_idx
 CRCBS.get_constraints(env::LowLevelEnv)      = env.constraints
 CRCBS.get_goal(env::LowLevelEnv)             = env.goal_sequence
 CRCBS.get_heuristic_model(env::LowLevelEnv)  = env.heuristic
+CRCBS.base_env_type(env::LowLevelEnv)        = LowLevelEnv
 
 function CRCBS.get_next_state(s::State,a::Action)
     @assert(is_valid(s))

@@ -80,7 +80,7 @@ function construct_meta_path_node(nodes::Vector{N}) where {N<:PathNode}
 end
 construct_meta_path_node(nodes::Tuple) = construct_meta_path_node([nodes...])
 
-# TODO implement MetaPath
+# # TODO implement MetaPath
 # @with_kw struct MetaPath{S,A,C} <: AbstractPath
 #     paths       ::Vector{Path{S,A,C}}   = Vector{Path{S,A,C}}()
 #     s0          ::State                 = get_s(get(path_nodes, 1, PathNode{S,A}()))

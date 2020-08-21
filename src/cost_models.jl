@@ -396,6 +396,7 @@ SumOfTravelTime(model::TravelTime=TravelTime()) = FullCostModel(sum, model)
 ############################# HardConflictHeuristic ############################
 ################################################################################
 export
+    AbstractConflictTable,
     HardConflictTable,
     get_time_horizon,
     get_planned_vtx,
@@ -406,6 +407,8 @@ export
     get_conflicting_paths,
     construct_empty_lookup_table
 
+abstract type AbstractConflictTable end
+
 """
     `HardConflictTable`
 
@@ -414,7 +417,7 @@ export
     for agent `i`) must be subtracted so that the agent does not try to avoid
     conflicts with itself.
 """
-@with_kw struct HardConflictTable{V<:AbstractVector,M<:AbstractMatrix}
+@with_kw struct HardConflictTable{V<:AbstractVector,M<:AbstractMatrix} <: AbstractConflictTable
     paths   ::Vector{V} = Vector{SparseVector{Int,Int}}()
     CAT     ::M         = SparseMatrixCSC(zeros(2,2)) # global table
     start_time::Int     = 0
@@ -536,12 +539,14 @@ export
 """
     `SoftConflictTable`
 """
-@with_kw struct SoftConflictTable{M<:AbstractMatrix}
-    CAT::M = SparseMatrixCSC(zeros(2,2)) # global table
+@with_kw struct SoftConflictTable{V,M<:AbstractMatrix} <: AbstractConflictTable
+    paths   ::Vector{V} = Vector{SparseMatrixCSC{Float64,Int}}()
+    CAT     ::M         = SparseMatrixCSC(zeros(2,2)) # global table
+    start_time::Int     = 0
 end
 get_time_horizon(h::SoftConflictTable) = size(h.CAT,2)
 get_conflict_value(h::SoftConflictTable,vtx::Int,t::Int) = h.CAT[vtx,t]
-get_conflict_value(h::SoftConflictTable,agent_idx::Int,vtx::Int,t::Int) = h.CAT[vtx,t]
+get_conflict_value(h::SoftConflictTable,agent_idx::Int,vtx::Int,t::Int) = h.CAT[vtx,t] - h.paths[agent_idx][vtx,t]
 
 """
     `get_fat_path(G,D,start_vtx,goal_vtx)`
@@ -568,10 +573,11 @@ function get_fat_path(G,D,start_vtx::Int,goal_vtx::Int)
     end
     fat_path
 end
+
 """
     `add_fat_path_to_table(CAT,fat_path)`
 """
-function add_fat_path_to_table!(CAT,t0,fat_path)
+function add_fat_path_to_table!(CAT,fat_path,t0=0)
     for t in 1:length(fat_path)
         idxs = collect(fat_path[t])
         if t+t0 > 0
@@ -579,35 +585,61 @@ function add_fat_path_to_table!(CAT,t0,fat_path)
         end
     end
 end
+
 """
     `populate_soft_lookup_table!(CAT,start_times,start_vtxs,goal_vtxs)`
 """
-function populate_soft_lookup_table!(CAT,G,D,start_times,start_vtxs,goal_vtxs)
-    path_list = [t=>get_fat_path(G,D,s,g) for (s,t,g) in zip(start_vtxs,start_times,goal_vtxs)]
-    for (t0,fat_path) in path_list
+function populate_soft_lookup_table!(CAT,G,D,start_vtxs,goal_vtxs,start_times=zeros(Int,length(start_vtxs)))
+    for (s,t,g) in zip(start_vtxs,start_times,goal_vtxs)
+        fat_path = get_fat_path(G,D,s,g)
         add_fat_path_to_table!(CAT,t0,fat_path)
     end
     CAT
 end
+
 """
     `construct_empty_lookup_table(graph,T::Int)`
 
-    Returns a soft lookup table to encode possible paths for each agent through
-    `graph`. The argument `T` defines the time horizon of the lookup table.
+Returns a soft lookup table to encode possible paths for each agent through
+`graph`. The argument `T` defines the time horizon of the lookup table.
 """
-function SoftConflictTable(graph,T::Int)
-    SoftConflictTable(construct_empty_lookup_table(graph,T))
+function SoftConflictTable(n_agents::Int,N::Int,T::Int,t0=0)
+    SoftConflictTable(
+        paths = map(i->spzeros(Float64,N,T),1:n_agents),
+        CAT = spzeros(Float64,N,T),
+        t0=t0
+        )
 end
-"""
-    `construct_and_populate_soft_lookup_table!`
-"""
-function SoftConflictTable(graph,start_times::Vector{Int},start_vtxs::Vector{Int},goal_vtxs::Vector{Int};
-        T = Int(round(maximum(start_times) + nv(graph))))
-    CAT = construct_empty_lookup_table(graph,T)
-    D = get_dist_matrix(graph)
-    populate_soft_lookup_table!(CAT,graph,D,start_times,start_vtxs,goal_vtxs)
-    SoftConflictTable(CAT)
-end
+
+# """
+#     `construct_empty_lookup_table(graph,T::Int)`
+#
+#     Returns a soft lookup table to encode possible paths for each agent through
+#     `graph`. The argument `T` defines the time horizon of the lookup table.
+# """
+# function SoftConflictTable(graph,n_agents::Int,T::Int,t0=0)
+#     SoftConflictTable(
+#         paths = map(i->construct_empty_lookup_table(graph,T),1:n_agents),
+#         CAT = construct_empty_lookup_table(graph,T),
+#         t0=0
+#         )
+# end
+
+# """
+#     `construct_and_populate_soft_lookup_table!`
+# """
+# function SoftConflictTable(graph,
+#         start_vtxs::Vector{Int},
+#         goal_vtxs::Vector{Int},
+#         start_times=zero(Int,length(start_vtxs),
+#         T = Int(round(maximum(start_times) + nv(graph))),
+#         )
+#     )
+#     CAT = construct_empty_lookup_table(graph,T)
+#     D = get_dist_matrix(graph)
+#     populate_soft_lookup_table!(CAT,graph,D,start_vtxs,goal_vtxs,start_times)
+#     SoftConflictTable(CAT)
+# end
 
 ################################################################################
 ############################# ConflictCostModel ############################

@@ -377,6 +377,7 @@ is_action_constraint(c::CBSConstraint) = get_constraint_type(c) == :ActionConstr
 ################################################################################
 export
     serialize,
+    serialize_jointly,
     deserialize,
     num_states,
     num_actions
@@ -384,15 +385,19 @@ export
 """
     serialize(env,state,t=-1)
 
-Encodes a state as an integer
+Encodes a state or action as an integer
 """
 function serialize end
 serialize(mapf::MAPF,args...) = serialize(mapf.env,args...)
 
+function serialize_jointly end
+serialize_jointly(mapf::MAPF,args...) = serialize_jointly(mapf.env,args...)
+
 """
     deserialize(env,idx,t=-1)
 
-Decodes an integer encoding of a state of type `state_type(env)`
+Decodes an integer encoding of a state or action of type `state_type(env)` or
+`action_type(env)`
 """
 function deserialize end
 deserialize(mapf::MAPF,args...) = deserialize(mapf.env,args...)
@@ -957,4 +962,119 @@ function reset_reservations!(table::ReservationTable)
     empty!(table.reservations.nzind)
     empty!(table.reservations.nzval)
     table
+end
+
+################################################################################
+################################ Fat Path Tools ################################
+################################################################################
+
+"""
+    get_level_set_nodes(env,s,threshold,cost=get_initial_cost(env))
+
+Returns a vector of `PathNode`s, where the heuristic cost (according to `env`)
+of each node falls below `threshold`.
+"""
+function get_level_set_nodes(env,s,threshold,cost=get_initial_cost(env))
+    nodes = Vector{node_type(env)}()
+    frontier = PriorityQueue{state_type(env),typeof(cost)}()
+    explored = Set{state_type(env)}()
+    enqueue!(frontier,s=>cost)
+    while !isempty(frontier)
+        s,cost = dequeue_pair!(frontier)
+        push!(explored,s)
+        for a in get_possible_actions(env,s)
+            sp = get_next_state(env,s,a)
+            if sp in explored
+                continue
+            end
+            c = accumulate_cost(env,cost,get_transition_cost(env,s,a))
+            h = add_heuristic_cost(env,c,get_heuristic_cost(env,sp))
+            if h <= threshold
+                push!(nodes,PathNode(s,a,sp))
+                enqueue!(frontier, sp=>c)
+            end
+        end
+    end
+    nodes
+end
+function Base.empty!(sparr::SparseMatrixCSC)
+    empty!(sparr.nzval)
+    empty!(sparr.rowval)
+    sparr.colptr .= 1
+    return sparr
+end
+function Base.empty!(table::SoftConflictTable)
+    empty!(table.CAT)
+    for p in table.paths
+        empty!(p)
+    end
+    return table
+end
+
+
+"""
+    update_conflict_table!(table,nodes)
+
+Updates a conflict table with a set of nodes.
+"""
+function update_fat_path_conflict_table!(table::AbstractMatrix,env::E,nodes::Vector{N}) where {E,N<:PathNode}
+    for n in nodes
+        idx, t = serialize_jointly(env,get_a(n),get_t(get_sp(n)))
+        table[idx,t] += 1.0
+        idx, t = serialize_jointly(env,get_sp(n))
+        table[idx,t] += 1.0
+    end
+    return table
+end
+function update_fat_path_conflict_table!(table::SoftConflictTable,idx::Int,env::E,nodes::Vector{N}) where {E,N<:PathNode}
+    update_fat_path_conflict_table!(table.paths[idx],env,nodes)
+    table.CAT .+= table.paths[idx]
+    return table
+end
+function clear_fat_path!(table::SoftConflictTable,idx::Int)
+    table.CAT .-= table.paths[idx]
+    empty!(table.paths[idx])
+    table
+end
+reset_path!(table::SoftConflictTable,idx::Int) = clear_fat_path!(table,idx)
+function SoftConflictTable(mapf::AbstractMAPF)
+    # sets up SoftConflictTable for use with Serialized states
+    N = num_states(mapf)+num_actions(mapf)
+    T = num_states(mapf)*4
+    return SoftConflictTable(
+        paths = map(i->spzeros(Float64,N,T),1:num_agents(mapf)),
+        CAT = spzeros(Float64,N,T),
+    )
+end
+get_fat_path_threshold_cost(env,s,cost=get_initial_cost(env)) = add_heuristic_cost(env,cost,get_heuristic_cost(env,s))
+function populate_fat_path_table!(table::SoftConflictTable,mapf::AbstractMAPF)
+    node = initialize_root_node(mapf)
+    for i in 1:num_agents(mapf)
+        env = build_env(mapf,node,i)
+        s = get_start(mapf,i)
+        threshold = get_fat_path_threshold_cost(env,s)
+        nodes = get_level_set_nodes(env,s,threshold)
+        update_fat_path_conflict_table!(table,i,mapf,nodes)
+    end
+    return table
+end
+
+function init_fat_path_mapf(mapf)
+    table = SoftConflictTable(mapf)
+    CRCBS.populate_fat_path_table!(table,mapf)
+    mapf = MAPF(
+        base_env_type(mapf)(
+            graph = mapf.env.graph,
+            cost_model = construct_composite_cost_model(
+                SumOfTravelTime(),
+                ConflictCostModel(table)
+            ),
+            heuristic = construct_composite_heuristic(
+                PerfectHeuristic(get_dist_matrix(mapf.env.graph)),
+                NullHeuristic()
+            )
+        ),
+        mapf.starts,
+        mapf.goals
+    )
 end

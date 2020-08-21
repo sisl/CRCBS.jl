@@ -1,10 +1,13 @@
 export init_mapf_problem
 
-function init_mapf_problem(graph,start_vtxs,goal_vtxs,cost_model=SumOfTravelTime(),args...)
+function init_mapf_problem(graph,start_vtxs,goal_vtxs,
+        cost_model=SumOfTravelTime(),
+        heuristic = PerfectHeuristic(graph,start_vtxs,goal_vtxs),
+        args...)
     env = CBSEnv.LowLevelEnv(
         graph = graph,
         cost_model = cost_model,
-        heuristic = PerfectHeuristic(graph,start_vtxs,goal_vtxs)
+        heuristic = heuristic
     )
     starts = map(s->CBSEnv.State(vtx=s,t=0),start_vtxs)
     goals = map(s->CBSEnv.State(vtx=s,t=0),goal_vtxs)

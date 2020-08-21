@@ -35,6 +35,7 @@ CRCBS.get_constraints(env::LowLevelEnv)      = env.constraints
 CRCBS.get_goal(env::LowLevelEnv)             = env.goal
 CRCBS.get_cost_model(env::LowLevelEnv)       = env.cost_model
 CRCBS.get_heuristic_model(env::LowLevelEnv)  = env.heuristic
+CRCBS.base_env_type(env::LowLevelEnv)        = LowLevelEnv
 
 CRCBS.get_possible_actions(env::LowLevelEnv,s)  = map(v->Action(e=Edge(get_vtx(s),v)),outneighbors(get_graph(env),get_vtx(s)))
 CRCBS.get_next_state(s::State,a::Action)    = State(get_e(a).dst,get_t(s)+get_dt(a))

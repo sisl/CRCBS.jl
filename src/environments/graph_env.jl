@@ -68,6 +68,14 @@ wait(s::AbstractGraphState) = GraphAction(e=Edge(get_vtx(s),get_vtx(s)))
 function get_transition_cost(c::TravelTime,env::GraphEnv,s,a,sp)
     return cost_type(c)(get_dt(a))
 end
+function get_conflict_value(c::C,agent_id::Int,env::GraphEnv,s::AbstractGraphState,t=get_t(s)) where {C<:SoftConflictTable}
+    idx,t = serialize_jointly(env,s,t)
+    get_conflict_value(c,agent_id,idx,t)
+end
+function get_conflict_value(c::C,agent_id::Int,env::GraphEnv,a::AbstractGraphAction,t) where {C<:SoftConflictTable}
+    idx,t = serialize_jointly(env,a,t)
+    get_conflict_value(c,agent_id,idx,t)
+end
 function get_transition_cost(c::C,env::GraphEnv,s,a,sp) where {C<:ConflictCostModel}
     state_conflict_value = get_conflict_value(c, get_agent_id(env), get_vtx(sp), get_t(sp))
     edge_conflict_value = min(
@@ -84,6 +92,11 @@ function get_transition_cost(c::C,env::GraphEnv,s,a,sp) where {C<:ConflictCostMo
         end
     end
     return state_conflict_value + edge_conflict_value
+end
+function get_transition_cost(c::ConflictCostModel{S},env::GraphEnv,s,a,sp) where {S<:SoftConflictTable}
+    state_conflict_value = get_conflict_value(c.table,get_agent_id(env),env,sp)
+    action_conflict_value = get_conflict_value(c.table,get_agent_id(env),env,a,get_t(sp))
+    return state_conflict_value + action_conflict_value
 end
 function get_transition_cost(c::TravelDistance,env::GraphEnv,s,a,sp)
     return (get_vtx(s) == get_vtx(sp)) ? 0.0 : 1.0
@@ -117,8 +130,10 @@ function deserialize(env::GraphEnv,s::AbstractGraphAction,idx::Int,t=get_t(s))
         mod(idx-1,num_states(env))+1)
         ), t
 end
-function serialize_jointly(env,a,t=-1)
-    idx, t = serialize(env,a,t)
+serialize_jointly(env::GraphEnv,s::AbstractGraphState,t=get_t(s)) = serialize(env,s,t)
+function serialize_jointly(env::GraphEnv,a::A,t=-1) where {A<:AbstractGraphAction}
+    a_ = A(a,e=Edge(sort([get_e(a).src, get_e(a).dst])...))
+    idx, t = serialize(env,a_,t)
     return idx+num_states(env), t
 end
 
