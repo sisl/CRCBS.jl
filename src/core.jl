@@ -90,9 +90,9 @@ export
     get_index_from_time,
     get_end_index
 
-get_start_index(path::P) where {P<:Path} = 0
-get_end_index(path::P) where {P<:Path} = length(path) + get_start_index(path)
-get_index_from_time(path::P,t::Int) where {P<:Path} = t - get_start_index(path)
+get_start_index(path::P) where {P<:AbstractPath} = 0
+get_end_index(path::P) where {P<:AbstractPath} = length(path) + get_start_index(path)
+get_index_from_time(path::P,t::Int) where {P<:AbstractPath} = t - get_start_index(path)
 abstract type TimeIndexedState end
 get_start_index(path::P) where {S<:TimeIndexedState,A,C,P<:Path{S,A,C}} = 1 - get_time_index(path.s0)
 
@@ -104,7 +104,7 @@ get_start_index(path::P) where {S<:TimeIndexedState,A,C,P<:Path{S,A,C}} = 1 - ge
 
     path[t] is the path node that begins at t-1 and terminates at t
 """
-function get_path_node(path::P,t::Int) where {P<:Path}
+function get_path_node(path::P,t::Int) where {P<:AbstractPath}
     t_idx = get_index_from_time(path,t)
     if 1 <= t_idx <= length(path)
         return path[t_idx]
@@ -114,15 +114,12 @@ function get_path_node(path::P,t::Int) where {P<:Path}
         t₀ = get_index_from_time(path,get_end_index(path))
         if t₀ <= 0
             node = node_type(path)(sp=get_initial_state(path))
-            s = get_s(node)
-            a = get_a(node)
-            sp = get_sp(node)
         else
             node = get(path,length(path),node_type(path)(s=get_initial_state(path)))
-            s = get_s(node)
-            a = get_a(node)
-            sp = get_sp(node)
         end
+        s = get_s(node)
+        a = get_a(node)
+        sp = get_sp(node)
         for τ in t₀+1:t_idx
             s = sp
             a = wait(s)

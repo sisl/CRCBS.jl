@@ -73,7 +73,7 @@ end
 """
     detect conflicts between paths
 """
-function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int,t0::Int=1) where {P1<:Path,P2<:Path}
+function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int,t0::Int=1) where {P1<:AbstractPath,P2<:AbstractPath}
     # print("detect_conflicts!(conflict_table,path1::Path,path2::Path,i::Int,j::Int)\n")
     if length(path1) > length(path2)
         path2 = extend_path(path2,length(path1))
@@ -101,7 +101,7 @@ end
     - idxs                  (optional) a list of agent ids for which to check
                             collisions against all other agents
 """
-function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths)),args...) where {P<:Path}
+function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths)),args...) where {P<:AbstractPath}
     # print("detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
     for (i,path1) in enumerate(paths)
         for (j,path2) in enumerate(paths)
@@ -134,7 +134,7 @@ function detect_state_conflict(n1::P1,n2::P2) where {P1<:PathNode,P2<:PathNode}
 end
 
 """ Checks for a `StateConflict` between two `Path`s at time t """
-function detect_state_conflict(path1::P1, path2::P2, t::Int) where {P1<:Path,P2<:Path}
+function detect_state_conflict(path1::P1, path2::P2, t::Int) where {P1<:AbstractPath,P2<:AbstractPath}
     if detect_state_conflict(get_path_node(path1,t),get_path_node(path2,t))
         return true
     end

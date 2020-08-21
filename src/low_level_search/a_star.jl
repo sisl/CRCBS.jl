@@ -41,13 +41,13 @@ function reconstruct_path!(path,predecessor_map,s,cost)
         s = get_s(path_node)
     end
     reverse!(node_sequence)
-    # prepend!(node_sequence, path.path_nodes)
-    # return Path(path_nodes=node_sequence, s0=get_initial_state(path), cost=cost)
     for n in node_sequence
         push!(path,n)
     end
     set_cost!(path,cost)
     return path
+    # prepend!(node_sequence, path.path_nodes)
+    # return Path(path_nodes=node_sequence, s0=get_initial_state(path), cost=cost)
 end
 
 """
@@ -103,7 +103,7 @@ end
 
 
 """
-    `a_star(env,start_state)`
+    a_star(env,start_state)
 
     A generic implementation of the [A* search algorithm](http://en.wikipedia.org/wiki/A%2A_search_algorithm)
     that operates on an Environment and initial state.
