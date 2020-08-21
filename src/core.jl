@@ -223,7 +223,7 @@ end
 state_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}    = S
 action_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}   = A
 cost_type(s::LowLevelSolution{S,A,T,C}) where {S,A,T,C}     = T
-path_type(s::LowLevelSolution) = Path{state_type(s),action_type(s),cost_type(s)}
+path_type(s) = Path{state_type(s),action_type(s),cost_type(s)}
 Base.copy(solution::L) where {L <: LowLevelSolution} = L(
     paths=copy(solution.paths), # NOTE don't want to needlessly copy paths between search nodes
     cost_model=deepcopy(solution.cost_model),

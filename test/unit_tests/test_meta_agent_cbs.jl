@@ -37,6 +37,19 @@ let
     env = MetaAgentCBS.construct_meta_env(envs,[1,2], get_cost_model(envs[1]))
     get_cost_model(env)
     get_initial_cost(env)
+    s = MetaAgentCBS.State([CBSEnv.State(1,0),CBSEnv.State(2,0)])
+    a = CRCBS.wait(env,s)
+    sp = get_next_state(env,s,a)
+    n = PathNode(s,a,sp)
+    path = Path(s0=s,path_nodes=[n],cost=MetaCost([0.0,0.0],0.0))
+    paths = MetaAgentCBS.split_path(path)
+    new_path = MetaAgentCBS.construct_meta_path(paths,0.0)
+
+    @test path.s0 == new_path.s0
+    @test !(path.cost < new_path.cost) && !(path.cost > new_path.cost)
+    for (n1,n2) in zip(path.path_nodes,new_path.path_nodes)
+        @test string(n1) == string(n2)
+    end
 end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)
@@ -89,6 +102,7 @@ let
     solver = MetaAgentCBS_Solver(beta=1)
     set_verbosity!(solver,global_verbosity())
     solution, cost = CRCBS.solve!(solver,mapf)
+
 end
 let
     G = initialize_regular_grid_graph(;n_obstacles_x=1,n_obstacles_y=1)

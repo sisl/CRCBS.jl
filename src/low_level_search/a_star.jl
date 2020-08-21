@@ -33,16 +33,21 @@ end
 """
     reconstruct path by working backward from the terminal state
 """
-function reconstruct_path(base_path::Path{S,A,T},predecessor_map,s,cost) where {S,A,T}
-    node_sequence = Vector{PathNode{S,A}}()
+function reconstruct_path!(path,predecessor_map,s,cost)
+    node_sequence = Vector{node_type(path)}()
     while haskey(predecessor_map, s)
         path_node = predecessor_map[s]
         push!(node_sequence, path_node)
         s = get_s(path_node)
     end
     reverse!(node_sequence)
-    prepend!(node_sequence, base_path.path_nodes)
-    Path(path_nodes=node_sequence, s0=get_initial_state(base_path), cost=cost)
+    # prepend!(node_sequence, path.path_nodes)
+    # return Path(path_nodes=node_sequence, s0=get_initial_state(path), cost=cost)
+    for n in node_sequence
+        push!(path,n)
+    end
+    set_cost!(path,cost)
+    return path
 end
 
 """
@@ -52,10 +57,10 @@ end
     # h(n) = heuristic estimate of cost from n to goal
     # f(n) = g(n) + h(n)
 """
-function a_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S}) where {S,A,T,C<:AbstractCostModel{T},E <: AbstractLowLevelEnv{S,A,C}}
+function a_star_impl!(solver, env::E, base_path, frontier, explored) where {E <: AbstractLowLevelEnv}
     logger_enter_a_star!(solver)
-    cost_map = Dict{S,T}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
-    predecessor_map = Dict{S,PathNode{S,A}}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
+    cost_map = Dict{state_type(env),cost_type(env)}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
+    predecessor_map = Dict{state_type(env),node_type(env)}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
     default_cost = get_infeasible_cost(env)
     opt_status = false
     while !isempty(frontier)
@@ -63,7 +68,7 @@ function a_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S
         logger_step_a_star!(solver,env,base_path,s,q_cost)
         if is_goal(env,s)
             opt_status = true
-            r_path = reconstruct_path(base_path,predecessor_map,s,cost_so_far)
+            r_path = reconstruct_path!(base_path,predecessor_map,s,cost_so_far)
             logger_exit_a_star!(solver,r_path,cost_so_far,opt_status)
             return r_path, cost_so_far
         elseif check_termination_criteria(solver,env,cost_so_far,s)
@@ -90,7 +95,7 @@ function a_star_impl!(solver, env::E, base_path::Path, frontier, explored::Set{S
         push!(explored,s)
     end
     # println("A*: Returning Infeasible")
-    path = Path{S,A,T}(cost=get_infeasible_cost(env))
+    path = path_type(env)(cost=get_infeasible_cost(env))
     cost = path.cost # get_infeasible_cost(env)
     logger_exit_a_star!(solver,path,cost,opt_status)
     return path, cost
@@ -104,9 +109,8 @@ end
     that operates on an Environment and initial state.
 
     args:
-    - `env::E <: AbstractLowLevelEnv{S,A,C}`
-    - `start_state::S`
-    - `heuristic::Function=(env,s)->C(0)`
+    - `env::E <: AbstractLowLevelEnv`
+    - `start_state`
 
     The following methods must be implemented:
     - is_goal(env::E,s::S)
@@ -116,20 +120,20 @@ end
     - get_transition_cost(env::E,s::S,a::A)
     - violates_constraints(env::E,s::S,path::Path{S,A,C})
 """
-function a_star(solver, env::E,path::P,initial_cost::T=get_cost(path)) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    frontier = PriorityQueue{Tuple{T, S}, T}()
+function a_star(solver, env::E,path::P,initial_cost=get_cost(path)) where {E<:AbstractLowLevelEnv,P<:AbstractPath}
+    frontier = PriorityQueue{Tuple{cost_type(env), state_type(env)}, cost_type(env)}()
     enqueue!(frontier, (initial_cost, get_final_state(path))=>initial_cost)
-    explored = Set{S}()
+    explored = Set{state_type(env)}()
     a_star_impl!(solver,env,path,frontier,explored)
 end
-function a_star(env::E,path::P,initial_cost::T=get_cost(path)) where {S,A,T,P<:Path{S,A,T},C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
+function a_star(env::E,path::P,initial_cost=get_cost(path)) where {E<:AbstractLowLevelEnv,P<:AbstractPath}
     a_star(nothing,env,path,initial_cost)
 end
-function a_star(solver, env::E,start_state::S,initial_cost::T=get_initial_cost(env)) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    path = Path{S,A,T}(s0=start_state,cost=initial_cost)
+function a_star(solver, env::E,start_state,initial_cost=get_initial_cost(env)) where {E<:AbstractLowLevelEnv}
+    path = path_type(env)(s0=start_state,cost=initial_cost)
     a_star(solver,env,path,initial_cost)
 end
-function a_star(env::E,start_state::S,initial_cost::T=get_initial_cost(env)) where {S,A,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
-    path = Path{S,A,T}(s0=start_state,cost=initial_cost)
+function a_star(env::E,start_state,initial_cost=get_initial_cost(env)) where {E<:AbstractLowLevelEnv}
+    path = path_type(env)(s0=start_state,cost=initial_cost)
     a_star(env,path,initial_cost)
 end

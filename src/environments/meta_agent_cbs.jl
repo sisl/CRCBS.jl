@@ -19,7 +19,7 @@ end
 Action(actions::T) where {T<:Tuple} = Action([actions...])
 Base.hash(s::State{S}) where {S} = hash(s.states)
 Base.:(==)(s1::S,s2::S) where {S<:State} = hash(s1) == hash(s2)
-Base.string(a::Action) = string("(",prod(map(a->"$(string(a)),",s.actions)),")")
+Base.string(a::Action) = string("(",prod(map(a->"$(string(a)),",a.actions)),")")
 
 get_start_index(path::Path{MS,A,C}) where {S<:AbstractGraphState,MS<:State{S},A,C} = get_t(get_initial_state(path).states[1])
 
@@ -63,21 +63,73 @@ function construct_team_env(envs::Vector{E},idxs::Vector{Int},c_model::C) where 
     model = MetaCostModel(c_model,length(envs))
     TeamMetaEnv{S,A,T,C,E}(envs=envs,agent_idxs=idxs,cost_model=model)
 end
+
+function split_meta_path_node(path_node::PathNode{State{S},Action{A}}) where {S,A,C}
+    return map(args->PathNode(args...), zip(
+        get_s(path_node).states,
+        get_a(path_node).actions,
+        get_sp(path_node).states
+        ))
+end
+function construct_meta_path_node(nodes::Vector{N}) where {N<:PathNode}
+    PathNode(
+        State(map(get_s,nodes)),
+        Action(map(get_a,nodes)),
+        State(map(get_sp,nodes)),
+    )
+end
+construct_meta_path_node(nodes::Tuple) = construct_meta_path_node([nodes...])
+
+# TODO implement MetaPath
+# @with_kw struct MetaPath{S,A,C} <: AbstractPath
+#     paths       ::Vector{Path{S,A,C}}   = Vector{Path{S,A,C}}()
+#     s0          ::State                 = get_s(get(path_nodes, 1, PathNode{S,A}()))
+#     cost        ::MetaCost{C}           = MetaCost(map(get_cost,paths),typemax(C))
+# end
+# state_type(p::MetaPath{S,A,C}) where {S,A,C}    = State{S}
+# action_type(p::MetaPath{S,A,C}) where {S,A,C}   = Action{A}
+# cost_type(p::MetaPath{S,A,C}) where {S,A,C}     = MetaCost{C}
+# Base.get(p::MetaPath,i,default=node_type(p)()) = construct_meta_path_node(map(p->get(p,i),p.paths))
+# Base.getindex(p::MetaPath,i)    = construct_meta_path_node(map(p->getindex(p,i),p.paths))
+# function Base.cat(p::P,x::N,args...) where {P<:MetaPath,N<:PathNode}
+#     new_paths = typeof(p.paths)()
+#     for (path,node) in zip(p.paths,split_path_node(x))
+#         setindex!(path,node,i)
+#         push!(new_paths,cat(path,node,args...))
+#     end
+#     P(s0=p.s0,paths=new_paths,cost=p.cost)
+# end
+# function Base.setindex!(p::P,x,i) where {P<:MetaPath}
+#     for (path,node) in zip(p.paths,split_path_node(x))
+#         setindex!(path,node,i)
+#     end
+# end
+# Base.length(p::MetaPath) = maximum(map(length,p.paths))
+# function Base.push!(p::MetaPath{S,A,C},n::PathNode{State{S},Action{A}}) where {S,A,C}
+#     for (path,node) in zip(p.paths,split_path_node(n))
+#         push!(path,node)
+#     end
+#     p
+# end
+# get_cost(p::MetaPath) = p.cost
+# function set_cost!(p::MetaPath,meta_cost::MetaCost)
+#     for (path,cost) in zip(p.paths,meta_cost.independent_costs)
+#         set_cost!(path)
+#     end
+#     p.cost = meta_cost.cost
+# end
+# Base.copy(p::MetaPath) = MetaPath(s0=p.s0,paths=map(copy,p.paths),cost=p.cost)
+# get_initial_state(path::MetaPath) = State(map(get_initial_state,path.paths))
+# get_final_state(path::MetaPath) = State(map(get_final_state,path.paths))
+
 function construct_meta_path(paths::Vector{P},cost) where {S,A,C,P<:Path{S,A,C}}
-    @assert all(map(length,paths) .- maximum(map(length,paths)) .== 0)
+    @assert all(map(length,paths) .- maximum(map(length,paths)) .== 0) "$(map(length,paths))"
     starts = map(get_initial_state,paths)
     costs = map(get_cost, paths)
-    # path_nodes = []
     path_nodes = Vector{PathNode{State{S},Action{A}}}()
     for nodes in zip(map(p->p.path_nodes,paths)...)
-        n = PathNode(
-            State(map(get_s, nodes)),
-            Action(map(get_a, nodes)),
-            State(map(get_sp, nodes))
-        )
-        push!(path_nodes, n)
+        push!(path_nodes, construct_meta_path_node(nodes))
     end
-    # path_nodes = [path_nodes...]
     meta_path = Path(
         path_nodes = path_nodes,
         s0=State(starts),
@@ -107,15 +159,8 @@ function split_path(path::Path{State{S},Action{A},MetaCost{C}}) where {S,A,C}
     paths = [Path{S,A,C}(s0=path.s0.states[i],cost=get_cost(path).independent_costs[i]) for i in 1:N]
     for t in 1:length(path)
         path_node = get_path_node(path, t)
-        for i in 1:N
-            push!(
-                paths[i],
-                PathNode(
-                    get_s(path_node).states[i],
-                    get_a(path_node).actions[i],
-                    get_sp(path_node).states[i]
-                    )
-                )
+        for (p,n) in zip(paths,split_meta_path_node(path_node))
+            push!(p,n)
         end
     end
     return paths
