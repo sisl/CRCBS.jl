@@ -101,7 +101,7 @@ end
 # FatPaths (SoftConflictTable)
 let
     mapf = CRCBS.init_fat_path_mapf(init_mapf_1())
-    table = mapf.env.cost_model.cost_models[2].table
+    table = mapf.env.cost_model.cost_models[2].model.table
 
     env = build_env(mapf,initialize_root_node(mapf),2)
 

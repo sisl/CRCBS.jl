@@ -27,5 +27,6 @@ include("environments/multi_stage_cbs.jl")
 include("environments/meta_agent_cbs.jl")
 
 include("helpers/problem_instances.jl")
+include("helpers/mapf_parser.jl")
 
 end # module
