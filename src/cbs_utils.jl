@@ -317,7 +317,7 @@ function detect_conflicts(paths::Vector{P}, idxs=collect(1:length(paths)),args..
     conflict_table
 end
 function detect_conflicts(solution::L, idxs=collect(1:length(get_paths(solution))),args...) where {L<:LowLevelSolution}
-    conflict_table = ConflictTable{SymmetricConflict{node_type(P())}}()
+    conflict_table = ConflictTable{SymmetricConflict{node_type(solution)}}()
     detect_conflicts!(conflict_table,solution,idxs,args...)
     conflict_table
 end

@@ -244,17 +244,25 @@ function cbs!(solver,mapf)
         enqueue!(priority_queue, node => get_cost(node))
     end
 
-    while ~isempty(priority_queue)
-        # node = cbs_dequeue_and_preprocess!(solver,priority_queue,mapf)
-        node = dequeue!(priority_queue)
-        logger_dequeue_cbs_node!(solver,node)
-        # check for conflicts
-        conflict = get_next_conflict(node.conflict_table)
-        if !is_valid(conflict)
-            logger_exit_cbs_optimal!(solver,node)
-            return node.solution, get_cost(node)
-        elseif ~cbs_bypass!(solver,mapf,node,priority_queue)
-            cbs_branch!(solver,mapf,node,conflict,priority_queue)
+    try
+        while ~isempty(priority_queue)
+            # node = cbs_dequeue_and_preprocess!(solver,priority_queue,mapf)
+            node = dequeue!(priority_queue)
+            logger_dequeue_cbs_node!(solver,node)
+            # check for conflicts
+            conflict = get_next_conflict(node.conflict_table)
+            if !is_valid(conflict)
+                logger_exit_cbs_optimal!(solver,node)
+                return node.solution, get_cost(node)
+            elseif ~cbs_bypass!(solver,mapf,node,priority_queue)
+                cbs_branch!(solver,mapf,node,conflict,priority_queue)
+            end
+        end
+    catch e
+        if isa(e,SolverException)
+            showerror(stderr,e)
+        else
+            rethrow(e)
         end
     end
     println("No Solution Found. Returning default solution")

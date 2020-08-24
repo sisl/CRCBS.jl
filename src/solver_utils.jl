@@ -9,6 +9,26 @@ struct SolverException <: Exception
     msg::String
 end
 
+export
+	SolverStatus,
+	time_out_status,
+	iteration_max_out_status,
+	set_time_out_status!,
+	set_iteration_max_out_status!
+
+@with_kw mutable struct SolverStatus
+	timed_out::Bool = false
+	iterations_maxed_out::Bool = false
+end
+time_out_status(status::SolverStatus) = status.timed_out
+iteration_max_out_status(status::SolverStatus) = status.iterations_maxed_out
+function set_time_out_status!(status::SolverStatus,val=true)
+	status.timed_out = val
+end
+function set_iteration_max_out_status!(status::SolverStatus,val=true)
+	status.iterations_maxed_out = val
+end
+
 export SolverLogger
 
 """
@@ -28,6 +48,7 @@ gap (including upper and lower bound), etc.
     best_cost       ::C             = typemax(C)
     verbosity       ::Int           = 0
     DEBUG           ::Bool          = false
+	status			::SolverStatus	= SolverStatus()
 end
 cost_type(logger::SolverLogger{C}) where {C} = C
 cost_type(solver) = cost_type(get_logger(solver))
@@ -59,6 +80,7 @@ JuMP.lower_bound(logger)  = get_logger(logger).lower_bound
 best_cost(logger)         = get_logger(logger).best_cost
 verbosity(logger)         = get_logger(logger).verbosity
 debug(logger)             = get_logger(logger).DEBUG
+status(logger) 			= get_logger(logger).status
 
 export
 	set_iterations!,
@@ -125,30 +147,39 @@ end
 function set_debug!(solver,val)
 	get_logger(solver).DEBUG = val
 end
+for op in [:set_time_out_status!,:set_iteration_max_out_status!,
+		:time_out_status,:iteration_max_out_status]
+	@eval $op(logger,args...) = $op(get_logger(logger).status,args...)
+end
 
 export
     optimality_gap,
-	check_time,
+	check_time!,
 	check_iterations,
 	enforce_time_limit,
 	enforce_iteration_limit,
     increment_iteration_count!
 
 optimality_gap(logger) = best_cost(logger) .- lower_bound(logger)
-function check_time(logger)
+function check_time!(logger)
     t = time()
     if t >= deadline(logger) || t - start_time(logger) >= runtime_limit(logger)
+		set_time_out_status!(logger,true)
         return true
     end
     return false
 end
 function enforce_time_limit(logger)
-    if check_time(logger)
+    if check_time!(logger)
         throw(SolverException("Solver time limit exceeded! deadline was $(deadline(logger)), runtime_limit was $(runtime_limit(logger))"))
     end
 end
 function check_iterations(logger)
-    iterations(logger) >= iteration_limit(logger)
+    if iterations(logger) >= iteration_limit(logger)
+		set_iteration_max_out_status!(logger,true)
+		return true
+	end
+	return false
 end
 function enforce_iteration_limit(logger)
     if check_iterations(logger)
@@ -176,6 +207,8 @@ function reset_solver!(logger::SolverLogger)
     set_best_cost!(logger,typemax(cost_type(logger)))
     set_lower_bound!(logger,typemin(cost_type(logger)))
     set_start_time!(logger,time())
+	set_time_out_status!(logger,false)
+	set_iteration_max_out_status!(logger,false)
     logger
 end
 reset_solver!(solver)               = reset_solver!(get_logger(solver))

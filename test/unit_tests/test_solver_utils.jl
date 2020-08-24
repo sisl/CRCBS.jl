@@ -6,6 +6,14 @@ let
     verbosity(logger)
     debug(logger)
 
+	set_time_out_status!(logger,true)
+	@test time_out_status(logger)
+	set_iteration_max_out_status!(logger,true)
+	@test iteration_max_out_status(logger)
+	reset_solver!(logger)
+	@test !time_out_status(logger)
+	@test !iteration_max_out_status(logger)
+
     iters = iterations(logger)
     increment_iteration_count!(logger)
     @test iterations(logger) == iters + 1
