@@ -28,5 +28,6 @@ include("environments/meta_agent_cbs.jl")
 
 include("helpers/problem_instances.jl")
 include("helpers/mapf_parser.jl")
+include("helpers/profiling.jl")
 
 end # module

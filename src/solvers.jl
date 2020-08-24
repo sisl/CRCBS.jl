@@ -116,6 +116,7 @@ function logger_dequeue_cbs_node!(solver,node)
     enforce_iteration_limit(solver)
 end
 function logger_exit_cbs_optimal!(solver,node)
+    set_best_cost!(solver,get_cost(node))
     if verbosity(solver) >= 0
         println("Optimal Solution Found! Cost = $(get_cost(node))")
     end
