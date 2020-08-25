@@ -2,48 +2,66 @@ using CRCBS
 using GraphUtils
 using Test, Logging
 using TOML
+using Parameters
 
 
-function profile_solver!(solver,mapf)
-    reset_solver!(solver)
-    (solution, cost), t, bytes, gctime, memallocs = @timed solve!(solver,mapf)
-    timer_results = (
-        t=t,
-        bytes=bytes,
-        gctime=gctime,
-        memallocs=memallocs
-        )
-    return solution, timer_results
+"""
+    FatPathsSolver{S}
+
+A simple wrapper around a MAPF solver so that profile_solver! will dispatch
+correctly (by transforming adding the fat paths cost to the problem before
+solving it).
+"""
+@with_kw struct FatPathsSolver{S}
+    solver::S = CBSSolver(AStar{NTuple{2,Float64}}())
 end
-function profile_fat_paths_solver!(solver,mapf)
+function CRCBS.profile_solver!(solver::FatPathsSolver,mapf)
     fp_mapf = CRCBS.init_fat_path_mapf(mapf)
-    profile_solver!(solver,fp_mapf)
+    CRCBS.profile_solver!(solver.solver,fp_mapf)
 end
+CRCBS.get_logger(solver::FatPathsSolver) = get_logger(solver.solver)
+CRCBS.low_level(solver::FatPathsSolver) = low_level(solver.solver)
+
 
 # Problem Instances
-scen_file = joinpath(ENV["HOME"],"Repos/mapf_benchmarks/scenarios/scen-even/empty-8-8-even-10.scen")
+base_scen_path = joinpath(ENV["HOME"],"Repos/mapf_benchmarks/scenarios")
 map_path = joinpath(ENV["HOME"],"Repos/mapf_benchmarks/maps/")
-scenario = CRCBS.parse_mapf_scenario(scen_file,map_path)
-base_mapf = CRCBS.construct_base_mapf(scenario)
-mapf = CRCBS.gen_mapf_problem_from_scenario(base_mapf,scenario,1,15)
-fp_mapf = CRCBS.init_fat_path_mapf(mapf)
-fat_path_solver = CBSSolver(AStar{cost_type(fp_mapf)}())
-solver = CBSSolver(AStar{cost_type(mapf)}())
+results_path = "/scratch/mapf_experiments"
 
-config = [
-    RunTime(),IterationCount(),SolutionCost(),NumConflicts(),RobotPaths(),
-    TimeOutStatus(),IterationMaxOutStatus()
-]
+EXPERIMENTS_DIR = "/scratch/mapf_experiments/fat_path_experiments"
+PROBLEM_DIR = joinpath(EXPERIMENTS_DIR,"problems")
+RESULTS_DIR = joinpath(EXPERIMENTS_DIR,"results")
 
-solution, timer_results = profile_solver!(solver,mapf)
-results_dict = CRCBS.compile_results(solver,config,solution,timer_results)
-
-solution, timer_results = profile_fat_paths_solver!(fat_path_solver,mapf)
-results_dict = CRCBS.compile_results(fat_path_solver,config,solution,timer_results)
-
-results_path = joinpath(ENV["HOME"],".julia/dev/CRCBS/test/results.toml")
-open(results_path,"w") do io
-    TOML.print(io,results_dict)
+config = (
+    solver_configs = [
+        (
+            solver=CBSSolver(),
+            results_path=joinpath(RESULTS_DIR,"CBSSolver")
+        ),
+        (
+            solver=FatPathsSolver(),
+            results_path=joinpath(RESULTS_DIR,"FatPathsSolver")
+        ),
+    ],
+    problem_dir = PROBLEM_DIR,
+    feats = [
+        RunTime(),IterationCount(),SolutionCost(),NumConflicts(),RobotPaths(),
+        TimeOutStatus(),IterationMaxOutStatus(),
+        MemAllocs(),ByteCount(),GCTime()
+    ]
+)
+for solver_config in config.solver_configs
+    set_runtime_limit!(solver_config.solver,50)
+    set_iteration_limit!(solver_config.solver,5000)
+    set_iteration_limit!(low_level(solver_config.solver),1000)
 end
-toml_dict = TOML.parsefile(results_path)
-load_feature(SolutionCost(),toml_dict)
+
+BenchmarkInterface.generate_problem_files_from_moving_ai(
+    [joinpath(base_scen_path,"scen-even/empty-8-8-even-10.scen")],
+    map_path,
+    PROBLEM_DIR
+)
+
+loader = BenchmarkInterface.init_mapf_loader(PROBLEM_DIR)
+
+run_profiling(config,loader)

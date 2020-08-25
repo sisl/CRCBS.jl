@@ -1,5 +1,21 @@
-# The code here is an interface to the Moving AI MAPF benchmark suite found at
-# https://www.movingai.com/benchmarks/index.html
+# This module provides an interface to the Moving AI MAPF benchmark suite found
+# at https://www.movingai.com/benchmarks/index.html
+export BenchmarkInterface
+
+module BenchmarkInterface
+
+using GraphUtils
+using TOML
+using ..CRCBS
+
+struct ScenarioAgentSpec
+    start::Tuple{Int,Int}
+    goal::Tuple{Int,Int}
+end
+struct MAPFScenario
+    mapfile::String
+    buckets::Vector{Vector{ScenarioAgentSpec}}
+end
 
 """
     parse_map_file
@@ -66,14 +82,6 @@ function parse_map_file(filename,encoding=Dict('@'=>1,'O'=>1,'T'=>1,'W'=>1,'.'=>
     return grid
 end
 
-struct ScenarioAgentSpec
-    start::Tuple{Int,Int}
-    goal::Tuple{Int,Int}
-end
-struct MAPFScenario
-    mapfile::String
-    buckets::Vector{Vector{ScenarioAgentSpec}}
-end
 
 """
     parse_mapf_scenario(filename,map_path="")
@@ -115,8 +123,14 @@ function parse_mapf_scenario(filename,map_path="")
             ))
         end
     end
+    if isfile(map_path)
+        mapfile = map_path
+    else
+        mapfile = joinpath(map_path,mapfile)
+    end
+    @assert isfile(mapfile)
     return MAPFScenario(
-        joinpath(map_path,mapfile),
+        mapfile,
         map(k->buckets[k],sort(collect(keys(buckets))))
     )
 end
@@ -127,7 +141,6 @@ end
 function generate_state_map(env::GridFactoryEnvironment)
     (x,y) -> CBSEnv.State(env.vtx_map[x,y],0)
 end
-
 
 function construct_base_mapf(scen::MAPFScenario,env_generator=generate_cbs_env)
     grid = parse_map_file(scen.mapfile)
@@ -155,3 +168,122 @@ function gen_mapf_problem_from_scenario(mapf::M,
     end
     M(mapf.env,starts,goals)
 end
+
+
+
+"""
+    MovingAIBenchmarkFile
+
+Points to a TOML-formatted file that contains the following elements:
+    scenario = "/path/to/scenario/file.scen"
+    map_file = "/path/to/map/file.map"
+    bucket_idx = 1 # an integer
+    n_agents = 2 # an integer
+
+Extension is .bm
+"""
+struct MovingAIBenchmarkFile
+    path::String
+end
+
+function pad_file_number(id,pad=4)
+    # hacky 0 padding to avoid dependency on Sprintf
+    padding = prod(map(i->"0",1:(pad-length(string(id)))))
+    return "$(padding)$(id)"
+end
+
+function generate_problem_files_from_moving_ai(
+        scenario_paths,
+        base_map_path,
+        problem_dir
+        ;
+        verbose=true,
+        pad=4,
+        )
+    problem_id = 1
+    mkpath(problem_dir)
+    for scen_file in scenario_paths
+        scenario = parse_mapf_scenario(scen_file,base_map_path)
+        for (bucket_idx,bucket) in enumerate(scenario.buckets)
+            for n_agents in 2:length(bucket)
+                config_dict = Dict(
+                    "scenario" => scen_file,
+                    "map_file" => scenario.mapfile,
+                    "bucket_idx" => bucket_idx,
+                    "n_agents" => n_agents,
+                )
+                problem_filename = joinpath(
+                    problem_dir,"problem_$(pad_file_number(problem_id,pad)).bm")
+                if isfile(problem_filename)
+                    if verbose
+                        println("File ",problem_filename," already exists.",
+                            " Skipping...")
+                    end
+                else
+                    open(problem_filename,"w") do io
+                        TOML.print(io,config_dict)
+                    end
+                end
+                problem_id += 1
+            end
+        end
+    end
+    return true
+end
+
+"""
+    ProblemLoader
+
+Can be queried via `get_problem(iterator,problem_filename)` to return MAPF
+instances.
+"""
+struct ProblemLoader{M}
+    scenarios::Dict{String,MAPFScenario}
+    base_mapfs::Dict{String,M}
+end
+
+function init_mapf_loader(problem_dir)
+    scenarios = Dict{String,MAPFScenario}()
+    base_mapfs = Dict{String,MAPF}()
+    for problem_file in readdir(problem_dir;join=true)
+        problem_config = TOML.parsefile(problem_file)
+        scen_file   = problem_config["scenario"]
+        map_file    = problem_config["map_file"]
+        if !haskey(scenarios,scen_file)
+            scenarios[scen_file] = parse_mapf_scenario(
+                scen_file, problem_config["map_file"]
+            )
+        end
+        if !haskey(base_mapfs,map_file)
+            base_mapfs[map_file] = construct_base_mapf(
+                scenarios[scen_file]
+            )
+        end
+    end
+    return ProblemLoader(scenarios,base_mapfs)
+end
+
+function CRCBS.load_problem(loader::ProblemLoader,probfile)
+    problem_config = TOML.parsefile(probfile)
+    scen_file   = problem_config["scenario"]
+    map_file    = problem_config["scenario"]
+    bucket_idx  = problem_config["bucket_idx"]
+    n_agents    = problem_config["n_agents"]
+    if !haskey(loader.scenarios,scen_file)
+        loader.scenarios[scen_file] = parse_mapf_scenario(
+            scen_file, problem_config["map_file"]
+        )
+    end
+    if !haskey(loader.base_mapfs,map_file)
+        loader.base_mapfs[map_file] = construct_base_mapf(
+            loader.scenarios[scen_file]
+        )
+    end
+    scenario = loader.scenarios[scen_file]
+    base_mapf = loader.base_mapfs[map_file]
+    mapf = gen_mapf_problem_from_scenario(
+        base_mapf, scenario, bucket_idx, n_agents)
+    return mapf
+end
+
+end # moduler

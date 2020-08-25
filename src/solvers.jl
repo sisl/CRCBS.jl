@@ -66,8 +66,8 @@ export
     low_level
 
 abstract type BiLevelPlanner end
-abstract type AbstractCBSSolver <: BiLevelPlanner end
 low_level(solver::BiLevelPlanner) = solver.low_level_planner
+abstract type AbstractCBSSolver <: BiLevelPlanner end
 function set_best_cost!(solver::AbstractCBSSolver,cost)
     set_best_cost!(get_logger(solver),cost)
     set_best_cost!(low_level(solver),cost)
@@ -260,7 +260,8 @@ function cbs!(solver,mapf)
         end
     catch e
         if isa(e,SolverException)
-            showerror(stderr,e)
+            bt = catch_backtrace()
+            showerror(stdout, e, bt)
         else
             rethrow(e)
         end

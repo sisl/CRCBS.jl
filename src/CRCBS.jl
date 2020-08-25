@@ -4,6 +4,7 @@ using Parameters
 using DataStructures
 using LightGraphs, MetaGraphs, GraphUtils
 using LinearAlgebra, SparseArrays
+using TOML
 # using NearestNeighbors
 using JuMP
 
@@ -26,8 +27,8 @@ include("environments/cbs.jl")
 include("environments/multi_stage_cbs.jl")
 include("environments/meta_agent_cbs.jl")
 
-include("helpers/problem_instances.jl")
-include("helpers/mapf_parser.jl")
 include("helpers/profiling.jl")
+include("helpers/problem_instances.jl")
+include("helpers/benchmark_interface.jl")
 
 end # module
