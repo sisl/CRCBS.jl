@@ -52,7 +52,7 @@ config = (
 )
 for solver_config in config.solver_configs
     set_runtime_limit!(solver_config.solver,50)
-    set_iteration_limit!(solver_config.solver,5000)
+    set_iteration_limit!(solver_config.solver,10000)
     set_iteration_limit!(low_level(solver_config.solver),1000)
 end
 
