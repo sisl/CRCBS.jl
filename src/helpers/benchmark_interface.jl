@@ -266,7 +266,7 @@ end
 function CRCBS.load_problem(loader::ProblemLoader,probfile)
     problem_config = TOML.parsefile(probfile)
     scen_file   = problem_config["scenario"]
-    map_file    = problem_config["scenario"]
+    map_file    = problem_config["map_file"]
     bucket_idx  = problem_config["bucket_idx"]
     n_agents    = problem_config["n_agents"]
     if !haskey(loader.scenarios,scen_file)
