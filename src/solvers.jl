@@ -117,9 +117,10 @@ function logger_dequeue_cbs_node!(solver,node)
 end
 function logger_exit_cbs_optimal!(solver,node)
     set_best_cost!(solver,get_cost(node))
-    if verbosity(solver) >= 0
-        println("Optimal Solution Found! Cost = $(get_cost(node))")
-    end
+    log_info(-1,solver,"Optimal solution found by CBS! Cost = $(get_cost(node))")
+    # if verbosity(solver) >= 0
+    #     println("Optimal Solution Found! Cost = $(get_cost(node))")
+    # end
 end
 function logger_cbs_add_constraint!(solver,node,constraint,mapf)
     increment_iteration_count!(solver)

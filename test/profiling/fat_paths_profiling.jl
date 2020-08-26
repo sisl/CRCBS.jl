@@ -64,4 +64,5 @@ BenchmarkInterface.generate_problem_files_from_moving_ai(
 
 loader = BenchmarkInterface.init_mapf_loader(PROBLEM_DIR)
 
-run_profiling(config,loader)
+BenchmarkInterface.profile_with_skipping!(config,loader)
+# run_profiling(config,loader)

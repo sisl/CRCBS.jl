@@ -13,6 +13,7 @@ export
 	SolverStatus,
 	time_out_status,
 	iteration_max_out_status,
+	failed_status,
 	set_time_out_status!,
 	set_iteration_max_out_status!
 
@@ -22,6 +23,7 @@ export
 end
 time_out_status(status::SolverStatus) = status.timed_out
 iteration_max_out_status(status::SolverStatus) = status.iterations_maxed_out
+failed_status(status) = time_out_status(status) || iteration_max_out_status(status)
 function set_time_out_status!(status::SolverStatus,val=true)
 	status.timed_out = val
 end

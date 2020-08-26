@@ -240,50 +240,116 @@ instances.
 struct ProblemLoader{M}
     scenarios::Dict{String,MAPFScenario}
     base_mapfs::Dict{String,M}
+    ProblemLoader() = new{MAPF}(
+        Dict{String,MAPFScenario}(),
+        Dict{String,MAPF}()
+    )
+end
+function get_scenario!(loader::ProblemLoader,problem_config::Dict)
+    scen_file   = problem_config["scenario"]
+    map_file    = problem_config["map_file"]
+    if !haskey(loader.scenarios,scen_file)
+        loader.scenarios[scen_file] = parse_mapf_scenario(scen_file, map_file)
+    end
+    return loader.scenarios[scen_file]
+end
+function get_base_mapf!(loader::ProblemLoader,problem_config::Dict)
+    scen_file   = problem_config["scenario"]
+    map_file    = problem_config["map_file"]
+    scenario = get_scenario!(loader,problem_config)
+    if !haskey(loader.base_mapfs,map_file)
+        loader.base_mapfs[map_file] = construct_base_mapf(scenario)
+    end
+    return loader.base_mapfs[map_file]
+end
+
+struct LoaderState
+    probfile_idx::Int
 end
 
 function init_mapf_loader(problem_dir)
-    scenarios = Dict{String,MAPFScenario}()
-    base_mapfs = Dict{String,MAPF}()
+    loader = ProblemLoader()
     for problem_file in readdir(problem_dir;join=true)
         problem_config = TOML.parsefile(problem_file)
-        scen_file   = problem_config["scenario"]
-        map_file    = problem_config["map_file"]
-        if !haskey(scenarios,scen_file)
-            scenarios[scen_file] = parse_mapf_scenario(
-                scen_file, problem_config["map_file"]
-            )
-        end
-        if !haskey(base_mapfs,map_file)
-            base_mapfs[map_file] = construct_base_mapf(
-                scenarios[scen_file]
-            )
-        end
+        get_scenario!(loader,problem_config)
+        get_base_mapf!(loader,problem_config)
     end
-    return ProblemLoader(scenarios,base_mapfs)
+    return loader
 end
 
 function CRCBS.load_problem(loader::ProblemLoader,probfile)
     problem_config = TOML.parsefile(probfile)
-    scen_file   = problem_config["scenario"]
-    map_file    = problem_config["map_file"]
+    scenario = get_scenario!(loader,problem_config)
+    base_mapf = get_base_mapf!(loader,problem_config)
     bucket_idx  = problem_config["bucket_idx"]
     n_agents    = problem_config["n_agents"]
-    if !haskey(loader.scenarios,scen_file)
-        loader.scenarios[scen_file] = parse_mapf_scenario(
-            scen_file, problem_config["map_file"]
-        )
-    end
-    if !haskey(loader.base_mapfs,map_file)
-        loader.base_mapfs[map_file] = construct_base_mapf(
-            loader.scenarios[scen_file]
-        )
-    end
-    scenario = loader.scenarios[scen_file]
-    base_mapf = loader.base_mapfs[map_file]
     mapf = gen_mapf_problem_from_scenario(
         base_mapf, scenario, bucket_idx, n_agents)
     return mapf
+end
+
+"""
+    is_same_scenario_and_bucket(config1,config2)
+
+Checks that two problem_configs are on the same scenario and bucket.
+"""
+function is_same_scenario_and_bucket(config1,config2)
+    for k in ["scenario","bucket_idx"]
+        if !(haskey(config1,k) && haskey(config2,k))
+            return false
+        end
+        if !(config1[k] == config2[k])
+            return false
+        end
+    end
+    return true
+end
+
+"""
+    profile_with_skipping!(config,loader)
+
+Follow the Moving AI benchmarking paradigm, where problems are skipped if the
+solver has already failed on the same problem instance with fewer agents.
+"""
+function profile_with_skipping!(config,loader)
+    for solver_config in config.solver_configs
+        mkpath(solver_config.results_path)
+    end
+    previous_config = Dict{String,Any}()
+    for problem_file in readdir(config.problem_dir;join=true)
+        problem_name = splitext(splitdir(problem_file)[end])[1]
+        problem_config = TOML.parsefile(problem_file)
+        # Reset all solvers if we have moved to a new scenario or bucket
+        if !is_same_scenario_and_bucket(problem_config,previous_config)
+            # log_info(-1,1,"Resetting solvers")
+            previous_config = problem_config
+            for solver_config in config.solver_configs
+                reset_solver!(solver_config.solver)
+            end
+        end
+        scenario = get_scenario!(loader,problem_config)
+        base_mapf = get_base_mapf!(loader,problem_config)
+        mapf = load_problem(loader,problem_file)
+        for solver_config in config.solver_configs
+            solver = solver_config.solver
+            if failed_status(solver)
+                log_info(1,solver,"Skipping problem ",problem_name)
+                continue # Keep skipping until new bucket
+            end
+            solution, timer_results = profile_solver!(solver,mapf)
+            results_dict = compile_results(
+                solver,
+                config.feats,
+                solution,
+                timer_results
+                )
+            results_path = solver_config.results_path
+            results_dict["problem_file"] = problem_file
+            open(joinpath(results_path,"$(problem_name).results"),"w") do io
+                TOML.print(io,results_dict)
+            end
+        end
+    end
 end
 
 end # moduler
