@@ -1070,7 +1070,7 @@ function init_fat_path_mapf(mapf)
                 SoftConflictCost(table)
             ),
             heuristic = construct_composite_heuristic(
-                PerfectHeuristic(get_dist_matrix(mapf.env.graph)),
+                PerfectHeuristic((v1,v2)->get_dist_matrix(mapf.env.graph)[v1,v2]),
                 NullHeuristic()
             )
         ),

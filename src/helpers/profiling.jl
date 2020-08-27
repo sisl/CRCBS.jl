@@ -25,7 +25,8 @@ export
     IterationMaxOutStatus
 
 export
-    RobotPaths
+    RobotPaths,
+    RobotSeparation
 
 struct RunTime          <: FeatureExtractor{Float64} end
 struct MemAllocs        <: FeatureExtractor{Float64} end
@@ -40,6 +41,7 @@ struct IterationCount   <: FeatureExtractor{Int} end
 struct TimeOutStatus    <: FeatureExtractor{Bool} end
 struct IterationMaxOutStatus <: FeatureExtractor{Bool} end
 struct RobotPaths       <: FeatureExtractor{Vector{Int}} end
+struct RobotSeparation  <: FeatureExtractor{Vector{Int}} end
 
 export
     extract_feature,
@@ -59,19 +61,35 @@ function extract_feature end
 
 extract_feature(solver,feats::Tuple,args...) = map(feat->extract_feature(solver,feat,args...),feats)
 
-extract_feature(solver,::RunTime,       solution,timer_results) = timer_results.t
-extract_feature(solver,::MemAllocs,     solution,timer_results) = timer_results.memallocs
-extract_feature(solver,::GCTime,        solution,timer_results) = timer_results.gctime
-extract_feature(solver,::ByteCount,     solution,timer_results) = timer_results.bytes
-extract_feature(solver,::SolutionCost,  solution,timer_results) = get_cost(solution)
-extract_feature(solver,::OptimalityGap, solution,timer_results) = optimality_gap(solver)
-extract_feature(solver,::OptimalFlag,   solution,timer_results) = optimality_gap(solver) <= 0
-extract_feature(solver,::FeasibleFlag,  solution,timer_results) = best_cost(solver) < typemax(typeof(best_cost(solver)))
-extract_feature(solver,::NumConflicts,  solution,timer_results) = count_conflicts(detect_conflicts(solution))
-extract_feature(solver,::IterationCount, solution,timer_results) = iterations(solver)
-extract_feature(solver,::TimeOutStatus, solution,timer_results) = time_out_status(solver)
-extract_feature(solver,::IterationMaxOutStatus, solution,timer_results) = iteration_max_out_status(solver)
-extract_feature(solver,::RobotPaths,    solution,timer_results) = convert_to_vertex_lists(solution)
+extract_feature(solver,::RunTime,       mapf,solution,timer_results) = timer_results.t
+extract_feature(solver,::MemAllocs,     mapf,solution,timer_results) = timer_results.memallocs
+extract_feature(solver,::GCTime,        mapf,solution,timer_results) = timer_results.gctime
+extract_feature(solver,::ByteCount,     mapf,solution,timer_results) = timer_results.bytes
+extract_feature(solver,::SolutionCost,  mapf,solution,timer_results) = get_cost(solution)
+extract_feature(solver,::OptimalityGap, mapf,solution,timer_results) = optimality_gap(solver)
+extract_feature(solver,::OptimalFlag,   mapf,solution,timer_results) = optimality_gap(solver) <= 0
+extract_feature(solver,::FeasibleFlag,  mapf,solution,timer_results) = best_cost(solver) < typemax(typeof(best_cost(solver)))
+extract_feature(solver,::NumConflicts,  mapf,solution,timer_results) = count_conflicts(detect_conflicts(solution))
+extract_feature(solver,::IterationCount, mapf,solution,timer_results) = iterations(solver)
+extract_feature(solver,::TimeOutStatus, mapf,solution,timer_results) = time_out_status(solver)
+extract_feature(solver,::IterationMaxOutStatus, mapf,solution,timer_results) = iteration_max_out_status(solver)
+extract_feature(solver,::RobotPaths,    mapf,solution,timer_results) = convert_to_vertex_lists(solution)
+function extract_feature(solver,::RobotSeparation, mapf,solution,timer_results)
+    separation_distances = Vector{Float64}()
+    for (t,nodes) in enumerate(zip(map(p->p.path_nodes,get_paths(solution))...))
+        d_min = Inf
+        for (j,n1) in enumerate(nodes)
+            for (k,n2) in enumerate(nodes)
+                if k <= j
+                    continue
+                end
+                d_min = min(get_distance(mapf,get_sp(n1),get_sp(n2)),d_min)
+            end
+        end
+        push!(separation_distances,d_min)
+    end
+    return separation_distances
+end
 
 function load_feature(feat::FeatureExtractor, results)
     feature_key = string(typeof(feat))
@@ -139,20 +157,21 @@ function run_profiling(config,loader)
         mkpath(solver_config.results_path)
     end
     for problem_file in readdir(config.problem_dir;join=true)
+        problem_name = splitext(splitdir(problem_file)[end])[1]
         mapf = load_problem(loader,problem_file)
         for solver_config in config.solver_configs
             solver = solver_config.solver
-            results_path = solver_config.results_path
+            outfile = joinpath(solver_config.results_path,string(problem_name,".results"))
             solution, timer_results = profile_solver!(solver,mapf)
             results_dict = compile_results(
                 solver,
                 config.feats,
+                mapf,
                 solution,
                 timer_results
                 )
             results_dict["problem_file"] = problem_file
-            problem_name = splitext(splitdir(problem_file)[end])[1]
-            open(joinpath(results_path,"$(problem_name).results"),"w") do io
+            open(outfile,"w") do io
                 TOML.print(io,results_dict)
             end
         end

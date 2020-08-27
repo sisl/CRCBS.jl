@@ -199,6 +199,7 @@ function generate_problem_files_from_moving_ai(
         ;
         verbose=true,
         pad=4,
+        recursive=false
         )
     problem_id = 1
     mkpath(problem_dir)
@@ -332,6 +333,12 @@ function profile_with_skipping!(config,loader)
         mapf = load_problem(loader,problem_file)
         for solver_config in config.solver_configs
             solver = solver_config.solver
+            outfile = joinpath(solver_config.results_path,string(problem_name,".results"))
+            if isfile(outfile)
+                log_info(-1,solver,"Results already stored for ",problem_name,
+                    " at ", outfile)
+                continue
+            end
             if failed_status(solver)
                 log_info(1,solver,"Skipping problem ",problem_name)
                 continue # Keep skipping until new bucket
@@ -340,12 +347,12 @@ function profile_with_skipping!(config,loader)
             results_dict = compile_results(
                 solver,
                 config.feats,
+                mapf,
                 solution,
                 timer_results
                 )
-            results_path = solver_config.results_path
             results_dict["problem_file"] = problem_file
-            open(joinpath(results_path,"$(problem_name).results"),"w") do io
+            open(outfile,"w") do io
                 TOML.print(io,results_dict)
             end
         end

@@ -46,3 +46,4 @@ base_env_type(env)              = typeof(env)
 # TODO implement a check to be sure that no two agents have the same goal
 get_initial_cost(mapf::M) where {M<:AbstractMAPF}           = get_initial_cost(mapf.env)
 get_infeasible_cost(mapf::M) where {M<:AbstractMAPF}        = get_infeasible_cost(mapf.env)
+GraphUtils.get_distance(mapf::AbstractMAPF,args...) = get_distance(mapf.env,args...)

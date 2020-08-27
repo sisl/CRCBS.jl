@@ -46,6 +46,7 @@ config = (
     problem_dir = PROBLEM_DIR,
     feats = [
         RunTime(),IterationCount(),SolutionCost(),NumConflicts(),RobotPaths(),
+        RobotSeparation(),
         TimeOutStatus(),IterationMaxOutStatus(),
         MemAllocs(),ByteCount(),GCTime()
     ]
@@ -56,11 +57,22 @@ for solver_config in config.solver_configs
     set_iteration_limit!(low_level(solver_config.solver),1000)
 end
 
+scen_paths = get_files_matching(base_scen_path,".scen",["Berlin_1_256","Paris_1_256"])
+
 BenchmarkInterface.generate_problem_files_from_moving_ai(
-    [joinpath(base_scen_path,"scen-even/empty-8-8-even-10.scen")],
+    scen_paths,
+    # [joinpath(base_scen_path,"scen-even","empty-8-8-even-10.scen")],
     map_path,
     PROBLEM_DIR
 )
+
+mypath = "/scratch/Repositories/mapf_benchmarks/maps/Berlin_1_256.map"
+scenpath = "/scratch/Repositories/mapf_benchmarks/scenarios/scen-even/Berlin_1_256-even-1.scen"
+indicator_grid = BenchmarkInterface.parse_map_file(mypath)
+vtx_grid = initialize_vtx_grid_from_indicator_grid(indicator_grid)
+G = initialize_grid_graph_from_vtx_grid(vtx_grid)
+
+# construct_factory_env_from_indicator_grid(indicator_grid)
 
 loader = BenchmarkInterface.init_mapf_loader(PROBLEM_DIR)
 

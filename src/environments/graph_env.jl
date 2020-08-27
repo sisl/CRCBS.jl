@@ -55,6 +55,9 @@ get_agent_id(env::GraphEnv)         = env.agent_idx
 get_constraints(env::GraphEnv)      = env.constraints
 get_goal(env::GraphEnv)             = env.goal
 get_heuristic_model(env::GraphEnv)  = env.heuristic
+function GraphUtils.get_distance(env::GraphEnv,s1::AbstractGraphState,s2::AbstractGraphState)
+    get_distance(get_graph(env),get_vtx(s1),get_vtx(s2))
+end
 
 cost_type(env::GraphEnv)            = cost_type(get_cost_model(env))
 
