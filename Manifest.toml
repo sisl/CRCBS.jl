@@ -187,7 +187,7 @@ uuid = "f6369f11-7733-5829-9624-2563aa707210"
 version = "0.10.3"
 
 [[GraphUtils]]
-deps = ["Documenter", "ImageFiltering", "LightGraphs", "LinearAlgebra", "Logging", "MetaGraphs", "Parameters", "Printf", "Random", "Reexport", "SparseArrays", "TOML", "Test"]
+deps = ["Documenter", "ImageFiltering", "LightGraphs", "LinearAlgebra", "Logging", "MetaGraphs", "Parameters", "Printf", "Random", "Reexport", "SortingAlgorithms", "SparseArrays", "TOML", "Test"]
 path = "/home/kylebrown/.julia/dev/GraphUtils"
 uuid = "5d4bc1c0-0fb7-11e9-3252-b1aa07358cab"
 version = "0.1.0"

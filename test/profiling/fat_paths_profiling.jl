@@ -57,7 +57,8 @@ for solver_config in config.solver_configs
     set_iteration_limit!(low_level(solver_config.solver),1000)
 end
 
-scen_paths = get_files_matching(base_scen_path,".scen",["Berlin_1_256","Paris_1_256"])
+# scen_paths = get_files_matching(base_scen_path,".scen",["Berlin_1_256","Paris_1_256"])
+scen_paths = get_files_matching(base_scen_path,".scen",["empty-8-8-even-10"])
 
 BenchmarkInterface.generate_problem_files_from_moving_ai(
     scen_paths,
@@ -66,11 +67,12 @@ BenchmarkInterface.generate_problem_files_from_moving_ai(
     PROBLEM_DIR
 )
 
-mypath = "/scratch/Repositories/mapf_benchmarks/maps/Berlin_1_256.map"
-scenpath = "/scratch/Repositories/mapf_benchmarks/scenarios/scen-even/Berlin_1_256-even-1.scen"
-indicator_grid = BenchmarkInterface.parse_map_file(mypath)
-vtx_grid = initialize_vtx_grid_from_indicator_grid(indicator_grid)
-G = initialize_grid_graph_from_vtx_grid(vtx_grid)
+# mypath = "/scratch/Repositories/mapf_benchmarks/maps/Berlin_1_256.map"
+# scenpath = "/scratch/Repositories/mapf_benchmarks/scenarios/scen-even/Berlin_1_256-even-1.scen"
+# scenepath = joinpath(base_scen_path,"scen-even","empty-8-8-even-10.scen")
+# indicator_grid = BenchmarkInterface.parse_map_file(mypath)
+# vtx_grid = initialize_vtx_grid_from_indicator_grid(indicator_grid)
+# G = initialize_grid_graph_from_vtx_grid(vtx_grid)
 
 # construct_factory_env_from_indicator_grid(indicator_grid)
 
