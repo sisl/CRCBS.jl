@@ -70,14 +70,16 @@ export
 
 Part of cost model interface. Defaults to zero.
 """
-get_initial_cost(model::AbstractCostModel)     = cost_type(model)(0)
+get_initial_cost(model)     = cost_type(model)(0)
+# get_initial_cost(model::AbstractCostModel)     = cost_type(model)(0)
 
 """
     get_infeasible_cost(model)
 
 Part of cost model interface. Defaults to zero.
 """
-get_infeasible_cost(model::AbstractCostModel)  = typemax(cost_type(model))
+get_infeasible_cost(model)  = typemax(cost_type(model))
+# get_infeasible_cost(model::AbstractCostModel)  = typemax(cost_type(model))
 
 # """
 #     get_transition_cost(model,env,s,a,sp)
