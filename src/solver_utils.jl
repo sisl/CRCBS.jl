@@ -227,8 +227,8 @@ function hard_reset_solver!(logger::SolverLogger)
 end
 hard_reset_solver!(solver)          = hard_reset_solver!(get_logger(solver))
 
-get_infeasible_cost(logger::SolverLogger{C}) where {C} = typemax(C)
-get_infeasible_cost(solver) = get_infeasible_cost(get_logger(solver))
+# get_infeasible_cost(logger::SolverLogger{C}) where {C} = typemax(C)
+# get_infeasible_cost(solver) = get_infeasible_cost(get_logger(solver))
 
 
 export

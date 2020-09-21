@@ -15,7 +15,6 @@ global_logger(SimpleLogger(stderr, Logging.Debug))
                   y::AbstractArray{F};
                   rtol::F=sqrt(eps(F)),
                   atol::F=zero(F)) where {F<:AbstractFloat}
-
     # Easy check on matching size
     if length(x) != length(y)
         return false
