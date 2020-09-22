@@ -6,7 +6,7 @@ export MetaAgentCBS_Solver
 Path planner that employs Meta Agent Conflict-Based Search
 """
 @with_kw struct MetaAgentCBS_Solver{L,C} <: AbstractCBSSolver
-    low_level_planner::L    = AStar()
+    low_level_planner::L    = VanillaAStar()
     logger::SolverLogger{C} = SolverLogger{cost_type(low_level_planner)}()
     beta::Int               = 1
 end

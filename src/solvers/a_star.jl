@@ -36,7 +36,9 @@ Fields:
     logger::SolverLogger{C} = SolverLogger{C}()
     replan::Bool            = false
 end
-AStar() = AStar{Float64}()
+# AStar() = AStar{Float64}()
+export VanillaAStar
+VanillaAStar() = AStar{Float64}()
 
 export
     a_star_impl!,
