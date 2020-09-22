@@ -6,6 +6,16 @@ let
     verbosity(logger)
     debug(logger)
 
+	# CRCBS.@macro_log_info(-1,SolverLogger{Int}(),"This message should be printed")
+	@macro_log_info(-1,0,"This message should be printed")
+	@macro_log_info(-1,verbosity(logger),"This message should be printed")
+	@macro_log_info(-1,logger,"This message should be printed")
+	limit = -1
+	@macro_log_info(limit,logger,"This message should be printed")
+	msg = "This message should be printed"
+	@macro_log_info(limit,logger,msg)
+
+
 	set_time_out_status!(logger,true)
 	@test time_out_status(logger)
 	set_iteration_max_out_status!(logger,true)

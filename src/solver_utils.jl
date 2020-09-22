@@ -72,16 +72,17 @@ export
     verbosity,
     debug
 
-iterations(logger)        = get_logger(logger).iterations
-iteration_limit(logger)   = get_logger(logger).iteration_limit
-max_iterations(logger)    = get_logger(logger).max_iterations
-start_time(logger)        = get_logger(logger).start_time
-runtime_limit(logger)     = get_logger(logger).runtime_limit
-deadline(logger)          = get_logger(logger).deadline
-JuMP.lower_bound(logger)  = get_logger(logger).lower_bound
-best_cost(logger)         = get_logger(logger).best_cost
-verbosity(logger)         = get_logger(logger).verbosity
-debug(logger)             = get_logger(logger).DEBUG
+iterations(logger)      = get_logger(logger).iterations
+iteration_limit(logger) = get_logger(logger).iteration_limit
+max_iterations(logger)  = get_logger(logger).max_iterations
+start_time(logger)      = get_logger(logger).start_time
+runtime_limit(logger)   = get_logger(logger).runtime_limit
+deadline(logger)        = get_logger(logger).deadline
+JuMP.lower_bound(logger)= get_logger(logger).lower_bound
+best_cost(logger)       = get_logger(logger).best_cost
+verbosity(logger)       = get_logger(logger).verbosity
+verbosity(val::Int)		= val
+debug(logger)           = get_logger(logger).DEBUG
 status(logger) 			= get_logger(logger).status
 
 export
@@ -256,11 +257,33 @@ export log_info
 """
     log_info
 
-A helper function for printing at various verbosity levels
+A helper macro for printing at various verbosity levels
 """
-function log_info(limit::Int,verbosity::Int,msg...)
+function log_info(limit::Int,verbosity_val::Int,msg...)
     if verbosity > limit || global_verbosity() > limit
         println("[ logger ]: ",msg...)
     end
 end
 log_info(limit::Int,solver,msg...) = log_info(limit,verbosity(solver),msg...)
+
+export @macro_log_info
+
+"""
+    log_info
+
+A helper macro for printing at various verbosity levels.
+Usage:
+	`log_info(limit::Int,level::Int,msg...)`
+	`log_info(limit::Int,solver,msg...)`
+Args:
+* limit::Int - logging threshold
+* level::Int - the verbosity level
+* msg... - message to print if level > limit
+"""
+macro macro_log_info(limit,level,msg...)
+	return quote
+		# The esc() call is key for reliably capturing the input variables
+		verbosity($(esc(level))) < $(esc(limit)) || global_verbosity() < $(esc(limit)) ? nothing :
+			println("[ logger ]: ",$(esc(msg...)))
+	end
+end
