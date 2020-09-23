@@ -6,14 +6,42 @@ let
     verbosity(logger)
     debug(logger)
 
-	# CRCBS.@macro_log_info(-1,SolverLogger{Int}(),"This message should be printed")
-	@macro_log_info(-1,0,"This message should be printed")
-	@macro_log_info(-1,verbosity(logger),"This message should be printed")
-	@macro_log_info(-1,logger,"This message should be printed")
+	# CRCBS.@log_info(-1,SolverLogger{Int}(),"This message should be printed")
+	@log_info(-1,0,"This message should be printed")
+	@log_info(-1,verbosity(logger),"This message should be printed")
+	@log_info(-1,logger,"This message should be printed")
 	limit = -1
-	@macro_log_info(limit,logger,"This message should be printed")
+	@log_info(limit,logger,"This message should be printed")
+	@log_info(limit,logger,"This ","message"," should be printed")
 	msg = "This message should be printed"
-	@macro_log_info(limit,logger,msg)
+	@log_info(limit,logger,msg)
+	@log_info(limit,logger)
+	x = 1
+    @log_info(-1,logger,"$x",string(limit)," from s = ",string(limit),"for env ",string(cost_type(logger)), " with env.goal = ")
+
+	# macro checks(a,b,x...)
+	# 	ex = Expr(:call,:println,"[ logger ]: ")
+	# 	# show(x)
+	# 	# show(esc(x).head)
+	# 	# show(esc(x).args)
+	#     # for xx in esc(x).args[1]
+	#     for xx in x
+	# 		push!(ex.args,xx)
+	#     end
+	# 	# ex
+	# 	:($(esc(a)) > $(esc(b)) ? $ex : nothing)
+	# 	# nothing
+	# end
+	# a = 1
+	# b = 2
+	# c = 3
+	# d = 4
+	# e = 5
+	# @checks(a,b,c,d,e)
+	# @checks(b,a,c,d,e)
+	# @checks(a,b,c,d)
+	# @checks(a,b,c)
+	# @checks(a,b)
 
 
 	set_time_out_status!(logger,true)

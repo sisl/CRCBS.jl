@@ -191,7 +191,7 @@ function pibt_set_ordering!(solver,mapf,cache)
     get_ordering(cache) .= sortperm(
         map(i->pibt_priority_law(solver,mapf,cache,i),1:length(get_envs(cache)))
         )
-    log_info(3,solver,"ordering: ", get_ordering(cache))
+    @log_info(3,solver,"ordering: ", get_ordering(cache))
     return cache
 end
 function pibt_init_cache(solver,mapf,solution=get_initial_solution(mapf))
@@ -299,7 +299,7 @@ i is the id of the higher priority agent, j is the index of the lower priority
 agent.
 """
 function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
-    log_info(3,solver,"pibt_step!( ... i = ",i,", j = ",j," )")
+    @log_info(3,solver,"pibt_step!( ... i = ",i,", j = ",j," )")
     env = get_envs(cache)[i]
     s = get_states(cache)[i]
     sj = get(get_states(cache), j, state_type(mapf)())
@@ -309,10 +309,10 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
         sp = get_next_state(env,s,a)
         if !is_reserved(cache,env,s,a,sp) && !states_match(sp,sj)
             reserve!(cache,env,s,a,sp)
-            log_info(3,solver,"reserve!( ... a = ",string(a),", sp = ",string(sp)," )")
+            @log_info(3,solver,"reserve!( ... a = ",string(a),", sp = ",string(sp)," )")
             k = get_conflict_index(cache,i,s,a,sp)
             if k != -1
-                log_info(3,solver,"get_conflict_index( i = ",i,", sp = ",string(sp)," ) : ",k)
+                @log_info(3,solver,"get_conflict_index( i = ",i,", sp = ",string(sp)," ) : ",k)
                 if pibt_step!(solver,mapf,cache,k,i)
                     set_action!(cache,i,a)
                     setdiff!(cache.undecided,i)
@@ -327,7 +327,7 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
                 return true
             end
         else
-            log_info(3,solver,"illegal action ",string(a))
+            @log_info(3,solver,"illegal action ",string(a))
             deleteat!(a_list,1)
         end
     end
@@ -352,7 +352,7 @@ function pibt!(solver, mapf)
                 rethrow(e)
             end
         end
-        log_info(3,solver,"PIBT iterations = ",iterations(solver))
+        @log_info(3,solver,"PIBT iterations = ",iterations(solver))
         while !isempty(cache.undecided)
             if ~pibt_step!(solver,mapf,cache)
                 return get_solution(cache), false
@@ -360,7 +360,7 @@ function pibt!(solver, mapf)
         end
         # update cache
         pibt_update_cache!(solver,mapf,cache)
-        log_info(3,solver,"solution: ",convert_to_vertex_lists(get_solution(cache)))
+        @log_info(3,solver,"solution: ",convert_to_vertex_lists(get_solution(cache)))
     end
     return get_solution(cache), is_consistent(cache,mapf)
 end

@@ -3,21 +3,21 @@ abstract type AbstractAStarPlanner end
 check_termination_criteria(solver::A, env, cost_so_far, s) where {A<:AbstractAStarPlanner} =  iterations(solver) > iteration_limit(solver)
 function logger_step_a_star!(solver::A, env, base_path, s, q_cost) where {A<:AbstractAStarPlanner}
     increment_iteration_count!(solver)
-    log_info(2,solver,"A* iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost")
+    @log_info(2,solver,"A* iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost")
 end
 function logger_enter_a_star!(solver::A) where {A<:AbstractAStarPlanner}
-    log_info(1,solver,"A*: entering...")
+    @log_info(1,solver,"A*: entering...")
     @assert(iterations(solver) == 0, "A*: ERROR: iterations = $(iterations(solver)) at entry")
 end
 function logger_enqueue_a_star!(solver::A, env, s, a, sp, h_cost) where {A<:AbstractAStarPlanner}
-    log_info(2,solver,"A* exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
+    @log_info(2,solver,"A* exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
 end
 function logger_exit_a_star!(solver::A, path, cost, status) where {A<:AbstractAStarPlanner}
     # empty!(solver.search_history)
     if status == false
-        log_info(-1,solver,"A*: failed to find feasible path. Returning path of cost $cost")
+        @log_info(-1,solver,"A*: failed to find feasible path. Returning path of cost $cost")
     else
-        log_info(0,solver,"A*: returning optimal path with cost $cost")
+        @log_info(0,solver,"A*: returning optimal path with cost $cost")
     end
 end
 

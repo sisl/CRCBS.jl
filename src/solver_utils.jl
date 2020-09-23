@@ -252,38 +252,44 @@ Set the global verbosity to val
 """
 set_global_verbosity!(val::Int) = begin VERBOSITY = val end
 
-export log_info
+# export @log_info
+#
+# """
+#     @log_info
+#
+# A helper macro for printing at various verbosity levels
+# """
+# function @log_info(limit::Int,level::Int,msg...)
+#     if level > limit || global_verbosity() > limit
+#         println("[ logger ]: ",msg...)
+#     end
+# end
+# @log_info(limit::Int,solver,msg...) = @log_info(limit,verbosity(solver),msg...)
+
+export @log_info
 
 """
-    log_info
-
-A helper macro for printing at various verbosity levels
-"""
-function log_info(limit::Int,verbosity_val::Int,msg...)
-    if verbosity > limit || global_verbosity() > limit
-        println("[ logger ]: ",msg...)
-    end
-end
-log_info(limit::Int,solver,msg...) = log_info(limit,verbosity(solver),msg...)
-
-export @macro_log_info
-
-"""
-    log_info
+    @log_info
 
 A helper macro for printing at various verbosity levels.
 Usage:
-	`log_info(limit::Int,level::Int,msg...)`
-	`log_info(limit::Int,solver,msg...)`
+	`@log_info(limit::Int,level::Int,msg...)`
+	`@log_info(limit::Int,solver,msg...)`
 Args:
 * limit::Int - logging threshold
 * level::Int - the verbosity level
 * msg... - message to print if level > limit
 """
-macro macro_log_info(limit,level,msg...)
+macro log_info(limit,level,msg...)
+	ex = Expr(:call,:println,"[ logger ]: ")
+    for x in esc(msg).args[1]
+		push!(ex.args,esc(x))
+    end
+	# :($(esc(a)) > $(esc(b)) ? $ex : nothing)
 	return quote
 		# The esc() call is key for reliably capturing the input variables
-		verbosity($(esc(level))) < $(esc(limit)) || global_verbosity() < $(esc(limit)) ? nothing :
-			println("[ logger ]: ",$(esc(msg...)))
+		verbosity($(esc(level))) > $(esc(limit)) || global_verbosity() > $(esc(limit)) ?
+			$ex : nothing
+			# println("[ logger ]: ",$(esc(msg))...) : nothing
 	end
 end

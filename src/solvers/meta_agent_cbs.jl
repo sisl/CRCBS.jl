@@ -72,7 +72,7 @@ function combine_agents!(solver, node)
     if conflict_counts[i,j] > solver.beta
         # @show i,j,groups[i],groups[j],conflict_counts[i,j]
         @assert i != j
-        log_info(1,solver,"Conflict Limit exceeded. Merging agents ", groups[i], " and ", groups[j],"\n")
+        @log_info(1,solver,"Conflict Limit exceeded. Merging agents ", groups[i], " and ", groups[j],"\n")
         # groups = deepcopy(groups)
         groups[i] = [groups[i]..., groups[j]...]
         deleteat!(groups, j)

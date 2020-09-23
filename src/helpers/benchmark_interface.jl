@@ -322,7 +322,7 @@ function profile_with_skipping!(config,loader)
         problem_config = TOML.parsefile(problem_file)
         # Reset all solvers if we have moved to a new scenario or bucket
         if !is_same_scenario_and_bucket(problem_config,previous_config)
-            # log_info(-1,1,"Resetting solvers")
+            # @log_info(-1,1,"Resetting solvers")
             previous_config = problem_config
             for solver_config in config.solver_configs
                 reset_solver!(solver_config.solver)
@@ -335,12 +335,12 @@ function profile_with_skipping!(config,loader)
             solver = solver_config.solver
             outfile = joinpath(solver_config.results_path,string(problem_name,".results"))
             if isfile(outfile)
-                log_info(-1,solver,"Results already stored for ",problem_name,
+                @log_info(-1,solver,"Results already stored for ",problem_name,
                     " at ", outfile)
                 continue
             end
             if failed_status(solver)
-                log_info(1,solver,"Skipping problem ",problem_name)
+                @log_info(1,solver,"Skipping problem ",problem_name)
                 continue # Keep skipping until new bucket
             end
             solution, timer_results = profile_solver!(solver,mapf)
