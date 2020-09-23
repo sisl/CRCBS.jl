@@ -1,14 +1,3 @@
-export SolverException
-
-"""
-    SolverException
-
-Custom exception type for tracking solver timeouts, etc.
-"""
-struct SolverException <: Exception
-    msg::String
-end
-
 export
 	SolverStatus,
 	time_out_status,
@@ -155,6 +144,33 @@ for op in [:set_time_out_status!,:set_iteration_max_out_status!,
 	@eval $op(logger,args...) = $op(get_logger(logger).status,args...)
 end
 
+export SolverException
+
+"""
+    SolverException
+
+Custom exception type for tracking solver timeouts, etc.
+"""
+struct SolverException <: Exception
+    msg::String
+end
+
+export handle_solver_exception
+
+"""
+	handle_solver_exception
+
+Takes care of printing `SolverException`s
+"""
+function handle_solver_exception(solver,e)
+    if debug(solver)
+        showerror(stdout, e, catch_backtrace())
+    else
+        printstyled(e;color=:red)
+    end
+end
+
+
 export
     optimality_gap,
 	check_time!,
@@ -281,7 +297,8 @@ Args:
 * msg... - message to print if level > limit
 """
 macro log_info(limit,level,msg...)
-	ex = Expr(:call,:println,"[ logger ]: ")
+	filename = split(string(__source__.file),"/")[end]
+	ex = Expr(:call,:println,"[ logger ](",filename,"-",esc(__source__.line),"): ")
     for x in esc(msg).args[1]
 		push!(ex.args,esc(x))
     end

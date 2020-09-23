@@ -345,8 +345,7 @@ function pibt!(solver, mapf)
             enforce_iteration_limit(solver)
         catch e
             if isa(e,SolverException)
-                bt = catch_backtrace()
-                showerror(stdout,e)
+                handle_solver_exception(solver,e)
                 break
             else
                 rethrow(e)

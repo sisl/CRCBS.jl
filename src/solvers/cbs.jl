@@ -182,8 +182,7 @@ function cbs!(solver,mapf)
         end
     catch e
         if isa(e,SolverException)
-            bt = catch_backtrace()
-            showerror(stdout, e, bt)
+            handle_solver_exception(solver,e)
         else
             rethrow(e)
         end

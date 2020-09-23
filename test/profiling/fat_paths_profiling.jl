@@ -1,7 +1,7 @@
 using CRCBS
 using GraphUtils
-using Test, Logging
 using TOML
+using Test, Logging
 using Parameters
 
 

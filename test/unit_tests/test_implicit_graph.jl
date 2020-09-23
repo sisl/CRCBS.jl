@@ -52,7 +52,7 @@ CRCBS.get_heuristic_cost(env::TestEnv,s) = gdistances(env.g,env.goal_state.v)[s.
 end
 
 let
-    G = CycleGraph(10)
+    G = cycle_graph(10)
     rem_edge!(G,1,10)
     add_edge!(G,1,5)
     add_edge!(G,3,6)
