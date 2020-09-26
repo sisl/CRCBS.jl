@@ -173,13 +173,10 @@ function create_reservations(env::GraphEnv,n::PathNode,t=-1)
 end
 # is_goal
 function is_goal(env::GraphEnv,s)
-    if states_match(s, get_goal(env))
-        if get_t(s) >= get_t(get_goal(env))
+    if get_t(s) >= get_t(get_goal(env))
+        if states_match(s, get_goal(env)) || !is_valid(get_goal(env))
             return true
         end
-    elseif !is_valid(get_goal(env))
-        @assert get_t(s) >= get_t(get_goal(env))
-        return true
     end
     return false
 end
