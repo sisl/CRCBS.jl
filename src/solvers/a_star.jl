@@ -1,24 +1,36 @@
 export AbstractAStarPlanner
 abstract type AbstractAStarPlanner end
-check_termination_criteria(solver::A, env, cost_so_far, s) where {A<:AbstractAStarPlanner} =  iterations(solver) > iteration_limit(solver)
-function logger_step_a_star!(solver::A, env, base_path, s, q_cost) where {A<:AbstractAStarPlanner}
-    increment_iteration_count!(solver)
-    @log_info(2,solver,"A* iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost")
-end
-function logger_enter_a_star!(solver::A) where {A<:AbstractAStarPlanner}
-    @log_info(1,solver,"A*: entering...")
+
+export
+    logger_enter_a_star!,
+    logger_exit_a_star!,
+    logger_step_a_star!,
+    logger_find_constraint_a_star!,
+    logger_enqueue_a_star!
+
+check_termination_criteria(solver, env, cost_so_far, s)  =  iterations(solver) > iteration_limit(solver)
+function logger_enter_a_star!(solver, env, base_path)
+    @log_info(2,solver,"A*: entering...")
     @assert(iterations(solver) == 0, "A*: ERROR: iterations = $(iterations(solver)) at entry")
 end
-function logger_enqueue_a_star!(solver::A, env, s, a, sp, h_cost) where {A<:AbstractAStarPlanner}
-    @log_info(2,solver,"A* exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
-end
-function logger_exit_a_star!(solver::A, path, cost, status) where {A<:AbstractAStarPlanner}
+function logger_exit_a_star!(solver, path, cost, status)
     # empty!(solver.search_history)
     if status == false
         @log_info(-1,solver,"A*: failed to find feasible path. Returning path of cost $cost")
     else
-        @log_info(0,solver,"A*: returning optimal path with cost $cost")
+        @log_info(2,solver,"A*: returning optimal path with cost $cost")
     end
+end
+function logger_step_a_star!(solver, env, base_path, s, q_cost)
+    increment_iteration_count!(solver)
+    @log_info(3,solver,"A*: iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost")
+end
+function logger_enqueue_a_star!(solver, env, s, a, sp, h_cost)
+    @log_info(3,solver,"A*: exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
+end
+function logger_find_constraint_a_star!(logger,env,s,a,sp)
+    @log_info(1,logger,"A*: sequence ",string(s),", ",string(a),", ",string(sp),
+        " violates a constraint")
 end
 
 export AStar
@@ -42,35 +54,25 @@ VanillaAStar() = AStar{Float64}()
 
 export
     a_star_impl!,
-    a_star
+    a_star!
 
 check_termination_criteria(solver,env,cost_so_far,path,s) = check_termination_criteria(env,cost_so_far,path,s)
 
-export
-    logger_enter_a_star!,
-    logger_exit_a_star!,
-    logger_step_a_star!,
-    logger_find_constraint_a_star!,
-    logger_enqueue_a_star!
-
-function logger_enter_a_star!(logger,args...)
-    nothing
-end
-function logger_exit_a_star!(logger, path, cost, status, args...)
-    if status == false
-        println("A*: Returning Infeasible")
-    end
-    nothing
-end
-function logger_step_a_star!(logger, s, q_cost, args...)
-    nothing
-end
-function logger_find_constraint_a_star!(logger,env,s,a,sp,args...)
-    nothing
-end
-function logger_enqueue_a_star!(logger,env,s,a,sp,args...)
-    nothing
-end
+# function logger_enter_a_star!(logger,args...)
+#     nothing
+# end
+# function logger_exit_a_star!(logger, path, cost, status, args...)
+#     if status == false
+#         println("A*: Returning Infeasible")
+#     end
+#     nothing
+# end
+# function logger_step_a_star!(logger, s, q_cost, args...)
+#     nothing
+# end
+# function logger_enqueue_a_star!(logger,env,s,a,sp,args...)
+#     nothing
+# end
 
 """
     reconstruct path by working backward from the terminal state
@@ -88,8 +90,6 @@ function reconstruct_path!(path,predecessor_map,s,cost)
     end
     set_cost!(path,cost)
     return path
-    # prepend!(node_sequence, path.path_nodes)
-    # return Path(path_nodes=node_sequence, s0=get_initial_state(path), cost=cost)
 end
 
 """
@@ -100,7 +100,7 @@ end
     # f(n) = g(n) + h(n)
 """
 function a_star_impl!(solver, env::E, base_path, frontier, explored) where {E <: AbstractLowLevelEnv}
-    logger_enter_a_star!(solver)
+    logger_enter_a_star!(solver, env, base_path)
     cost_map = Dict{state_type(env),cost_type(env)}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
     predecessor_map = Dict{state_type(env),node_type(env)}() # TODO: get some speedup by converting states to indices (then use a vector instead of a dict)
     default_cost = get_infeasible_cost(env)
@@ -145,7 +145,7 @@ end
 
 
 """
-    a_star(env,start_state)
+    a_star!(env,start_state)
 
     A generic implementation of the [A* search algorithm](http://en.wikipedia.org/wiki/A%2A_search_algorithm)
     that operates on an Environment and initial state.
@@ -162,20 +162,20 @@ end
     - get_transition_cost(env::E,s::S,a::A)
     - violates_constraints(env::E,s::S,path::Path{S,A,C})
 """
-function a_star(solver, env::E,path::P,initial_cost=get_cost(path)) where {E<:AbstractLowLevelEnv,P<:AbstractPath}
+function a_star!(solver, env::E,path::P,initial_cost=get_cost(path)) where {E<:AbstractLowLevelEnv,P<:AbstractPath}
     frontier = PriorityQueue{Tuple{cost_type(env), state_type(env)}, cost_type(env)}()
     enqueue!(frontier, (initial_cost, get_final_state(path))=>initial_cost)
     explored = Set{state_type(env)}()
     a_star_impl!(solver,env,path,frontier,explored)
 end
-function a_star(env::E,path::P,initial_cost=get_cost(path)) where {E<:AbstractLowLevelEnv,P<:AbstractPath}
-    a_star(nothing,env,path,initial_cost)
+function a_star!(env::E,path::P,initial_cost=get_cost(path)) where {E<:AbstractLowLevelEnv,P<:AbstractPath}
+    a_star!(nothing,env,path,initial_cost)
 end
-function a_star(solver, env::E,start_state,initial_cost=get_initial_cost(env)) where {E<:AbstractLowLevelEnv}
+function a_star!(solver, env::E,start_state,initial_cost=get_initial_cost(env)) where {E<:AbstractLowLevelEnv}
     path = path_type(env)(s0=start_state,cost=initial_cost)
-    a_star(solver,env,path,initial_cost)
+    a_star!(solver,env,path,initial_cost)
 end
-function a_star(env::E,start_state,initial_cost=get_initial_cost(env)) where {E<:AbstractLowLevelEnv}
+function a_star!(env::E,start_state,initial_cost=get_initial_cost(env)) where {E<:AbstractLowLevelEnv}
     path = path_type(env)(s0=start_state,cost=initial_cost)
-    a_star(env,path,initial_cost)
+    a_star!(env,path,initial_cost)
 end

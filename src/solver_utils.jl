@@ -282,6 +282,11 @@ set_global_verbosity!(val::Int) = begin VERBOSITY = val end
 # end
 # @log_info(limit::Int,solver,msg...) = @log_info(limit,verbosity(solver),msg...)
 
+function print_styled_header(header,msg...;bold=true,color=136)
+	printstyled(header;bold=bold,color=color)
+	println(msg...)
+end
+
 export @log_info
 
 """
@@ -298,15 +303,13 @@ Args:
 """
 macro log_info(limit,level,msg...)
 	filename = split(string(__source__.file),"/")[end]
-	ex = Expr(:call,:println,"[ logger ](",filename,"-",esc(__source__.line),"): ")
+	ex = :(print_styled_header(log_preamble))
     for x in esc(msg).args[1]
 		push!(ex.args,esc(x))
     end
-	# :($(esc(a)) > $(esc(b)) ? $ex : nothing)
 	return quote
-		# The esc() call is key for reliably capturing the input variables
+		local log_preamble = string("[ logger ](",$filename,"-",$(__source__.line),"): ")
 		verbosity($(esc(level))) > $(esc(limit)) || global_verbosity() > $(esc(limit)) ?
 			$ex : nothing
-			# println("[ logger ]: ",$(esc(msg))...) : nothing
 	end
 end

@@ -486,7 +486,7 @@ export
 get_agent_id(c::DiscreteConstraintTable)                = c.agent_id
 state_constraints(c::DiscreteConstraintTable)           = c.state_constraints
 action_constraints(c::DiscreteConstraintTable)          = c.action_constraints
-function sorted_state_constraints(env,table::DiscreteConstraintTable)
+function state_constraints(env,table::DiscreteConstraintTable)
     row_idxs, col_idxs, _ = findnz(table.state_constraints)
     s_constraints = Vector{CBSConstraint{node_type(env)}}()
     for (idx,t) in zip(row_idxs,col_idxs)
@@ -496,7 +496,7 @@ function sorted_state_constraints(env,table::DiscreteConstraintTable)
     end
     return s_constraints
 end
-function sorted_action_constraints(env,table::DiscreteConstraintTable)
+function action_constraints(env,table::DiscreteConstraintTable)
     row_idxs, col_idxs, _ = findnz(table.action_constraints)
     constraints = Vector{CBSConstraint{node_type(env)}}()
     for (idx,t) in zip(row_idxs,col_idxs)
@@ -506,6 +506,28 @@ function sorted_action_constraints(env,table::DiscreteConstraintTable)
     end
     return constraints
 end
+sorted_state_constraints(env,table::DiscreteConstraintTable) = state_constraints(env,table)
+sorted_action_constraints(env,table::DiscreteConstraintTable) = action_constraints(env,table)
+# function sorted_state_constraints(env,table::DiscreteConstraintTable)
+#     row_idxs, col_idxs, _ = findnz(table.state_constraints)
+#     s_constraints = Vector{CBSConstraint{node_type(env)}}()
+#     for (idx,t) in zip(row_idxs,col_idxs)
+#         sp,_ = deserialize(env,state_type(env)(),idx,t)
+#         n = node_type(env)(sp=sp)
+#         push!(s_constraints,state_constraint(get_agent_id(table),n,t))
+#     end
+#     return s_constraints
+# end
+# function sorted_action_constraints(env,table::DiscreteConstraintTable)
+#     row_idxs, col_idxs, _ = findnz(table.action_constraints)
+#     constraints = Vector{CBSConstraint{node_type(env)}}()
+#     for (idx,t) in zip(row_idxs,col_idxs)
+#         a,_ = deserialize(env,action_type(env)(),idx,t)
+#         n = node_type(env)(a=a)
+#         push!(constraints,action_constraint(get_agent_id(table),n,t))
+#     end
+#     return constraints
+# end
 """
     search_constraints(env,table,n::PathNode)
 
@@ -539,9 +561,11 @@ function add_constraint!(env,table::DiscreteConstraintTable,c::CBSConstraint)
     @assert get_agent_id(table) == get_agent_id(c)
     if is_state_constraint(c)
         idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
+        @assert table.state_constraints[idx,t] == false
         table.state_constraints[idx,t] = true
     else
         idx,t = serialize(env,get_a(get_path_node(c)),get_time_of(c))
+        @assert table.action_constraints[idx,t] == false
         table.action_constraints[idx,t] = true
     end
     return table
@@ -572,7 +596,7 @@ export
     add_constraint!
 
 """
-    constraint dictionary for fast constraint lookup within a_star
+    constraint dictionary for fast constraint lookup within a_star!
 """
 @with_kw struct ConstraintTable{N}
     # Sets
@@ -585,7 +609,9 @@ export
 end
 get_agent_id(c::ConstraintTable) = c.agent_id
 state_constraints(c::ConstraintTable) = c.state_constraints
+state_constraints(env,c::ConstraintTable) = state_constraints(c)
 action_constraints(c::ConstraintTable) = c.action_constraints
+action_constraints(env,c::ConstraintTable) = action_constraints(c)
 sorted_state_constraints(env,c::ConstraintTable) = c.sorted_state_constraints
 sorted_action_constraints(env,c::ConstraintTable) = c.sorted_action_constraints
 function search_constraints(env,table::ConstraintTable,n::N) where {N<:PathNode}
@@ -658,6 +684,8 @@ export
     children        ::Tuple{Int,Int} = (-1,-1)
     # unique id
     id              ::Int = -1
+    # trace
+    trace           ::Vector{Int} = Int[]
 end
 for op in [
     :cost_type,:state_type,:action_type,:path_type,:get_cost,:get_paths,
@@ -667,6 +695,11 @@ for op in [
 end
 solution_type(node::ConstraintTreeNode{S,C,D}) where {S,C,D} = S
 constraint_table_type(node::ConstraintTreeNode) = valtype(node.constraints)
+function set_trace!(node::C,parent::C,i) where {C<:ConstraintTreeNode}
+    append!(node.trace,parent.trace)
+    push!(node.trace,i)
+    node
+end
 
 """
     `initialize_root_node`
@@ -731,8 +764,16 @@ for op in [:count_conflicts,:get_next_conflict,:reset_conflict_table!,:get_confl
     @eval $op(node::ConstraintTreeNode,args...) = $op(node.conflict_table,args...)
 end
 
-for op in [:state_constraints, :action_constraints, :sorted_state_constraints, :sorted_action_constraints,]
-    @eval $op(env,node::ConstraintTreeNode,idx) = $op(get_constraints(node,idx))
+for op in [:state_constraints, :action_constraints,:sorted_state_constraints, :sorted_action_constraints,]
+    @eval $op(env,node::ConstraintTreeNode,idx) = $op(env,get_constraints(node,idx))
+end
+for op in [:state_constraints, :action_constraints,:sorted_state_constraints, :sorted_action_constraints,]
+    @eval $op(env,node::ConstraintTreeNode) = begin
+        vcat(
+            map(k->collect($op(env,get_constraints(node,k))),
+            collect(keys(node.constraints)))...
+            )
+    end
 end
 
 """

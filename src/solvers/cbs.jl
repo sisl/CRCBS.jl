@@ -27,13 +27,22 @@ function enter_cbs!(solver)
     reset_solver!(solver)
 end
 function logger_cbs_add_constraint!(solver,new_node,constraint) end
-function logger_dequeue_cbs_node!(solver,node)
-    if verbosity(solver) >= 1
-        println("CBS: Current paths: ")
-        for (i,path) in enumerate(get_paths(node.solution))
-            println("\t",i,": ",convert_to_vertex_lists(path))
-        end
-    end
+function logger_dequeue_cbs_node!(solver,mapf,node)
+    @log_info(1,solver,
+        "CBS: iter ",iterations(solver)," - node ",node.trace,
+        " - Current paths: \n",
+        sprint_indexed_list_array(convert_to_vertex_lists(node.solution);leftaligned=true),
+        )
+    @log_info(2,solver,"CBS: constraints in node ",node.trace,": \n",
+        map(c->string("\t",string(c),"\n"),sorted_state_constraints(mapf,node))...,
+        map(c->string("\t",string(c),"\n"),sorted_action_constraints(mapf,node))...,
+        )
+    # if verbosity(solver) >= 1
+    #     println("CBS: iter ",iterations(solver)," - node ",node.trace," - Current paths: ")
+    #     for (i,path) in enumerate(get_paths(node.solution))
+    #         println("\t",i,": ",convert_to_vertex_lists(path))
+    #     end
+    # end
     enforce_iteration_limit(solver)
 end
 function logger_exit_cbs_optimal!(solver,node)
@@ -47,21 +56,26 @@ function logger_cbs_add_constraint!(solver,node,constraint,mapf)
     increment_iteration_count!(solver)
     enforce_time_limit(solver)
     enforce_iteration_limit(solver)
-    if verbosity(solver) == 1
-        println("CBS: adding constraint ",string(constraint))
-    elseif verbosity(solver) == 2
-        println("CBS: adding constraint:")
-        println("\t",string(constraint))
-        println("CBS: constraints in node:")
-        for i in 1:num_agents(mapf)
-            for constraint in sorted_state_constraints(mapf,node,i)
-                println("\t",string(constraint))
-            end
-            for constraint in sorted_action_constraints(mapf,node,i)
-                println("\t",string(constraint))
-            end
-        end
-    end
+    @log_info(1,solver,"CBS: adding constraint to node ",node.trace,": ",string(constraint))
+    # @log_info(2,solver,"CBS: constraints in node ",node.trace,": \n",
+    #     map(c->string("\t",string(c),"\n"),sorted_state_constraints(mapf,node))...,
+    #     map(c->string("\t",string(c),"\n"),sorted_action_constraints(mapf,node))...,
+    #     )
+    # if verbosity(solver) == 1
+    #     println("CBS: adding constraint ",string(constraint))
+    # elseif verbosity(solver) >= 2
+    #     # println("CBS: adding constraint:")
+    #     # println("\t",string(constraint))
+    #     println("CBS: constraints in node:")
+    #     for i in 1:num_agents(mapf)
+    #         for constraint in sorted_state_constraints(mapf,node,i)
+    #             println("\t",string(constraint))
+    #         end
+    #         for constraint in sorted_action_constraints(mapf,node,i)
+    #             println("\t",string(constraint))
+    #         end
+    #     end
+    # end
 end
 
 ################################################################################
@@ -75,14 +89,14 @@ export low_level_search!
         mapf::AbstractMAPF,
         node::ConstraintTreeNode,
         idxs=collect(1:num_agents(mapf)),
-        path_finder=a_star)`
+        path_finder=a_star!)`
 
     Returns a low level solution for a MAPF with constraints. The heuristic
     function for cost-to-go is user-defined and environment-specific
 """
 function low_level_search!(
     solver, mapf::M, node::N, idxs=collect(1:num_agents(mapf));
-    path_finder=a_star
+    path_finder=a_star!
     ) where {M<:AbstractMAPF,N<:ConstraintTreeNode}
     # Only compute a path for the indices specified by idxs
     for i in idxs
@@ -136,10 +150,11 @@ complementary constraints.
 """
 function cbs_branch!(solver,mapf,node,conflict,priority_queue)
     constraints = generate_constraints_from_conflict(conflict)
-    for constraint in constraints
+    for (i,constraint) in enumerate(constraints)
         new_node = initialize_child_search_node(solver,mapf,node)
+        set_trace!(new_node,node,i)
+        logger_cbs_add_constraint!(solver,new_node,constraint,mapf)
         if add_constraint!(mapf,new_node,constraint)
-            logger_cbs_add_constraint!(solver,new_node,constraint,mapf)
             consistent_flag = low_level_search!(solver, mapf, new_node,[get_agent_id(constraint)])
             if consistent_flag
                 cbs_update_conflict_table!(solver,mapf,new_node,constraint)
@@ -170,7 +185,7 @@ function cbs!(solver,mapf)
         while ~isempty(priority_queue)
             # node = cbs_dequeue_and_preprocess!(solver,priority_queue,mapf)
             node = dequeue!(priority_queue)
-            logger_dequeue_cbs_node!(solver,node)
+            logger_dequeue_cbs_node!(solver,mapf,node)
             # check for conflicts
             conflict = get_next_conflict(node.conflict_table)
             if !is_valid(conflict)
@@ -191,6 +206,6 @@ function cbs!(solver,mapf)
     return default_solution(mapf)
 end
 
-function solve!(solver::CBSSolver, mapf::M where {M<:AbstractMAPF}, path_finder=a_star;verbose=false)
+function solve!(solver::CBSSolver, mapf::M where {M<:AbstractMAPF}, path_finder=a_star!;verbose=false)
     cbs!(solver,mapf)
 end

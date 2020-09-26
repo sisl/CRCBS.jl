@@ -15,7 +15,7 @@ global_logger(SimpleLogger(stderr, Logging.Debug))
                   y::AbstractArray{F};
                   rtol::F=sqrt(eps(F)),
                   atol::F=zero(F)) where {F<:AbstractFloat}
-                  
+
     # Easy check on matching size
     if length(x) != length(y)
         return false
@@ -60,7 +60,7 @@ set_global_verbosity!(0)
         include(joinpath(testdir, "unit_tests/test_utils.jl"))
     end
     @time @testset "CRCBS.ImplicitGraphsTests" begin
-        include(joinpath(testdir, "unit_tests/test_implicit_graph.jl"))
+        include(joinpath(testdir, "unit_tests/test_a_star.jl"))
     end
     @time @testset "CRCBS.SolverUtilsTests" begin
         include(joinpath(testdir, "unit_tests/test_solver_utils.jl"))

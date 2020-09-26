@@ -169,7 +169,7 @@ end
 
 function is_consistent(cache::PIBTCache,mapf)
     for (env,s) in zip(get_envs(cache),get_states(cache))
-        if !is_goal(env,s)
+        if !is_goal(env,s) # || is_valid(get_goal(env))
             return false
         end
     end

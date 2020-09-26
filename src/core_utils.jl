@@ -206,3 +206,15 @@ function convert_to_vertex_lists(path) end
 function convert_to_vertex_lists(solution::S) where {S<:LowLevelSolution}
     return [convert_to_vertex_lists(path) for path in get_paths(solution)]
 end
+
+export
+    sprint_route_plan
+
+function sprint_route_plan(solution::LowLevelSolution;kwargs...)
+    sprint_indexed_list_array(convert_to_vertex_lists(solution);kwargs...)
+end
+function Base.show(io::IO,route_plan::LowLevelSolution)
+    print(io,
+        "LowLevelSolution:\n",
+        sprint_route_plan(route_plan;leftaligned=true))
+end
