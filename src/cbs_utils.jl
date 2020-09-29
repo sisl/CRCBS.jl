@@ -466,8 +466,8 @@ struct DiscreteConstraintTable
 end
 function discrete_constraint_table(n_states::Int,n_actions::Int,agent_id::Int=-1,tf::Int=n_states*4)
     DiscreteConstraintTable(
-        sparse(zeros(Bool,n_states,tf)),
-        sparse(zeros(Bool,n_actions,tf)),
+        spzeros(Bool,n_states,tf),
+        spzeros(Bool,n_actions,tf),
         agent_id
         )
 end
@@ -578,6 +578,8 @@ function has_constraint(env,table::DiscreteConstraintTable,c::CBSConstraint)
     @assert get_agent_id(table) == get_agent_id(c)
     if is_state_constraint(c)
         idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
+        @assert all((1,1) .<= (idx,t) .<= size(table.state_constraints)) "$idx,$t should not exceed size(table) = $(size(table.state_constraints))"
+
         return table.state_constraints[idx,t]
     else
         idx,t = serialize(env,get_a(get_path_node(c)),get_time_of(c))

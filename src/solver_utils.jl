@@ -268,20 +268,6 @@ Set the global verbosity to val
 """
 set_global_verbosity!(val::Int) = begin VERBOSITY = val end
 
-# export @log_info
-#
-# """
-#     @log_info
-#
-# A helper macro for printing at various verbosity levels
-# """
-# function @log_info(limit::Int,level::Int,msg...)
-#     if level > limit || global_verbosity() > limit
-#         println("[ logger ]: ",msg...)
-#     end
-# end
-# @log_info(limit::Int,solver,msg...) = @log_info(limit,verbosity(solver),msg...)
-
 function print_styled_header(header,msg...;bold=true,color=136)
 	printstyled(header;bold=bold,color=color)
 	println(msg...)

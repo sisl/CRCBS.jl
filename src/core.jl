@@ -70,17 +70,21 @@ Base.copy(p::P) where {P<:Path}             = Path(s0=p.s0,path_nodes=copy(p.pat
 
 function get_initial_state(path::P) where {P<:Path}
     if length(path) > 0
-        return get_s(get(path,1,node_type(path)()))
+        s0 = get_s(get(path,1,node_type(path)()))
     else
-        return path.s0
+        s0 = path.s0
     end
+    # @assert get_t(s0) == 0
+    return s0
 end
 function get_final_state(path::P) where {P<:Path}
     if length(path) > 0
-        return get_sp(get(path,length(path),node_type(path)()))
+        sf = get_sp(get(path,length(path),node_type(path)()))
     else
-        return path.s0
+        sf = path.s0
     end
+    # @assert get_t(sf) == length(path) "length(path) = $(length(path)), but get_t(get_final_state(path)) = $(get_t(sf))"
+    return sf
 end
 
 

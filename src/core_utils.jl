@@ -106,12 +106,14 @@ will be extended to time step `T`.
 """
 function trim_path!(env,path,T)
     while length(path) > T
-        deleteat!(path.path_nodes,T)
+        # deleteat!(path.path_nodes,T)
+        pop!(path.path_nodes)
     end
-    if T > length(path)
+    if length(path) < T
         extend_path!(env,path,T)
     end
     set_cost!(path,recompute_cost(env,path))
+    @assert length(path) == T
     return path
 end
 
@@ -218,3 +220,8 @@ function Base.show(io::IO,route_plan::LowLevelSolution)
         "LowLevelSolution:\n",
         sprint_route_plan(route_plan;leftaligned=true))
 end
+
+export
+    summarize
+
+summarize(env) = ""

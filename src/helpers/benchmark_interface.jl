@@ -322,7 +322,6 @@ function profile_with_skipping!(config,loader)
         problem_config = TOML.parsefile(problem_file)
         # Reset all solvers if we have moved to a new scenario or bucket
         if !is_same_scenario_and_bucket(problem_config,previous_config)
-            # @log_info(-1,1,"Resetting solvers")
             previous_config = problem_config
             for solver_config in config.solver_configs
                 reset_solver!(solver_config.solver)

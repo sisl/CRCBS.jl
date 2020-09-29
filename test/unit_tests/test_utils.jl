@@ -37,6 +37,30 @@ let
 
 
 end
+let
+    mapf = init_mapf_1()
+    env = mapf.env
+    path = Path{CBSEnv.State,CBSEnv.Action,Float64}(
+        s0 = CBSEnv.State(1,0)
+    )
+    for a in [
+        CBSEnv.Action(Edge(1,2),1),
+        CBSEnv.Action(Edge(2,3),1),
+        CBSEnv.Action(Edge(3,4),1),
+        ]
+        s = get_final_state(path)
+        sp = get_next_state(env,s,a)
+        add_to_path!(path,env,s,a,sp)
+    end
+    get_initial_state(path)
+    @show convert_to_vertex_lists(path)
+    trim_path!(env,path,1)
+    string(path.path_nodes[1])
+    get_initial_state(path)
+    @show convert_to_vertex_lists(path)
+    extend_path!(env,path,3)
+    @show convert_to_vertex_lists(path)
+end
 # let
 #     v = [0,1,2,4,5,6]
 #     L = length(v)

@@ -109,6 +109,22 @@ function compile_results(solver,feats,args...)
     return results
 end
 
+# using DataFrames
+#
+# """
+#     init_dataframe(feats::Tuple)
+#
+# Instantiate an empty dataframe based on the names and types of feature
+# extractors in `feats`.
+# """
+# function init_dataframe(feats::Tuple)
+#     df = DataFrame()
+#     for feat in (RunTime(),SolutionCost(),OptimalityGap())
+#         df[!,Symbol(typeof(feat))] = feature_type(feat)[]
+#     end
+#     df
+# end
+
 export profile_solver!
 
 function profile_solver!(solver,mapf)

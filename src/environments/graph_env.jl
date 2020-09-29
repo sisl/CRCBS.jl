@@ -6,8 +6,7 @@ export
     AbstractGraphAction,
     GraphAction,
     get_e,
-    get_dt,
-    GraphEnv
+    get_dt
 
 abstract type AbstractGraphState end
 @with_kw struct GraphState <: AbstractGraphState
@@ -18,6 +17,9 @@ get_vtx(s::AbstractGraphState)  = s.vtx
 get_t(s::AbstractGraphState)    = s.t
 is_valid(s::AbstractGraphState) = get_vtx(s) >= 1
 Base.string(s::AbstractGraphState) = "(v=$(get_vtx(s)),t=$(get_t(s)))"
+# allow paths to start at non-zero start times
+get_start_index(path::Path{S,A,C}) where {S<:AbstractGraphState,A,C} = get_t(get_initial_state(path))
+
 # AbstractGraphAction
 export AbstractGraphAction
 
@@ -30,11 +32,11 @@ get_e(a::AbstractGraphAction)   = a.e
 get_dt(a::AbstractGraphAction)  = a.dt
 Base.reverse(a::AbstractGraphAction) = typeof(a)(a,e=reverse(a.e))
 Base.string(a::AbstractGraphAction) = "(e=$(get_e(a).src) → $(get_e(a).dst))"
-# GraphEnv
-abstract type GraphEnv{S,A,C} <: AbstractLowLevelEnv{S,A,C} end
 
-# allow paths to start at non-zero start times
-get_start_index(path::Path{S,A,C}) where {S<:AbstractGraphState,A,C} = get_t(get_initial_state(path))
+export
+    GraphEnv
+
+abstract type GraphEnv{S,A,C} <: AbstractLowLevelEnv{S,A,C} end
 
 export
     get_graph,

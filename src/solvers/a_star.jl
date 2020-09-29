@@ -11,6 +11,8 @@ export
 check_termination_criteria(solver, env, cost_so_far, s)  =  iterations(solver) > iteration_limit(solver)
 function logger_enter_a_star!(solver, env, base_path)
     @log_info(2,solver,"A*: entering...")
+    @log_info(3,solver,"A*: env: ",sprint(show, env))
+    @log_info(3,solver,"A*: start state: ",string(get_final_state(base_path)))
     @assert(iterations(solver) == 0, "A*: ERROR: iterations = $(iterations(solver)) at entry")
 end
 function logger_exit_a_star!(solver, path, cost, status)
@@ -23,10 +25,10 @@ function logger_exit_a_star!(solver, path, cost, status)
 end
 function logger_step_a_star!(solver, env, base_path, s, q_cost)
     increment_iteration_count!(solver)
-    @log_info(3,solver,"A*: iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost")
+    @log_info(4,solver,"A*: iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost")
 end
 function logger_enqueue_a_star!(solver, env, s, a, sp, h_cost)
-    @log_info(3,solver,"A*: exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
+    @log_info(4,solver,"A*: exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
 end
 function logger_find_constraint_a_star!(logger,env,s,a,sp)
     @log_info(1,logger,"A*: sequence ",string(s),", ",string(a),", ",string(sp),
@@ -57,22 +59,6 @@ export
     a_star!
 
 check_termination_criteria(solver,env,cost_so_far,path,s) = check_termination_criteria(env,cost_so_far,path,s)
-
-# function logger_enter_a_star!(logger,args...)
-#     nothing
-# end
-# function logger_exit_a_star!(logger, path, cost, status, args...)
-#     if status == false
-#         println("A*: Returning Infeasible")
-#     end
-#     nothing
-# end
-# function logger_step_a_star!(logger, s, q_cost, args...)
-#     nothing
-# end
-# function logger_enqueue_a_star!(logger,env,s,a,sp,args...)
-#     nothing
-# end
 
 """
     reconstruct path by working backward from the terminal state
