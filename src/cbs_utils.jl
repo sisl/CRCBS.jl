@@ -1011,6 +1011,55 @@ end
 ################################ Fat Path Tools ################################
 ################################################################################
 
+# """
+#     `get_fat_path(G,D,start_vtx,goal_vtx)`
+#
+#     returns a fat path through `G` from `start_vtx` to `goal_vtx`. Each set
+#     of vertices in the fat path contains all vertices with distance d1 from
+#     start_vtx and distance d2 to goal_vtx, where d1+d2 == the length of the
+#     shortest path(s) from `start_vtx` to `goal_vtx`
+#
+#     G is a graph, D is the distance matrix
+# """
+# function get_fat_path(G,D,start_vtx::Int,goal_vtx::Int)
+#     fat_path = Vector{Set{Int}}([Set{Int}(start_vtx)])
+#     for i in 1:D[start_vtx,goal_vtx]
+#         next_set = Set{Int}()
+#         for src_vtx in fat_path[end]
+#             for dst_vtx in outneighbors(G,src_vtx)
+#                 if D[dst_vtx,goal_vtx] <= D[src_vtx,goal_vtx] - 1
+#                     push!(next_set, dst_vtx)
+#                 end
+#             end
+#         end
+#         push!(fat_path, next_set)
+#     end
+#     fat_path
+# end
+#
+# """
+#     `add_fat_path_to_table(CAT,fat_path)`
+# """
+# function add_fat_path_to_table!(CAT,fat_path,t0=0)
+#     for t in 1:length(fat_path)
+#         idxs = collect(fat_path[t])
+#         if t+t0 > 0
+#             CAT[idxs,t+t0] .+= 1.0/length(idxs)
+#         end
+#     end
+# end
+#
+# """
+#     `populate_soft_lookup_table!(CAT,start_times,start_vtxs,goal_vtxs)`
+# """
+# function populate_soft_lookup_table!(CAT,G,D,start_vtxs,goal_vtxs,start_times=zeros(Int,length(start_vtxs)))
+#     for (s,t,g) in zip(start_vtxs,start_times,goal_vtxs)
+#         fat_path = get_fat_path(G,D,s,g)
+#         add_fat_path_to_table!(CAT,t0,fat_path)
+#     end
+#     CAT
+# end
+
 """
     get_level_set_nodes(env,s,threshold,cost=get_initial_cost(env))
 

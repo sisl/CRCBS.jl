@@ -150,6 +150,23 @@ problem file).
 """
 function load_problem end
 
+export write_results
+
+"""
+    write_results(loader,solver_config,prob,problem_file,results)
+
+Write results `results` of profiling `solver_config.solver` on problem `prob` of
+name `problem_name`. Can be overloaded to dispatch on problem type when applicable.
+"""
+function write_results(loader,solver_config,prob,problem_file,results)
+    problem_name = splitext(splitdir(problem_file)[end])[1]
+    outfile = joinpath(solver_config.results_path,
+        string(problem_name,".results"))
+    open(outfile,"w") do io
+        TOML.print(io,results)
+    end
+end
+
 export run_profiling
 
 """
@@ -173,11 +190,9 @@ function run_profiling(config,loader)
         mkpath(solver_config.results_path)
     end
     for problem_file in readdir(config.problem_dir;join=true)
-        problem_name = splitext(splitdir(problem_file)[end])[1]
         mapf = load_problem(loader,problem_file)
         for solver_config in config.solver_configs
             solver = solver_config.solver
-            outfile = joinpath(solver_config.results_path,string(problem_name,".results"))
             solution, timer_results = profile_solver!(solver,mapf)
             results_dict = compile_results(
                 solver,
@@ -187,9 +202,7 @@ function run_profiling(config,loader)
                 timer_results
                 )
             results_dict["problem_file"] = problem_file
-            open(outfile,"w") do io
-                TOML.print(io,results_dict)
-            end
+            write_results(loader,solver_config,mapf,problem_file,results_dict)
         end
     end
 end

@@ -40,9 +40,8 @@ end
 let
     mapf = init_mapf_1()
     env = mapf.env
-    path = Path{CBSEnv.State,CBSEnv.Action,Float64}(
-        s0 = CBSEnv.State(1,0)
-    )
+    s0 = CBSEnv.State(1,0)
+    path = Path{CBSEnv.State,CBSEnv.Action,Float64}(s0 = s0)
     for a in [
         CBSEnv.Action(Edge(1,2),1),
         CBSEnv.Action(Edge(2,3),1),
@@ -52,32 +51,11 @@ let
         sp = get_next_state(env,s,a)
         add_to_path!(path,env,s,a,sp)
     end
-    get_initial_state(path)
-    @show convert_to_vertex_lists(path)
+    @test get_initial_state(path) == s0
+    p = deepcopy(path)
     trim_path!(env,path,1)
-    string(path.path_nodes[1])
-    get_initial_state(path)
-    @show convert_to_vertex_lists(path)
+    @test get_initial_state(path) == s0
+    @test get_final_state(path) == get_sp(get_path_node(p,1))
     extend_path!(env,path,3)
-    @show convert_to_vertex_lists(path)
+    @test get_vtx(get_final_state(path)) == get_vtx(get_sp(get_path_node(p,1)))
 end
-# let
-#     v = [0,1,2,4,5,6]
-#     L = length(v)
-#     x = 3
-#     @test find_index_in_sorted_array(v,x) == 4
-#     insert_to_sorted_array!(v,x)
-#     @test length(v) == L + 1
-#     v[4] == x
-# end
-# let
-#     v = [0,1,1,1,1,2]
-#     L = length(v)
-#     x = 1
-#     @test find_index_in_sorted_array(v,x) == 2
-# end
-# let
-#     v = Vector{Int}()
-#     insert_to_sorted_array!(v,1)
-#     @test length(v) == 1
-# end

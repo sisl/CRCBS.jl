@@ -198,7 +198,7 @@ function generate_problem_files_from_moving_ai(
         problem_dir
         ;
         verbose=true,
-        pad=4,
+        pad=6,
         recursive=false
         )
     problem_id = 1

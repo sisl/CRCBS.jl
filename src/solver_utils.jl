@@ -49,6 +49,17 @@ export get_logger
 get_logger(solver) = solver.logger
 get_logger(logger::SolverLogger) = logger
 
+export SolverWrapper
+
+"""
+	SolverWrapper
+
+An abstract type whose concrete instances must have a `solver` field.
+"""
+abstract type SolverWrapper end
+get_logger(solver::SolverWrapper) = get_logger(solver.solver)
+low_level(solver::SolverWrapper) = low_level(solver.solver)
+
 export
     iterations,
     max_iterations,
