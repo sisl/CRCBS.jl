@@ -12,11 +12,12 @@ A simple wrapper around a MAPF solver so that profile_solver! will dispatch
 correctly (by transforming adding the fat paths cost to the problem before
 solving it).
 """
-@with_kw struct FatPathsSolver{S} <: SolverWrapper
+@with_kw struct FatPathsSolver{S,M} <: SolverWrapper
     solver::S = CBSSolver(AStar{NTuple{2,Float64}}())
+    fat_path_cost_model::M = FlatFPCost()
 end
 function CRCBS.profile_solver!(solver::FatPathsSolver,mapf)
-    fp_mapf = CRCBS.init_fat_path_mapf(mapf)
+    fp_mapf = CRCBS.init_fat_path_mapf(mapf,solver.fat_path_cost_model)
     CRCBS.profile_solver!(solver.solver,fp_mapf)
 end
 # CRCBS.get_logger(solver::FatPathsSolver) = get_logger(solver.solver)
@@ -41,6 +42,10 @@ config = (
         (
             solver=FatPathsSolver(),
             results_path=joinpath(RESULTS_DIR,"FatPathsSolver")
+        ),
+        (
+            solver=FatPathsSolver(fat_path_cost_model=NormalizedFPCost()),
+            results_path=joinpath(RESULTS_DIR,"NormalizedFatPathsSolver")
         ),
     ],
     problem_dir = PROBLEM_DIR,
