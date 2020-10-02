@@ -61,9 +61,9 @@ end
 # scen_paths = get_files_matching(base_scen_path,".scen",["Berlin_1_256","Paris_1_256"])
 scen_paths = get_files_matching(base_scen_path,".scen",[
     "empty-8-8-even",
-    "empty-16-16-even",
-    "empty-32-32-even",
-    "empty-48-48-even",
+    # "empty-16-16-even",
+    # "empty-32-32-even",
+    # "empty-48-48-even",
     ])
 
 BenchmarkInterface.generate_problem_files_from_moving_ai(

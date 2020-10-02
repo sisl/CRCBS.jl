@@ -18,7 +18,7 @@ export
     init_mapf_1,
     init_mapf_2,
     init_mapf_3,
-    init_mapf_3
+    init_mapf_4
 
 function init_mapf_1(args...)
     vtx_grid = initialize_dense_vtx_grid(4,4)

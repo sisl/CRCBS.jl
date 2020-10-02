@@ -1060,6 +1060,30 @@ end
 #     CAT
 # end
 
+const FatPath{N} = Vector{Vector{N}}
+
+export
+    FatPathCostModel,
+    FlatFPCost,
+    NormalizedFPCost
+
+abstract type FatPathCostModel end
+struct FlatFPCost <: FatPathCostModel end
+struct NormalizedFPCost <: FatPathCostModel end
+
+"""
+    get_fat_path_cost(model,nodes)
+
+Returns a scalar cost value depending on `typeof(model)` and `length(nodes)`.
+
+```
+get_fat_path_cost(m::FlatFPCost,nodes) = 1.0
+get_fat_path_cost(m::NormalizedFPCost,nodes) = 1.0/length(nodes)
+```
+"""
+get_fat_path_cost(m::FlatFPCost,nodes) = 1.0
+get_fat_path_cost(m::NormalizedFPCost,nodes) = 1.0/length(nodes)
+
 """
     get_level_set_nodes(env,s,threshold,cost=get_initial_cost(env))
 
@@ -1067,27 +1091,38 @@ Returns a vector of `PathNode`s, where the heuristic cost (according to `env`)
 of each node falls below `threshold`.
 """
 function get_level_set_nodes(env,s,threshold,cost=get_initial_cost(env))
-    nodes = Vector{node_type(env)}()
-    frontier = PriorityQueue{state_type(env),typeof(cost)}()
+    # nodes = Vector{node_type(env)}()
+    fat_path = FatPath{node_type(env)}()
+    # frontier = PriorityQueue{state_type(env),typeof(cost)}()
+    next_frontier = PriorityQueue{state_type(env),typeof(cost)}()
     explored = Set{state_type(env)}()
-    enqueue!(frontier,s=>cost)
-    while !isempty(frontier)
-        s,cost = dequeue_pair!(frontier)
-        push!(explored,s)
-        for a in get_possible_actions(env,s)
-            sp = get_next_state(env,s,a)
-            if sp in explored || haskey(frontier,sp)
-                continue
-            end
-            c = accumulate_cost(env,cost,get_transition_cost(env,s,a,sp))
-            h = add_heuristic_cost(env,c,get_heuristic_cost(env,sp))
-            if h <= threshold
-                push!(nodes,PathNode(s,a,sp))
-                enqueue!(frontier, sp=>c)
+    # enqueue!(frontier,s=>cost)
+    enqueue!(next_frontier,s=>cost)
+    while !isempty(next_frontier)
+        push!(fat_path,Vector{node_type(env)}())
+        frontier = next_frontier
+        next_frontier = PriorityQueue{state_type(env),typeof(cost)}()
+        while !isempty(frontier)
+            s,cost = dequeue_pair!(frontier)
+            push!(explored,s)
+            for a in get_possible_actions(env,s)
+                sp = get_next_state(env,s,a)
+                if sp in explored || haskey(next_frontier,sp)
+                    continue
+                end
+                c = accumulate_cost(env,cost,get_transition_cost(env,s,a,sp))
+                h = add_heuristic_cost(env,c,get_heuristic_cost(env,sp))
+                if h <= threshold
+                    # push!(nodes,PathNode(s,a,sp))
+                    push!(fat_path[end],PathNode(s,a,sp))
+                    # enqueue!(frontier, sp=>c)
+                    enqueue!(next_frontier, sp=>c)
+                end
             end
         end
     end
-    nodes
+    # nodes
+    fat_path
 end
 function Base.empty!(sparr::SparseMatrixCSC)
     empty!(sparr.nzval)
@@ -1103,26 +1138,32 @@ function Base.empty!(table::SoftConflictTable)
     return table
 end
 
-
 """
     update_conflict_table!(table,nodes)
 
 Updates a conflict table with a set of nodes.
 """
-function update_fat_path_conflict_table!(table::AbstractMatrix,env::E,nodes::Vector{N}) where {E,N<:PathNode}
-    for n in nodes
-        idx, t = serialize_jointly(env,get_a(n),get_t(get_sp(n)))
-        table[idx,t] += 1.0
-        idx, t = serialize_jointly(env,get_sp(n))
-        table[idx,t] += 1.0
+function update_fat_path_conflict_table!(model::M,table::AbstractMatrix,env::E,fat_path) where {M<:FatPathCostModel,E}
+# function update_fat_path_conflict_table!(table::AbstractMatrix,env::E,nodes::Vector{N}) where {E,N<:PathNode}
+    for nodes in fat_path
+        cost = get_fat_path_cost(model,nodes)
+        for n in nodes
+            idx, t = serialize_jointly(env,get_a(n),get_t(get_sp(n)))
+            table[idx,t] += cost
+            idx, t = serialize_jointly(env,get_sp(n))
+            table[idx,t] += cost
+        end
     end
     return table
 end
-function update_fat_path_conflict_table!(table::SoftConflictTable,idx::Int,env::E,nodes::Vector{N}) where {E,N<:PathNode}
-    update_fat_path_conflict_table!(table.paths[idx],env,nodes)
+function update_fat_path_conflict_table!(model::M,table::SoftConflictTable,idx::Int,env::E,fat_path) where {M<:FatPathCostModel,E}
+    update_fat_path_conflict_table!(model,table.paths[idx],env,fat_path)
     table.CAT .+= table.paths[idx]
     return table
 end
+# function update_fat_path_conflict_table!(table::Union{SoftConflictTable,AbstractMatrix},args...)
+#     update_fat_path_conflict_table!(FlatFPCost(),table,args...)
+# end
 function clear_fat_path!(table::SoftConflictTable,idx::Int)
     table.CAT .-= table.paths[idx]
     empty!(table.paths[idx])
@@ -1139,21 +1180,21 @@ function SoftConflictTable(mapf::AbstractMAPF)
     )
 end
 get_fat_path_threshold_cost(env,s,cost=get_initial_cost(env)) = add_heuristic_cost(env,cost,get_heuristic_cost(env,s))
-function populate_fat_path_table!(table::SoftConflictTable,mapf::AbstractMAPF)
+function populate_fat_path_table!(table::SoftConflictTable,mapf::AbstractMAPF,model=FlatFPCost())
     node = initialize_root_node(mapf)
     for i in 1:num_agents(mapf)
         env = build_env(mapf,node,i)
         s = get_start(mapf,i)
         threshold = get_fat_path_threshold_cost(env,s)
-        nodes = get_level_set_nodes(env,s,threshold)
-        update_fat_path_conflict_table!(table,i,mapf,nodes)
+        fat_path = get_level_set_nodes(env,s,threshold)
+        update_fat_path_conflict_table!(model,table,i,mapf,fat_path)
     end
     return table
 end
 
-function init_fat_path_mapf(mapf)
+function init_fat_path_mapf(mapf,model=FlatFPCost())
     table = SoftConflictTable(mapf)
-    CRCBS.populate_fat_path_table!(table,mapf)
+    CRCBS.populate_fat_path_table!(table,mapf,model)
     mapf = MAPF(
         base_env_type(mapf)(
             graph = mapf.env.graph,

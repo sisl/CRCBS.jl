@@ -100,27 +100,48 @@ let
 end
 # FatPaths (SoftConflictTable)
 let
-    mapf = CRCBS.init_fat_path_mapf(init_mapf_1())
-    table = mapf.env.cost_model.cost_models[2].model.table
+    for mapf in [
+            CRCBS.init_fat_path_mapf(init_mapf_1(),FlatFPCost()),
+            CRCBS.init_fat_path_mapf(init_mapf_1(),NormalizedFPCost()),
+        ]
+        table = mapf.env.cost_model.cost_models[2].model.table
+        env = build_env(mapf,initialize_root_node(mapf),2)
 
-    env = build_env(mapf,initialize_root_node(mapf),2)
+        @test get_conflict_value(table,1,env,CBSEnv.State(5,1)) == 0
+        @test get_conflict_value(table,2,env,CBSEnv.State(5,1)) >= 0
+        @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(1,5),1),1) >= 0
+        @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(5,1),1),1) >= 0
+        @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(5,1),1),2) == 0
+        cost = get_transition_cost(env,CBSEnv.State(5,0),CBSEnv.Action(Edge(5,1),1),CBSEnv.State(1,1))
+        @test cost[2] >= 0.0
 
-    @test get_conflict_value(table,1,env,CBSEnv.State(5,1)) == 0
-    @test get_conflict_value(table,2,env,CBSEnv.State(5,1)) >= 0
-    @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(1,5),1),1) >= 0
-    @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(5,1),1),1) >= 0
-    @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(5,1),1),2) == 0
-    cost = get_transition_cost(env,CBSEnv.State(5,0),CBSEnv.Action(Edge(5,1),1),CBSEnv.State(1,1))
-    @test cost[2] >= 0.0
+        CRCBS.clear_fat_path!(table,1)
+        @test get_conflict_value(table,1,env,CBSEnv.State(5,1)) == 0
+        @test get_conflict_value(table,2,env,CBSEnv.State(5,1)) == 0
+        @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(1,5),1),1) == 0
+        @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(5,1),1),1) == 0
+        @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(5,1),1),2) == 0
+        cost = get_transition_cost(env,CBSEnv.State(5,0),CBSEnv.Action(Edge(5,1),1),CBSEnv.State(1,1))
+        @test cost[2] == 0.0
+    end
 
-    CRCBS.clear_fat_path!(table,1)
-    @test get_conflict_value(table,1,env,CBSEnv.State(5,1)) == 0
-    @test get_conflict_value(table,2,env,CBSEnv.State(5,1)) == 0
-    @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(1,5),1),1) == 0
-    @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(5,1),1),1) == 0
-    @test get_conflict_value(table,2,env,CBSEnv.Action(Edge(5,1),1),2) == 0
-    cost = get_transition_cost(env,CBSEnv.State(5,0),CBSEnv.Action(Edge(5,1),1),CBSEnv.State(1,1))
-    @test cost[2] == 0.0
+end
+let
+        mapf = CRCBS.init_fat_path_mapf(init_mapf_4(),NormalizedFPCost())
+        table = mapf.env.cost_model.cost_models[2].model.table
+        env = build_env(mapf,initialize_root_node(mapf),2)
+        s = CBSEnv.State(5,1)
+        a = CBSEnv.Action(Edge(5,1),1)
+
+        @test get_conflict_value(table,1,env,s) == 0
+        @test get_conflict_value(table,2,env,s) == 1.0/2
+        @test get_conflict_value(table,2,env,reverse(a),1) == 1.0/2
+        @test get_conflict_value(table,2,env,a,1) >= 1.0/2
+        @test get_conflict_value(table,2,env,a,2) == 0
+        s0 = CBSEnv.State(5,0)
+        sp = get_next_state(env,s0,a)
+        cost = get_transition_cost(env,s0,a,sp)
+        @test cost[2] >= 0.0
 
 end
 # test FatPaths
