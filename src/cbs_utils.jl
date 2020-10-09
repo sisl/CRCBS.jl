@@ -561,7 +561,7 @@ function add_constraint!(env,table::DiscreteConstraintTable,c::CBSConstraint)
     @assert get_agent_id(table) == get_agent_id(c)
     if is_state_constraint(c)
         idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
-        @assert table.state_constraints[idx,t] == false
+        @assert (table.state_constraints[idx,t] == false) "constraint $(string(c)) is already in table"
         table.state_constraints[idx,t] = true
     else
         idx,t = serialize(env,get_a(get_path_node(c)),get_time_of(c))
