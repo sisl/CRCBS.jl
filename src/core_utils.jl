@@ -96,6 +96,26 @@ function recompute_cost(env,path,c0=get_initial_cost(env))
     return cost
 end
 
+export replace_cost_model
+
+# """
+#     replace_cost_model(solution,cost_model)
+# """
+# function replace_cost_model(solution::LowLevelSolution,env,cost_model)
+#     costs = map(p->compute_path_cost(cost_model,env,p,), paths)
+#     paths = [Path(
+#         s0=p.s0,
+#         path_nodes=deepcopy(p.path_nodes),
+#         cost = c
+#     ) for (p,z) in zip(get_paths(env.route_plan),costs)]
+#     LowLevelSolution(
+#         paths=paths,
+#         cost_model=cost_model,
+#         costs=costs,
+#         cost=aggregate_costs(cost_model, costs)
+#         )
+# end
+
 export trim_path!
 
 """

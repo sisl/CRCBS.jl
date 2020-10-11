@@ -106,6 +106,12 @@ end
 function get_transition_cost(c::TravelDistance,env::GraphEnv,s,a,sp)
     return (get_vtx(s) == get_vtx(sp)) ? 0.0 : 1.0
 end
+compute_path_cost(c::TravelTime,env::GraphEnv,path,i) = cost_type(c)(get_t(get_final_state(path)))
+function compute_path_cost(c::TravelDistance,env::GraphEnv,path,i)
+    cost_type(c)(sum(map(
+        n->get_e(get_a(n)).src != get_e(get_a(n)).dst,
+        path.path_nodes)))
+end
 get_heuristic_cost(env::GraphEnv,s) = get_heuristic_cost(get_heuristic_model(env),env,s)
 function get_heuristic_cost(h::H,env::GraphEnv,s) where {H<:Union{PerfectHeuristic,DefaultPerfectHeuristic}}
     get_heuristic_cost(h, get_vtx(get_goal(env)), get_vtx(s))

@@ -163,7 +163,7 @@ end
 get_aggregation_function(m::FullCostModel)  = m.f
 aggregate_costs(m::FullCostModel, costs)    = m.f(costs)
 get_cost_model(m::FullCostModel)            = m.model
-for op in [:accumulate_cost,:get_initial_cost,
+for op in [:accumulate_cost,:get_initial_cost,:compute_path_cost,
     :get_infeasible_cost,:add_heuristic_cost,:get_transition_cost]
     @eval $op(model::FullCostModel,args...) = $op(model.model,args...)
 end
@@ -187,9 +187,9 @@ function construct_composite_cost_model(args...)
     cost_types = map(m->cost_type(m),models)
     CompositeCostModel{typeof(models),Tuple{cost_types...}}(models)
 end
-function get_transition_cost(model::C,env,s,a,sp) where {C<:CompositeCostModel}
-    cost_type(model)(map(m->get_transition_cost(m,env,s,a,sp), model.cost_models))
-end
+# function get_transition_cost(model::C,env,s,a,sp) where {C<:CompositeCostModel}
+#     cost_type(model)(map(m->get_transition_cost(m,env,s,a,sp), model.cost_models))
+# end
 function accumulate_cost(model::C, cost::T, transition_cost::T) where {T,M,C<:CompositeCostModel{M,T}}
     new_cost = map(x->accumulate_cost(x[1],x[2],x[3]),
     zip(model.cost_models, cost, transition_cost))
@@ -205,11 +205,18 @@ function aggregate_costs_meta(model::C, costs::Vector{T}) where {T,M,C<:Composit
         i->aggregate_costs_meta(model.cost_models[i], map(c->c[i], costs)), 1:length(model.cost_models))
     T(aggregated_costs)
 end
-function get_initial_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
-    T(map(m->get_initial_cost(m),model.cost_models))
-end
-function get_infeasible_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
-    T(map(m->get_infeasible_cost(m),model.cost_models))
+# function get_initial_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
+#     T(map(m->get_initial_cost(m),model.cost_models))
+# end
+# function get_infeasible_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
+#     T(map(m->get_infeasible_cost(m),model.cost_models))
+# end
+# function compute_path_cost(model::CompositeCostModel,env,path,i)
+#     cost_type(model)(map(m->compute_path_cost(m,env,path,i),model.cost_models))
+# end
+for op in [:get_initial_cost,:get_infeasible_cost,:get_transition_cost,
+    :compute_path_cost]
+    @eval $op(model::CompositeCostModel,args...) = cost_type(model)(map(m->$op(m,args...),model.cost_models))
 end
 function add_heuristic_cost(model::C, cost::T, h_cost) where {T,M,C<:CompositeCostModel{M,T}}
     T(map(
@@ -306,14 +313,14 @@ struct TransformCostModel{T,M<:LowLevelCostModel{T}} <: LowLevelCostModel{T}
     f::Function
     model::M
 end
-get_transition_cost(m::TransformCostModel,args...) = m.f(get_transition_cost(m.model,args...))
+# get_transition_cost(m::TransformCostModel,args...) = m.f(get_transition_cost(m.model,args...))
 # accumulate_cost(m::TransformCostModel, args...)     = accumulate_cost(m.model,args...)
 # get_initial_cost(m::TransformCostModel,args...)     = get_initial_cost(m.model,args...)
 # get_infeasible_cost(m::TransformCostModel)          = get_infeasible_cost(m.model)
 # add_heuristic_cost(m::TransformCostModel,args...)   = add_heuristic_cost(m.model,args...)
 for op in [:accumulate_cost,:get_initial_cost,
-    :get_infeasible_cost,:add_heuristic_cost]
-    @eval $op(model::TransformCostModel,args...) = $op(model.model,args...)
+    :get_infeasible_cost,:add_heuristic_cost,:get_transition_cost]
+    @eval $op(model::TransformCostModel,args...) = model.f($op(model.model,args...))
 end
 
 struct TravelTime       <: LowLevelCostModel{Float64} end
@@ -368,7 +375,7 @@ end
 # accumulate_cost(model::C,cost,transition_cost) where {C<:AbstractDeadlineCost} = accumulate_cost(model.m,cost,transition_cost)
 # add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost + m.deadline - m.stage_deadline) # assumes heuristic is PerfectHeuristic
 add_heuristic_cost(m::C, cost, h_cost) where {C<:DeadlineCost} = max(0.0, cost + h_cost - m.deadline) # assumes heuristic is PerfectHeuristic
-for op in [:accumulate_cost,:get_initial_cost,:get_transition_cost,]
+for op in [:accumulate_cost,:get_initial_cost,:get_transition_cost,:compute_path_cost]
     @eval $op(model::AbstractDeadlineCost,args...) = $op(model.m,args...)
 end
 FullDeadlineCost(model::DeadlineCost) = FullCostModel(costs->max(0.0, maximum(costs)),model)
@@ -395,7 +402,7 @@ function set_deadline!(m::M,t_max) where {M<:MultiDeadlineCost}
     return m
 end
 add_heuristic_cost(m::C, cost, h_cost) where {C<:MultiDeadlineCost} = m.f(m.weights .* max.(0.0, cost .+ h_cost .- m.deadlines)) # assumes heuristic is PerfectHeuristic
-aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(m.tF[m.root_nodes] .* m.weights) # TODO this is why a_star! is failing on MetaEnv!
+aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = m.f(m.tF[m.root_nodes] .* m.weights)
 aggregate_costs_meta(m::C, costs::Vector{T}) where {T,C<:MultiDeadlineCost}  = maximum(costs)
 
 # MakeSpan(model::FinalTime=FinalTime()) = FullCostModel(maximum,model)

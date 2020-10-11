@@ -200,5 +200,34 @@ let
         SumOfTravelTime()
     )
     get_infeasible_cost(cost_model)
-
+end
+let
+    p = Path{GraphState,GraphAction,Float64}(s0=GraphState(1,0))
+    vtx_grid = initialize_dense_vtx_grid(4,4)
+    graph = construct_factory_env_from_vtx_grid(vtx_grid)
+    env = CBSEnv.LowLevelEnv(graph=graph)
+    for e in [
+            Edge(0,1),
+            Edge(1,2),
+            Edge(2,2),
+        ]
+        s = get_final_state(p)
+        a = GraphAction(e,1)
+        sp = get_next_state(env,s,a)
+        add_to_path!(p,env,s,a,sp)
+    end
+    for (m,c) in [
+        (TravelTime(),3),
+        (TravelDistance(),2)]
+    end
+    @test compute_path_cost(TravelTime(),env,p,1) == 3
+    @test compute_path_cost(SumOfTravelTime(),env,p,1) == 3
+    @test compute_path_cost(TravelDistance(),env,p,1) == 2
+    @test compute_path_cost(SumOfTravelDistance(),env,p,1) == 2
+    @test compute_path_cost(construct_composite_cost_model(
+        SumOfTravelTime(),
+        SumOfTravelDistance(),
+        ),env,p,1) == (3,2)
+    @test compute_path_cost(DeadlineCost(10),env,p,1) == 3
+    @test compute_path_cost(FullDeadlineCost(DeadlineCost(10)),env,p,1) == 3
 end
