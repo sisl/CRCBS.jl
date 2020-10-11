@@ -36,6 +36,7 @@ end
 export
     get_initial_cost,
     get_infeasible_cost,
+    compute_path_cost,
     # get_transition_cost,
     accumulate_cost,
     add_heuristic_cost,
@@ -80,6 +81,13 @@ Part of cost model interface. Defaults to zero.
 """
 get_infeasible_cost(model)  = typemax(cost_type(model))
 # get_infeasible_cost(model::AbstractCostModel)  = typemax(cost_type(model))
+
+"""
+    compute_path_cost(model,env,path,i)
+
+Compute the cost of a path from scratch.
+"""
+compute_path_cost(model,env,path,i) = cost_type(model)(0)
 
 # """
 #     get_transition_cost(model,env,s,a,sp)
