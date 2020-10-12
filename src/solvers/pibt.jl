@@ -299,20 +299,23 @@ i is the id of the higher priority agent, j is the index of the lower priority
 agent.
 """
 function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
-    @log_info(3,solver,"pibt_step!( ... i = ",i,", j = ",j," )")
     env = get_envs(cache)[i]
     s = get_states(cache)[i]
     sj = get(get_states(cache), j, state_type(mapf)())
     a_list = sorted_actions(env,s) # NOTE does NOT need to exclude wait()
+    @log_info(2,solver,"PIBT: pibt_step!( ... i = ",i,", j = ",j," )")
+    @log_info(2,solver,"  s        = ",string(s))
+    @log_info(2,solver,"  actions  = ",map(string,a_list))
+    @log_info(2,solver,"  env.goal = ",string(get_goal(env)))
     while ~isempty(a_list)
         a = a_list[1]
         sp = get_next_state(env,s,a)
         if !is_reserved(cache,env,s,a,sp) && !states_match(sp,sj)
             reserve!(cache,env,s,a,sp)
-            @log_info(3,solver,"reserve!( ... a = ",string(a),", sp = ",string(sp)," )")
+            @log_info(3,solver,"  agent $i reserve!( ... a = ",string(a),", sp = ",string(sp)," )")
             k = get_conflict_index(cache,i,s,a,sp)
             if k != -1
-                @log_info(3,solver,"get_conflict_index( i = ",i,", sp = ",string(sp)," ) : ",k)
+                @log_info(3,solver,"  agent $i get_conflict_index( i = ",i,", sp = ",string(sp)," ) : ",k)
                 if pibt_step!(solver,mapf,cache,k,i)
                     set_action!(cache,i,a)
                     setdiff!(cache.undecided,i)
@@ -327,7 +330,7 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
                 return true
             end
         else
-            @log_info(3,solver,"illegal action ",string(a))
+            @log_info(3,solver,"  agent $i illegal action ",string(a))
             deleteat!(a_list,1)
         end
     end
@@ -342,7 +345,8 @@ function pibt!(solver, mapf)
     while !is_consistent(cache,mapf)
         try
             increment_iteration_count!(solver)
-            enforce_iteration_limit(solver)
+            enforce_iteration_limit!(solver)
+            enforce_time_limit!(solver)
         catch e
             if isa(e,SolverException)
                 handle_solver_exception(solver,e)
@@ -351,7 +355,7 @@ function pibt!(solver, mapf)
                 rethrow(e)
             end
         end
-        @log_info(3,solver,"PIBT iterations = ",iterations(solver))
+        @log_info(1,solver,"PIBT iterations = ",iterations(solver))
         while !isempty(cache.undecided)
             if ~pibt_step!(solver,mapf,cache)
                 return get_solution(cache), false
@@ -359,7 +363,7 @@ function pibt!(solver, mapf)
         end
         # update cache
         pibt_update_cache!(solver,mapf,cache)
-        @log_info(3,solver,"solution: ",convert_to_vertex_lists(get_solution(cache)))
+        @log_info(2,solver,"solution: ",convert_to_vertex_lists(get_solution(cache)))
     end
     return get_solution(cache), is_consistent(cache,mapf)
 end
@@ -367,8 +371,11 @@ end
 function solve!(solver::PIBTPlanner,mapf)
     solution, valid = pibt!(solver,mapf)
     if valid
+        @log_info(0,solver,"SUCCESS! Valid solution returned by PIBT")
+        @assert failed_status(solver) == false "failed_status($(solver_type(solver))) should be false"
         set_best_cost!(solver, get_cost(solution))
     else
+        @log_info(0,solver,"FAILED! Invalid solution returned by PIBT")
         set_cost!(solution,typemax(cost_type(mapf)))
     end
     return solution, best_cost(solver)

@@ -43,7 +43,7 @@ function logger_dequeue_cbs_node!(solver,mapf,node)
     #         println("\t",i,": ",convert_to_vertex_lists(path))
     #     end
     # end
-    enforce_iteration_limit(solver)
+    enforce_iteration_limit!(solver)
 end
 function logger_exit_cbs_optimal!(solver,node)
     set_best_cost!(solver,get_cost(node))
@@ -54,8 +54,8 @@ function logger_exit_cbs_optimal!(solver,node)
 end
 function logger_cbs_add_constraint!(solver,node,constraint,mapf)
     increment_iteration_count!(solver)
-    enforce_time_limit(solver)
-    enforce_iteration_limit(solver)
+    enforce_time_limit!(solver)
+    enforce_iteration_limit!(solver)
     @log_info(1,solver,"CBS: adding constraint to node ",node.trace,": ",string(constraint))
     # @log_info(2,solver,"CBS: constraints in node ",node.trace,": \n",
     #     map(c->string("\t",string(c),"\n"),sorted_state_constraints(mapf,node))...,

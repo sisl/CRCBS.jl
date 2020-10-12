@@ -165,6 +165,7 @@ Custom exception type for tracking solver timeouts, etc.
 struct SolverException <: Exception
     msg::String
 end
+SolverException(msg::String,msg2,args...) = SolverException(string(msg,msg2,args...))
 
 export handle_solver_exception
 
@@ -181,38 +182,46 @@ function handle_solver_exception(solver,e)
     end
 end
 
+export
+	solver_type
+
+solver_type(::SolverLogger) = "Solver"
 
 export
     optimality_gap,
-	check_time!,
+	check_time,
 	check_iterations,
-	enforce_time_limit,
-	enforce_iteration_limit,
+	enforce_time_limit!,
+	enforce_iteration_limit!,
     increment_iteration_count!
 
 optimality_gap(logger) = best_cost(logger) .- lower_bound(logger)
-function check_time!(logger)
+function check_time(logger)
     t = time()
     if t >= deadline(logger) || t - start_time(logger) >= runtime_limit(logger)
-		set_time_out_status!(logger,true)
+		# set_time_out_status!(logger,true)
         return true
     end
     return false
 end
-function enforce_time_limit(logger)
-    if check_time!(logger)
-        throw(SolverException("Solver time limit exceeded! deadline was $(deadline(logger)), runtime_limit was $(runtime_limit(logger))"))
+function enforce_time_limit!(logger)
+    if check_time(logger)
+		set_time_out_status!(logger,true)
+        throw(SolverException("$(solver_type(logger)) time limit exceeded!",
+		" deadline was $(deadline(logger)),",
+		" runtime_limit was $(runtime_limit(logger))"))
     end
 end
 function check_iterations(logger)
     if iterations(logger) >= iteration_limit(logger)
-		set_iteration_max_out_status!(logger,true)
+		# set_iteration_max_out_status!(logger,true)
 		return true
 	end
 	return false
 end
-function enforce_iteration_limit(logger)
+function enforce_iteration_limit!(logger)
     if check_iterations(logger)
+		set_iteration_max_out_status!(logger,true)
         throw(SolverException("Solver iterations exceeded! Limit was $(iteration_limit(logger))."))
     end
 end
