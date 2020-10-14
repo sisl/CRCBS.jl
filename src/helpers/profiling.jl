@@ -160,8 +160,9 @@ name `problem_name`. Can be overloaded to dispatch on problem type when applicab
 """
 function write_results(loader,solver_config,prob,problem_file,results)
     problem_name = splitext(splitdir(problem_file)[end])[1]
-    outfile = joinpath(solver_config.results_path,
-        string(problem_name,".results"))
+    outpath = joinpath(solver_config.results_path)
+    mkpath(outpath)
+    outfile = joinpath(outpath,string(problem_name,".results"))
     open(outfile,"w") do io
         TOML.print(io,results)
     end

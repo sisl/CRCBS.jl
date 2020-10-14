@@ -372,7 +372,6 @@ function solve!(solver::PIBTPlanner,mapf)
     solution, valid = pibt!(solver,mapf)
     if valid
         @log_info(0,solver,"SUCCESS! Valid solution returned by PIBT")
-        @assert failed_status(solver) == false "failed_status($(solver_type(solver))) should be false"
         set_best_cost!(solver, get_cost(solution))
     else
         @log_info(0,solver,"FAILED! Invalid solution returned by PIBT")

@@ -202,7 +202,7 @@ function cbs!(solver,mapf)
             rethrow(e)
         end
     end
-    println("No Solution Found. Returning default solution")
+    @log_info(-1,solver,"CBS: No Solution Found. Returning default solution")
     return default_solution(mapf)
 end
 

@@ -10,14 +10,15 @@ export
 	timed_out::Bool = false
 	iterations_maxed_out::Bool = false
 end
-time_out_status(status::SolverStatus) = status.timed_out
-iteration_max_out_status(status::SolverStatus) = status.iterations_maxed_out
+solver_status(status::SolverStatus) = status
+time_out_status(status) 			= solver_status(status).timed_out
+iteration_max_out_status(status) 	= solver_status(status).iterations_maxed_out
 failed_status(status) = time_out_status(status) || iteration_max_out_status(status)
-function set_time_out_status!(status::SolverStatus,val=true)
-	status.timed_out = val
+function set_time_out_status!(status,val=true)
+	solver_status(status).timed_out = val
 end
-function set_iteration_max_out_status!(status::SolverStatus,val=true)
-	status.iterations_maxed_out = val
+function set_iteration_max_out_status!(status,val=true)
+	solver_status(status).iterations_maxed_out = val
 end
 
 export SolverLogger
@@ -67,7 +68,6 @@ export
     start_time,
     runtime_limit,
     deadline,
-    # lower_bound,
     best_cost,
     verbosity,
     debug
@@ -83,7 +83,8 @@ best_cost(logger)       = get_logger(logger).best_cost
 verbosity(logger)       = get_logger(logger).verbosity
 verbosity(val::Int)		= val
 debug(logger)           = get_logger(logger).DEBUG
-status(logger) 			= get_logger(logger).status
+solver_status(logger) 	= get_logger(logger).status
+
 
 export
 	set_iterations!,
@@ -134,9 +135,6 @@ end
 function set_best_cost!(logger::SolverLogger,val)
     logger.best_cost = val
 end
-# function set_best_cost!(logger::SolverLogger{C},val::C) where {C}
-#     logger.best_cost = val
-# end
 function set_best_cost!(logger::SolverLogger{NTuple{N,T}},val::R) where {N,T<:Real,R<:Real}
     logger.best_cost = NTuple{N,T}((T(val),zeros(T,N-1)...))
 end
@@ -178,7 +176,7 @@ function handle_solver_exception(solver,e)
     if debug(solver)
         showerror(stdout, e, catch_backtrace())
     else
-        printstyled(e;color=:red)
+        printstyled(e,"\n";color=:red)
     end
 end
 
@@ -189,13 +187,20 @@ solver_type(::SolverLogger) = "Solver"
 
 export
     optimality_gap,
+	feasible_status,
+	optimal_status
+
+optimality_gap(logger) = best_cost(logger) .- lower_bound(logger)
+feasible_status(solver) = best_cost(solver) < typemax(cost_type(solver))
+optimal_status(solver) 	= optimality_gap(solver) == 0
+
+export
 	check_time,
 	check_iterations,
 	enforce_time_limit!,
 	enforce_iteration_limit!,
     increment_iteration_count!
 
-optimality_gap(logger) = best_cost(logger) .- lower_bound(logger)
 function check_time(logger)
     t = time()
     if t >= deadline(logger) || t - start_time(logger) >= runtime_limit(logger)

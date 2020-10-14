@@ -454,6 +454,39 @@ export
     DiscreteConstraintTable,
     discrete_constraint_table
 
+
+# export OffsetSparseMatrix
+#
+# """
+#     OffsetSparseMatrix{T}
+#
+# Represents a sparse matrix whose dimensions may begin at non-zero integer.
+# example:
+# ```
+# table = OffsetSparseMatrix{Bool}(10,10,5,5)
+#
+# ```
+# """
+# struct OffsetSparseMatrix{T}
+#     table::SparseMatrixCSC{T,Int}
+#     offset::SVector{2,Int}
+#     function OffsetSparseMatrix{T}(i::Int,j::Int,start_i::Int=0,start_j::Int=0) where {T}
+#         new(spzeros(T,i,j),SVector{2,Int}(start_i,start_j))
+#     end
+# end
+# Base.getindex(m::OffsetSparseMatrix,i,j) = m.table[i .- m.offset[1],j .- m.offset[2]]
+# Base.setindex!(m::OffsetSparseMatrix,val,i,j) = setindex!(m.table,val,i - m.offset[1], j - m.offset[2])
+# get_offset(m::OffsetSparseMatrix) = m.offset
+# get_offset(m::OffsetSparseMatrix,d::Int) = m.offset[d]
+# Base.size(m::OffsetSparseMatrix) = size(m.table) .+ get_offset(m)
+# function SparseArrays.findnz(m::OffsetSparseMatrix)
+#     row_idxs, col_idxs, vals = findnz(m.table)
+#     di = get_offset(m,1)
+#     dj = get_offset(m,2)
+#     map(i->i+di,row_idxs), map(j->j+dj,col_idxs), vals
+# end
+# Base.checkbounds(m::OffsetSparseMatrix,i,j) = all(get_offset(m) .<= (i,j) .<= size(m))
+
 """
     DiscreteStateTable
 
@@ -571,6 +604,12 @@ function add_constraint!(env,table::DiscreteConstraintTable,c::CBSConstraint)
     return table
 end
 
+
+function check_constraint_bounds(table,idx,t)
+    if !checkbounds(Bool,table,idx,t)
+        throw(SolverException("BoundsError: Trying to check constraint at $idx,$t, but size(table) = $(size(table))"))
+    end
+end
 """
     has_constraint(env,table,c::CBSConstraint)
 """
@@ -578,12 +617,11 @@ function has_constraint(env,table::DiscreteConstraintTable,c::CBSConstraint)
     @assert get_agent_id(table) == get_agent_id(c)
     if is_state_constraint(c)
         idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
-        @assert all((1,1) .<= (idx,t) .<= size(table.state_constraints)) "$idx,$t should not exceed size(table) = $(size(table.state_constraints))"
-
+        check_constraint_bounds(table.state_constraints,idx,t)
         return table.state_constraints[idx,t]
     else
         idx,t = serialize(env,get_a(get_path_node(c)),get_time_of(c))
-        # @show idx,t,table.action_constraints
+        check_constraint_bounds(table.action_constraints,idx,t)
         return table.action_constraints[idx,t]
     end
 end
