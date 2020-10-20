@@ -90,7 +90,7 @@ function init_mapf_5(args...)
     #  1   2   3   4
     #  5   6   7   8
     starts = [2,5,6,3,4,7,8]
-    goals = [4,8,8,7,8,4,3]
+    goals = [4,8,5,7,8,4,3]
     # graph = initialize_grid_graph_from_vtx_grid(vtx_grid)
     graph = construct_factory_env_from_vtx_grid(vtx_grid)
     init_mapf_problem(graph,starts,goals,args...)

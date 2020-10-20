@@ -104,6 +104,11 @@ get_undecided(cache::PIBTCache) = cache.undecided # agent ids
 get_reservation_table(cache::PIBTCache) = cache.reservation_table
 get_timers(cache::PIBTCache) = cache.timers
 get_active_countdowns(cache::PIBTCache) = cache.active_countdowns
+function get_current_priority(cache::PIBTCache,i)
+    idx = findfirst(j->j==i,get_ordering(cache))
+    @assert !isnothing(idx)
+    return idx
+end
 
 get_active_agents(cache::PIBTCache) = findall(get_active_countdowns(cache) .<= 0)
 get_inactive_agents(cache::PIBTCache) = findall(get_active_countdowns(cache) .> 0)
@@ -298,7 +303,7 @@ export pibt_step!
 i is the id of the higher priority agent, j is the index of the lower priority
 agent.
 """
-function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
+function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1,PRIORITY=-1)
     env = get_envs(cache)[i]
     s = get_states(cache)[i]
     sj = get(get_states(cache), j, state_type(mapf)())
@@ -307,10 +312,11 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
     @log_info(2,solver,"  s        = ",string(s))
     @log_info(2,solver,"  actions  = ",map(string,a_list))
     @log_info(2,solver,"  env.goal = ",string(get_goal(env)))
+    setdiff!(cache.undecided,i) # NOTE does this need to be uncommented after all?
     while ~isempty(a_list)
         a = a_list[1]
         sp = get_next_state(env,s,a)
-        if !is_reserved(cache,env,s,a,sp) && !states_match(sp,sj)
+        if !is_reserved(cache,env,s,a,sp) && !states_match(sp,sj) # Problem: Does not filter out self reservations
             reserve!(cache,env,s,a,sp)
             @log_info(3,solver,"  agent $i reserve!( ... a = ",string(a),", sp = ",string(sp)," )")
             k = get_conflict_index(cache,i,s,a,sp)
@@ -318,15 +324,15 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
                 @log_info(3,solver,"  agent $i get_conflict_index( i = ",i,", sp = ",string(sp)," ) : ",k)
                 if pibt_step!(solver,mapf,cache,k,i)
                     set_action!(cache,i,a)
-                    setdiff!(cache.undecided,i)
+                    # setdiff!(cache.undecided,i)
                     return true
                 else
                     deleteat!(a_list,1)
-                    break # <--- NOTE is this the problem? What if we don't break here?
+                    # break # <--- NOTE is this the problem? What if we don't break here?
                 end
             else
                 set_action!(cache,i,a)
-                setdiff!(cache.undecided,i)
+                # setdiff!(cache.undecided,i)
                 return true
             end
         else
