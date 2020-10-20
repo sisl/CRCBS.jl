@@ -322,7 +322,7 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1)
                     return true
                 else
                     deleteat!(a_list,1)
-                    break
+                    break # <--- NOTE is this the problem? What if we don't break here?
                 end
             else
                 set_action!(cache,i,a)

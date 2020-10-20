@@ -1,3 +1,5 @@
+using DataFrames
+
 export FeatureExtractor
 
 """
@@ -8,17 +10,23 @@ Abstract type for features that may be reported about the solution to a PC-TAPF
 """
 abstract type FeatureExtractor{T} end
 
+export feature_type
+feature_type(extractor::FeatureExtractor{T}) where {T} = T
+
 export
     RunTime,
     MemAllocs,
     GCTime,
     ByteCount,
     SolutionCost,
+    PrimaryCost,
     OptimalityGap,
     OptimalFlag,
     FeasibleFlag,
     NumConflicts,
-    IterationCount
+    FinalTimeFeature,
+    IterationCount,
+    LowLevelIterationCount
 
 export
     TimeOutStatus,
@@ -33,15 +41,19 @@ struct MemAllocs        <: FeatureExtractor{Float64} end
 struct GCTime           <: FeatureExtractor{Float64} end
 struct ByteCount        <: FeatureExtractor{Float64} end
 struct SolutionCost     <: FeatureExtractor{Vector{Float64}} end
+struct PrimaryCost      <: FeatureExtractor{Float64} end
 struct OptimalityGap    <: FeatureExtractor{Float64} end
 struct OptimalFlag      <: FeatureExtractor{Bool} end
 struct FeasibleFlag     <: FeatureExtractor{Bool} end
 struct NumConflicts     <: FeatureExtractor{Int} end
+struct FinalTimeFeature <: FeatureExtractor{Int} end
 struct IterationCount   <: FeatureExtractor{Int} end
+struct LowLevelIterationCount <: FeatureExtractor{Int} end
 struct TimeOutStatus    <: FeatureExtractor{Bool} end
 struct IterationMaxOutStatus <: FeatureExtractor{Bool} end
 struct RobotPaths       <: FeatureExtractor{Vector{Int}} end
 struct RobotSeparation  <: FeatureExtractor{Vector{Int}} end
+
 
 export
     extract_feature,
@@ -66,11 +78,15 @@ extract_feature(solver,::MemAllocs,     mapf,solution,timer_results) = timer_res
 extract_feature(solver,::GCTime,        mapf,solution,timer_results) = timer_results.gctime
 extract_feature(solver,::ByteCount,     mapf,solution,timer_results) = timer_results.bytes
 extract_feature(solver,::SolutionCost,  mapf,solution,timer_results) = get_cost(solution)
+extract_feature(solver,::PrimaryCost,  args...) = extract_feature(solver,SolutionCost(),args...)[1]
 extract_feature(solver,::OptimalityGap, mapf,solution,timer_results) = optimality_gap(solver)
 extract_feature(solver,::OptimalFlag,   mapf,solution,timer_results) = optimality_gap(solver) <= 0
 extract_feature(solver,::FeasibleFlag,  mapf,solution,timer_results) = best_cost(solver) < typemax(typeof(best_cost(solver)))
 extract_feature(solver,::NumConflicts,  mapf,solution,timer_results) = count_conflicts(detect_conflicts(solution))
+extract_feature(solver,::FinalTimeFeature,     mapf,solution,timer_results) = maximum(map(length,get_paths(solution)))
 extract_feature(solver,::IterationCount, mapf,solution,timer_results) = iterations(solver)
+extract_feature(solver,::LowLevelIterationCount, args...) = -1
+extract_feature(solver::BiLevelPlanner,::LowLevelIterationCount, args...) = max_iterations(low_level(solver))
 extract_feature(solver,::TimeOutStatus, mapf,solution,timer_results) = time_out_status(solver)
 extract_feature(solver,::IterationMaxOutStatus, mapf,solution,timer_results) = iteration_max_out_status(solver)
 extract_feature(solver,::RobotPaths,    mapf,solution,timer_results) = convert_to_vertex_lists(solution)
@@ -100,7 +116,7 @@ end
 export compile_results
 
 function compile_results(solver,feats,args...)
-    results = Dict(string(typeof(feat))=>extract_feature(solver,feat,args...) for feat in feats)
+    results = Dict{String,Any}(string(typeof(feat))=>extract_feature(solver,feat,args...) for feat in feats)
     for (k,v) in results
         if isa(v,Tuple)
             results[k] = [v...] # because TOML doesn't handle tuples
@@ -109,21 +125,6 @@ function compile_results(solver,feats,args...)
     return results
 end
 
-# using DataFrames
-#
-# """
-#     init_dataframe(feats::Tuple)
-#
-# Instantiate an empty dataframe based on the names and types of feature
-# extractors in `feats`.
-# """
-# function init_dataframe(feats::Tuple)
-#     df = DataFrame()
-#     for feat in (RunTime(),SolutionCost(),OptimalityGap())
-#         df[!,Symbol(typeof(feat))] = feature_type(feat)[]
-#     end
-#     df
-# end
 
 export profile_solver!
 
@@ -207,3 +208,88 @@ function run_profiling(config,loader)
         end
     end
 end
+
+################################################################################
+############################### Results Analysis ###############################
+################################################################################
+
+export init_dataframe
+
+# extract_key_types(feats::Vector{FeatureExtractor}) = [Symbol(typeof(f))=>feature_type(f) for f in feats if feature_type(f) <: Real]
+# extract_key_types(dict::Dict) = [Symbol(string(k))=>typeof(v) for (k,v) in dict if isa(v,Union{Real,String})]
+extract_key_types(feats::Vector{FeatureExtractor}) = [Symbol(typeof(f))=>feature_type(f) for f in feats]
+extract_key_types(dict::Dict) = [Symbol(string(k))=>typeof(v) for (k,v) in dict]
+
+export get_problem_name
+get_problem_name(loader,prob_file) = split(prob_file,"/")[end]
+
+export get_config_path
+get_config_path(loader,problem_file) = joinpath(problem_file,"config.toml")
+
+export load_results
+function load_results(loader,results_file)
+    results = Dict(Symbol(k)=>v for (k,v) in TOML.parsefile(results_file))
+    prob_file = results[:problem_file]
+    results[:problem_name] = get_problem_name(loader,prob_file)
+    results
+end
+function load_config(loader,prob_file)
+    config_file = get_config_path(loader,prob_file)
+    config = Dict(Symbol(k)=>v for (k,v) in TOML.parsefile(config_file))
+    config[:problem_name] = get_problem_name(loader,prob_file)
+    config
+end
+
+"""
+    init_dataframe(feats::Tuple)
+
+Instantiate an empty dataframe based on the names and types of feature
+extractors in `feats`.
+"""
+function init_dataframe(feats,extras=[:problem_name=>String])
+    df = DataFrame()
+    for (k,VType) in extract_key_types(feats)
+        df[!,k] = VType[]
+    end
+    for (k,VType) in extras
+        df[!,k] = VType[]
+    end
+    df
+end
+
+export construct_results_dataframe
+"""
+    construct_results_dataframe(loader,solver_config,config_template)
+
+Compile results at `solver_config.results_path` into a `DataFrame` based on the
+features stored in `solver_config.feats`
+"""
+function construct_results_dataframe(loader,solver_config,config_template)
+    results_df = init_dataframe(solver_config.feats)
+    for results_file in readdir(solver_config.results_path;join=true)
+        results = load_results(loader,results_file)
+        push!(results_df,results)
+    end
+    results_df
+end
+
+export construct_config_dataframe
+"""
+    construct_results_dataframe(loader,solver_config,config_template)
+
+Compile results at `solver_config.results_path` into a `DataFrame` based on the
+features stored in `solver_config.feats`
+"""
+function construct_config_dataframe(loader,problem_path,config_template)
+    df = init_dataframe(config_template)
+    for problem_file in readdir(problem_path;join=true)
+        config = load_config(loader,problem_file)
+        push!(df,config)
+    end
+    df
+end
+
+# export innerjoin_dataframes
+# function innerjoin_dataframes(results_df,config_df)
+#     innerjoin(results_df,config_df,on=:problem_name)
+# end
