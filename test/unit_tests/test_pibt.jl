@@ -78,7 +78,7 @@ let
         @test is_reserved(table,ResourceReservation(1,2,interval)) == !val
         @test reserve!(table,ResourceReservation(1,2,interval)) == val
         @test is_reserved(table,ResourceReservation(1,2,interval))
-        # @test is_available(table,ResourceReservation(1,2,interval)) 
+        # @test is_available(table,ResourceReservation(1,2,interval))
         @test 2 in reserved_by(table,ResourceReservation(1,2,interval))
     end
     @test is_valid(table)
@@ -169,4 +169,15 @@ let
         end
     end
 end
+# Test PIBT on problem from paper
+let
+    solver = PIBTPlanner{Float64}()
+    mapf = init_mapf_5()
+    set_verbosity!(solver,4)
+    cache = CRCBS.pibt_init_cache(solver,mapf)
+    pibt_step!(solver,mapf,cache)
+    
+
+end
+
 end # end testset
