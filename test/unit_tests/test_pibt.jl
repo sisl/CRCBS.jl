@@ -173,11 +173,9 @@ end
 let
     solver = PIBTPlanner{Float64}()
     mapf = init_mapf_5()
-    set_verbosity!(solver,4)
-    cache = CRCBS.pibt_init_cache(solver,mapf)
-    pibt_step!(solver,mapf,cache)
-    
-
+    set_max_iterations!(solver,50)
+    # set_verbosity!(solver,4)
+    solution, status = pibt!(solver,mapf)
 end
 
 end # end testset

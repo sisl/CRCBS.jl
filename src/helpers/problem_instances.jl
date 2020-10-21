@@ -103,4 +103,5 @@ mapf_test_problems() = [
     init_mapf_2,
     init_mapf_3,
     init_mapf_4,
+    init_mapf_5,
 ]

@@ -983,7 +983,7 @@ function is_reserved(vec::Vector{R},res::R) where {R<:ResourceReservation}
     return false
 end
 function is_reserved(table::ReservationTable,res::ResourceReservation)
-    @assert is_valid(res)
+    @assert is_valid(res) string(res)
     @assert resource_id(res) <= length(table.reservations)
     is_reserved(table.reservations[resource_id(res)],res)
 end

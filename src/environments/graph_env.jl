@@ -61,6 +61,8 @@ function GraphUtils.get_distance(env::GraphEnv,s1::AbstractGraphState,s2::Abstra
     get_distance(get_graph(env),get_vtx(s1),get_vtx(s2))
 end
 
+set_agent_idx!(env::E,i) where {E<:GraphEnv} = E(env,agent_idx=i)
+
 cost_type(env::GraphEnv)            = cost_type(get_cost_model(env))
 
 is_valid(env::GraphEnv,s::AbstractGraphState) = has_vertex(get_graph(env),get_vtx(s))

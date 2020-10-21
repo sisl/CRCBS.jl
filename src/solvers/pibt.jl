@@ -260,7 +260,10 @@ function pibt_update_solution!(solver,solution,cache)
 end
 function pibt_update_env!(solver,mapf,cache,i)
     node = initialize_root_node(solver,mapf)
-    get_envs(cache)[i] = build_env(solver,mapf,node,-1)
+    # Trying to set a dummy task for the goal (serves as a marker that this agent's task is complete)
+    # But still need to set agent_id = i
+    env = build_env(solver,mapf,node,-1)
+    get_envs(cache)[i] = base_env_type(mapf)(env,agent_idx=i)
 end
 function pibt_update_envs!(solver,mapf,cache)
     for (i,(s,env)) in enumerate(zip(get_states(cache),get_envs(cache)))
@@ -321,8 +324,8 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1,PR
         a = a_list[1]
         sp = get_next_state(env,s,a)
         if !is_reserved(cache,env,s,a,sp) && !states_match(sp,sj) # Problem: Does not filter out self reservations
-            reserve!(cache,env,s,a,sp)
             @log_info(3,solver,"  agent $i reserve!( ... a = ",string(a),", sp = ",string(sp)," )")
+            reserve!(cache,env,s,a,sp)
             k = get_conflict_index(cache,i,s,a,sp)
             if k != -1
                 @log_info(3,solver,"  agent $i get_conflict_index( i = ",i,", sp = ",string(sp)," ) : ",k)
