@@ -1020,7 +1020,7 @@ function reserved_by(table::ReservationTable,res::ResourceReservation)
     @assert resource_id(res) <= length(table.reservations)
     reserved_by(table.reservations[resource_id(res)],res)
 end
-function reserved_by(table::ReservationTable,env,s,a,sp)
+function reserved_by(table::ReservationTable,env,s,a,sp,t=-1)
     union(map(res->reserved_by(table,res),create_reservations(env,s,a,sp,t))...)
 end
 

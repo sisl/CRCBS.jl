@@ -127,7 +127,20 @@ function reset_reservations!(cache::PIBTCache)
     end
 end
 is_reserved(cache::PIBTCache,args...) = is_reserved(get_reservation_table(cache),args...)
-reserve!(cache::PIBTCache,args...) = reserve!(get_reservation_table(cache),args...)
+reserved_by(cache::PIBTCache,args...) = reserved_by(get_reservation_table(cache),args...)
+# reserve!(cache::PIBTCache,args...) = reserve!(get_reservation_table(cache),args...)
+
+function reserve!(cache::PIBTCache,args...)
+    table = get_reservation_table(cache)
+    valid = true
+    for res in create_reservations(cache,args...)
+        valid &= reserve!(table,res)
+    end
+    return valid
+end
+function create_reservations(cache::PIBTCache,args...)
+    reservations = create_reservations(args...)[2:end]
+end
 # function is_reserved(cache::PIBTCache,env,s,a,sp)
 #     idx,_ = serialize(env,sp)
 #     return (idx in get_reservation_table(cache))
@@ -336,7 +349,8 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1,PR
                 return true
             end
         else
-            @log_info(3,solver,"  agent $i illegal action ",string(a))
+            @log_info(3,solver,"  agent $i illegal action ",string(a),
+                ". Reserved by ",reserved_by(cache,env,s,a,sp))
             deleteat!(a_list,1)
         end
     end
