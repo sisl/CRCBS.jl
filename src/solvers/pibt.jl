@@ -141,15 +141,6 @@ end
 function create_reservations(cache::PIBTCache,args...)
     reservations = create_reservations(args...)[2:end]
 end
-# function is_reserved(cache::PIBTCache,env,s,a,sp)
-#     idx,_ = serialize(env,sp)
-#     return (idx in get_reservation_table(cache))
-# end
-# function reserve!(cache::PIBTCache,env,s,a,sp)
-#     idx,_ = serialize(env,sp)
-#     push!(get_reservation_table(cache),idx)
-#     return cache
-# end
 
 """
     Fills `undecided` with all active agents (inactive agents have already
