@@ -109,19 +109,22 @@ let
     let
         for constraints in [
             discrete_constraint_table(env,1),
-            ConstraintTable{P}(agent_id = 1)
+            # ConstraintTable{P}(agent_id = 1)
             ]
             # add a constraint whose agent id does not match (should throw an error)
             s = S(1,1)
             a = A(Edge(1,2),1)
             sp = S(2,2)
             c = state_constraint(get_agent_id(constraints)+1,P(),2)
-            @test_throws AssertionError add_constraint!(env,constraints,c)
-            @test_throws AssertionError CRCBS.has_constraint(env,constraints,c)
+            @test_throws AssertionError add_constraint!(env,constraints,c) # wrong agent id
+            @test_throws AssertionError CRCBS.has_constraint(env,constraints,c) # wrong agent id
             # add a constraint whose agent id DOES match
             c = state_constraint(get_agent_id(constraints),P(s,a,sp),2)
             add_constraint!(env,constraints,c)
             @test CRCBS.has_constraint(env,constraints,c)
+            remove_constraint!(env,constraints,c)
+            @test !CRCBS.has_constraint(env,constraints,c)
+            add_constraint!(env,constraints,c)
             sc,ac = CRCBS.search_constraints(env,constraints,get_path_node(c))
             @test length(sc) == 1
             @test length(ac) == 0
@@ -129,6 +132,9 @@ let
             c = action_constraint(get_agent_id(constraints),P(s,a,sp),2)
             add_constraint!(env,constraints,c)
             @test CRCBS.has_constraint(env,constraints,c)
+            remove_constraint!(env,constraints,c)
+            @test !CRCBS.has_constraint(env,constraints,c)
+            add_constraint!(env,constraints,c)
             sc,ac = CRCBS.search_constraints(env,constraints,get_path_node(c))
             @test length(sc) == 1
             @test length(ac) == 1
@@ -137,6 +143,17 @@ let
             @test get_vtx(get_sp(c)) == get_vtx(sp)
             c = sorted_action_constraints(env,constraints)[1]
             @test get_e(get_a(c)) == get_e(a)
+            # Test interval constraints
+            c = state_constraint(get_agent_id(constraints),P(s,a,sp),3,4)
+            add_constraint!(env,constraints,c)
+            for t in 3:4
+                @test CRCBS.has_constraint(env,constraints,state_constraint(get_agent_id(constraints),P(s,a,sp),t))
+            end
+            remove_constraint!(env,constraints,c)
+            for t in 3:4
+                @test !CRCBS.has_constraint(env,constraints,state_constraint(get_agent_id(constraints),P(s,a,sp),t))
+            end
+
         end
     end
 end

@@ -483,7 +483,8 @@ function partially_set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::In
     for (i,vtx) in enumerate(path)
         t = t0 + i
         # try
-            old_vtx = h.paths[path_idx][t]
+        checkbounds(Bool,h.paths[path_idx],t) ? nothing : throw(SolverException("Out of bounds in partially_set_path!"))
+        old_vtx = h.paths[path_idx][t]
         if old_vtx != 0
             h.CAT[old_vtx,t] = h.CAT[old_vtx,t] - 1
         end

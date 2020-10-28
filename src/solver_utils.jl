@@ -204,7 +204,6 @@ export
 function check_time(logger)
     t = time()
     if t >= deadline(logger) || t - start_time(logger) >= runtime_limit(logger)
-		# set_time_out_status!(logger,true)
         return true
     end
     return false
@@ -219,7 +218,6 @@ function enforce_time_limit!(logger)
 end
 function check_iterations(logger)
     if iterations(logger) >= iteration_limit(logger)
-		# set_iteration_max_out_status!(logger,true)
 		return true
 	end
 	return false

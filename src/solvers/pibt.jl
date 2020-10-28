@@ -5,6 +5,7 @@ export PIBTPlanner
 
 @with_kw struct PIBTPlanner{C}
     logger::SolverLogger{C} = SolverLogger{C}()
+    partial::Bool           = false # if true, allow partial solutions
 end
 
 export PIBTReservationTable
@@ -315,10 +316,10 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1,PR
     s = get_states(cache)[i]
     sj = get(get_states(cache), j, state_type(mapf)())
     a_list = sorted_actions(env,s) # NOTE does NOT need to exclude wait()
-    @log_info(2,solver,"PIBT: pibt_step!( ... i = ",i,", j = ",j," )")
-    @log_info(2,solver,"  s        = ",string(s))
-    @log_info(2,solver,"  actions  = ",map(string,a_list))
-    @log_info(2,solver,"  env.goal = ",string(get_goal(env)))
+    @log_info(3,solver,"PIBT: pibt_step!( ... i = ",i,", j = ",j," )")
+    @log_info(3,solver,"  s        = ",string(s))
+    @log_info(3,solver,"  actions  = ",map(string,a_list))
+    @log_info(3,solver,"  env.goal = ",string(get_goal(env)))
     setdiff!(cache.undecided,i) # NOTE does this need to be uncommented after all?
     while ~isempty(a_list)
         a = a_list[1]
@@ -356,6 +357,7 @@ export pibt!
 
 function pibt!(solver, mapf)
     cache = pibt_init_cache(solver,mapf)
+    @log_info(0,solver,"PIBT: Entering...")
     while !is_consistent(cache,mapf)
         try
             increment_iteration_count!(solver)
@@ -377,7 +379,10 @@ function pibt!(solver, mapf)
         end
         # update cache
         pibt_update_cache!(solver,mapf,cache)
-        @log_info(2,solver,"solution: ",convert_to_vertex_lists(get_solution(cache)))
+        @log_info(3,solver,"solution: ",convert_to_vertex_lists(get_solution(cache)))
+    end
+    if solver.partial
+        return get_solution(cache), true
     end
     return get_solution(cache), is_consistent(cache,mapf)
 end

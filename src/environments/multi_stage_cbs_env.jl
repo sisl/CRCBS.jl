@@ -38,7 +38,7 @@ Base.string(a::Action) = "(e=$(get_e(a).src) → $(get_e(a).dst))"
     graph::G                        = Graph()
     goal_sequence::Vector{State}    = Vector{State}()
     agent_idx::Int                  = -1
-    constraints::T                  = discrete_constraint_table(nv(graph),nv(graph)^2,agent_idx) # ConstraintTable{PathNode{State,Action}}()
+    constraints::T                  = discrete_constraint_table(nv(graph),nv(graph)^2,agent_idx) 
     cost_model::C                   = SumOfTravelTime()
     heuristic::H                    = NullHeuristic() # MultiStagePerfectHeuristic(graph,Vector{Vector{Int}}())
 end

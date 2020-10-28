@@ -215,7 +215,7 @@ export
     - `costs::Vector{T}` is the vector of costs, one per path
     - `cost::T` is the total cost for the entire solution
 """
-@with_kw mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
+@with_kw_noshow mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
     paths::Vector{Path{S,A,T}}  = Vector{Path{S,A,T}}()
     cost_model::C               = C() # TODO C() is a problem
     costs::Vector{T}            = Vector{cost_type(cost_model)}(map(i->get_initial_cost(cost_model),1:length(paths)))

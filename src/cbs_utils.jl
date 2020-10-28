@@ -346,29 +346,31 @@ export
     is_action_constraint
 
 struct CBSConstraint{N}
+    type::Symbol
     a::Int # agent ID
     v::N   # PathNode
-    t::Int # time ID
-    type::Symbol
+    interval::Tuple{Int,Int} # time ID
 end
+CBSConstraint(T::Symbol,a::Int,v::N,t1::Int,t2=t1) where {N} = CBSConstraint(T,a,v,(t1,t2))
 get_agent_id(c::CBSConstraint) = c.a
-get_time_of(c::CBSConstraint) = c.t
+get_time_of(c::CBSConstraint) = c.interval[1]
+get_constraint_interval(c::CBSConstraint) = c.interval
 get_path_node(c::CBSConstraint) = c.v
 get_constraint_type(c::CBSConstraint) = c.type
 for op in [:get_s,:get_a,:get_sp]
     @eval $op(c::CBSConstraint) = $op(get_path_node(c))
 end
-Base.isless(c1::CBSConstraint,c2::CBSConstraint) = ([c1.t] < [c2.t])
+Base.isless(c1::CBSConstraint,c2::CBSConstraint) = get_time_of(c1) < get_time_of(c2)
 function Base.string(c::CBSConstraint)
     p = get_path_node(c)
     string(
         "$(get_constraint_type(c)):",
-        " agent_id=$(get_agent_id(c)), t=$(get_time_of(c)), ",
+        " agent_id=$(get_agent_id(c)), interval=$(get_constraint_interval(c)), ",
         "$(string(get_s(p))) -- $(string(get_a(p))) -- X$(string(get_sp(p)))X"
         )
 end
-state_constraint(args...) = CBSConstraint(args...,:StateConstraint)
-action_constraint(args...) = CBSConstraint(args...,:ActionConstraint)
+state_constraint(args...) = CBSConstraint(:StateConstraint,args...)
+action_constraint(args...) = CBSConstraint(:ActionConstraint,args...)
 is_state_constraint(c::CBSConstraint) = get_constraint_type(c) == :StateConstraint
 is_action_constraint(c::CBSConstraint) = get_constraint_type(c) == :ActionConstraint
 
@@ -510,9 +512,13 @@ function discrete_constraint_table(env,agent_id=-1,tf=num_states(env)*4)
 end
 
 export
+    get_agent_id,
     state_constraints,
     action_constraints,
+    sorted_state_constraints,
+    sorted_action_constraints,
     add_constraint!,
+    remove_constraint!,
     has_constraint,
     search_constraints
 
@@ -588,28 +594,41 @@ function search_constraints(env,table::DiscreteConstraintTable,n::N) where {N<:P
 end
 
 """
-    Adds a `CBSConstraint` to a DiscreteConstraintTable
+    Sets a `CBSConstraint` value in a DiscreteConstraintTable
 """
-function add_constraint!(env,table::DiscreteConstraintTable,c::CBSConstraint)
+function set_constraint!(env,table::DiscreteConstraintTable,c::CBSConstraint,val,check=false)
     @assert get_agent_id(table) == get_agent_id(c)
+    t1,t2 = get_constraint_interval(c)
     if is_state_constraint(c)
-        idx,t = serialize(env,get_sp(get_path_node(c)),get_time_of(c))
-        @assert (table.state_constraints[idx,t] == false) "constraint $(string(c)) is already in table"
-        table.state_constraints[idx,t] = true
+        idx,t1 = serialize(env,get_sp(get_path_node(c)),t1)
+        _,t2 = serialize(env,get_sp(get_path_node(c)),t2)
+        if check
+            @assert all(table.state_constraints[idx,t1:t2] .!= val) "constraint $(string(c)) is $val in table, but should be $(!val)"
+        end
+        table.state_constraints[idx,t1:t2] .= val
     else
-        idx,t = serialize(env,get_a(get_path_node(c)),get_time_of(c))
-        @assert table.action_constraints[idx,t] == false
-        table.action_constraints[idx,t] = true
+        idx,t1 = serialize(env,get_a(get_path_node(c)),t1)
+        _,t2 = serialize(env,get_a(get_path_node(c)),t2)
+        if check
+            @assert all(table.action_constraints[idx,t1:t2] .!= val) "constraint $(string(c)) is $val in table, but should be $(!val)"
+        end
+        table.action_constraints[idx,t1:t2] .= val
     end
     return table
 end
 
+""" Adds a `CBSConstraint` to a DiscreteConstraintTable """
+add_constraint!(env,table,c,check=true) =  set_constraint!(env,table,c,true,check)
+
+""" Removes a `CBSConstraint` to a DiscreteConstraintTable """
+remove_constraint!(env,table,c,check=false) = set_constraint!(env,table,c,false,check)
 
 function check_constraint_bounds(table,idx,t)
     if !checkbounds(Bool,table,idx,t)
         throw(SolverException("BoundsError: Trying to check constraint at $idx,$t, but size(table) = $(size(table))"))
     end
 end
+
 """
     has_constraint(env,table,c::CBSConstraint)
 """
@@ -626,78 +645,69 @@ function has_constraint(env,table::DiscreteConstraintTable,c::CBSConstraint)
     end
 end
 
-export
-    ConstraintTable,
-    get_agent_id,
-    state_constraints,
-    action_constraints,
-    sorted_state_constraints,
-    sorted_action_constraints,
-    add_constraint!
-
-"""
-    constraint dictionary for fast constraint lookup within a_star!
-"""
-@with_kw struct ConstraintTable{N}
-    # Sets
-    state_constraints::Set{CBSConstraint{N}} = Set{CBSConstraint{N}}()
-    action_constraints::Set{CBSConstraint{N}} = Set{CBSConstraint{N}}()
-    # Vectors
-    sorted_state_constraints::Vector{CBSConstraint{N}} = Vector{CBSConstraint{N}}()
-    sorted_action_constraints::Vector{CBSConstraint{N}} = Vector{CBSConstraint{N}}()
-    agent_id::Int = -1 # agent_id
-end
-get_agent_id(c::ConstraintTable) = c.agent_id
-state_constraints(c::ConstraintTable) = c.state_constraints
-state_constraints(env,c::ConstraintTable) = state_constraints(c)
-action_constraints(c::ConstraintTable) = c.action_constraints
-action_constraints(env,c::ConstraintTable) = action_constraints(c)
-sorted_state_constraints(env,c::ConstraintTable) = c.sorted_state_constraints
-sorted_action_constraints(env,c::ConstraintTable) = c.sorted_action_constraints
-function search_constraints(env,table::ConstraintTable,n::N) where {N<:PathNode}
-    idx,_ = serialize(env,get_sp(n))
-    s_constraints = Vector{CBSConstraint{node_type(env)}}()
-    for constraint in sorted_state_constraints(env,table)
-        sp = get_sp(get_path_node(constraint))
-        idxp, _ = serialize(env,sp)
-        if idxp == idx
-            push!(s_constraints,constraint)
-        end
-    end
-    idx,_ = serialize(env,get_a(n))
-    a_constraints = Vector{CBSConstraint{node_type(env)}}()
-    for constraint in sorted_action_constraints(env,table)
-        a = get_a(get_path_node(constraint))
-        idxp, _ = serialize(env,a)
-        if idxp == idx
-            push!(a_constraints,constraint)
-        end
-    end
-    return s_constraints, a_constraints
-end
-
-"""
-    Adds a `CBSConstraint` to a ConstraintTable
-"""
-function add_constraint!(env,table::ConstraintTable,c::CBSConstraint)
-    @assert get_agent_id(table) == get_agent_id(c)
-    if is_state_constraint(c)
-        push!(table.state_constraints, c)
-        insert_to_sorted_array!(table.sorted_state_constraints, c)
-    else
-        push!(table.action_constraints, c)
-        insert_to_sorted_array!(table.sorted_action_constraints, c)
-    end
-end
-
-function has_constraint(env,table::ConstraintTable,c::CBSConstraint)
-    @assert get_agent_id(table) == get_agent_id(c)
-    if is_state_constraint(c)
-        return (c in table.state_constraints)
-    else
-        return (c in table.action_constraints)
-    end
-end
+# """
+#     constraint dictionary for fast constraint lookup within a_star!
+# """
+# @with_kw struct ConstraintTable{N}
+#     # Sets
+#     state_constraints::Set{CBSConstraint{N}} = Set{CBSConstraint{N}}()
+#     action_constraints::Set{CBSConstraint{N}} = Set{CBSConstraint{N}}()
+#     # Vectors
+#     sorted_state_constraints::Vector{CBSConstraint{N}} = Vector{CBSConstraint{N}}()
+#     sorted_action_constraints::Vector{CBSConstraint{N}} = Vector{CBSConstraint{N}}()
+#     agent_id::Int = -1 # agent_id
+# end
+# get_agent_id(c::ConstraintTable) = c.agent_id
+# state_constraints(c::ConstraintTable) = c.state_constraints
+# state_constraints(env,c::ConstraintTable) = state_constraints(c)
+# action_constraints(c::ConstraintTable) = c.action_constraints
+# action_constraints(env,c::ConstraintTable) = action_constraints(c)
+# sorted_state_constraints(env,c::ConstraintTable) = c.sorted_state_constraints
+# sorted_action_constraints(env,c::ConstraintTable) = c.sorted_action_constraints
+# function search_constraints(env,table::ConstraintTable,n::N) where {N<:PathNode}
+#     idx,_ = serialize(env,get_sp(n))
+#     s_constraints = Vector{CBSConstraint{node_type(env)}}()
+#     for constraint in sorted_state_constraints(env,table)
+#         sp = get_sp(get_path_node(constraint))
+#         idxp, _ = serialize(env,sp)
+#         if idxp == idx
+#             push!(s_constraints,constraint)
+#         end
+#     end
+#     idx,_ = serialize(env,get_a(n))
+#     a_constraints = Vector{CBSConstraint{node_type(env)}}()
+#     for constraint in sorted_action_constraints(env,table)
+#         a = get_a(get_path_node(constraint))
+#         idxp, _ = serialize(env,a)
+#         if idxp == idx
+#             push!(a_constraints,constraint)
+#         end
+#     end
+#     return s_constraints, a_constraints
+# end
+#
+# """
+#     Adds a `CBSConstraint` to a ConstraintTable
+# """
+# function add_constraint!(env,table::ConstraintTable,c::CBSConstraint)
+#     @assert get_agent_id(table) == get_agent_id(c)
+#     if is_state_constraint(c)
+#         push!(table.state_constraints, c)
+#         insert_to_sorted_array!(table.sorted_state_constraints, c)
+#     else
+#         push!(table.action_constraints, c)
+#         insert_to_sorted_array!(table.sorted_action_constraints, c)
+#     end
+# end
+#
+# function has_constraint(env,table::ConstraintTable,c::CBSConstraint)
+#     @assert get_agent_id(table) == get_agent_id(c)
+#     if is_state_constraint(c)
+#         return (c in table.state_constraints)
+#     else
+#         return (c in table.action_constraints)
+#     end
+# end
 
 export
     ConstraintTreeNode,
@@ -715,7 +725,7 @@ export
 @with_kw struct ConstraintTreeNode{S,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
     solution        ::S = S()
     # maps agent_id to the set of constraints involving that agent
-    constraints     ::C = Dict{Int,ConstraintTable{node_type(solution)}}()
+    constraints     ::C = Dict{Int,DiscreteConstraintTable}() #{node_type(solution)}}()
     # maintains a list of all conflicts
     conflict_table  ::D = ConflictTable{SymmetricConflict{node_type(solution)}}()
     # index of parent node
@@ -750,7 +760,6 @@ function initialize_root_node(mapf::AbstractMAPF,solution=get_initial_solution(m
     ConstraintTreeNode(
         solution    = solution,
         constraints = Dict(
-            # i=>ConstraintTable{node_type(solution)}(a=i) for i in 1:num_agents(mapf)
             i=>discrete_constraint_table(mapf,i) for i in 1:num_agents(mapf)
             ),
         id = 1)
@@ -1029,7 +1038,7 @@ export is_available
 """
     is_available
 
-Returns false if the proposed reservation is available to any of the agent_ids
+Returns false if the proposed reservation is not available to any of the agent_ids
 """
 function is_available(table::ReservationTable,env,s,a,sp)
     agents = reserved_by(table,env,s,a,sp)

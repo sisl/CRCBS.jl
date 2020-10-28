@@ -25,7 +25,7 @@ CRCBS.get_dt(a::Action) = a.dt
     graph::G                    = Graph()
     goal::State                 = State()
     agent_idx::Int              = -1
-    constraints::T              = discrete_constraint_table(nv(graph),nv(graph)^2,agent_idx) # ConstraintTable{PathNode{State,Action}}()
+    constraints::T              = discrete_constraint_table(nv(graph),nv(graph)^2,agent_idx) 
     cost_model::C               = SumOfTravelTime()
     heuristic::H                = NullHeuristic() #PerfectHeuristic(graph,Vector{Int}(),Vector{Int}())
 end

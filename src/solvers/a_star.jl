@@ -27,9 +27,9 @@ function logger_exit_a_star!(solver, path, cost, status)
         @log_info(2,solver,"A*: returning optimal path with cost $cost")
     end
 end
-function logger_step_a_star!(solver, env, base_path, s, q_cost)
+function logger_step_a_star!(solver, env, base_path, s, q_cost, cost_so_far)
     increment_iteration_count!(solver)
-    @log_info(4,solver,"A*: iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost")
+    @log_info(4,solver,"A*: iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost, true_cost = $cost_so_far")
 end
 function logger_enqueue_a_star!(solver, env, s, a, sp, h_cost)
     @log_info(4,solver,"A*: exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
@@ -97,7 +97,7 @@ function a_star_impl!(solver, env::E, base_path, frontier, explored) where {E <:
     opt_status = false
     while !isempty(frontier)
         (cost_so_far, s), q_cost = dequeue_pair!(frontier)
-        logger_step_a_star!(solver,env,base_path,s,q_cost)
+        logger_step_a_star!(solver,env,base_path,s,q_cost,cost_so_far)
         if is_goal(env,s)
             opt_status = true
             r_path = reconstruct_path!(base_path,predecessor_map,s,cost_so_far)
@@ -126,9 +126,8 @@ function a_star_impl!(solver, env::E, base_path, frontier, explored) where {E <:
         end
         push!(explored,s)
     end
-    # println("A*: Returning Infeasible")
     path = path_type(env)(cost=get_infeasible_cost(env))
-    cost = path.cost # get_infeasible_cost(env)
+    cost = path.cost
     logger_exit_a_star!(solver,path,cost,opt_status)
     return path, cost
 end
