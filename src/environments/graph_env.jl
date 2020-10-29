@@ -118,6 +118,9 @@ get_heuristic_cost(env::GraphEnv,s) = get_heuristic_cost(get_heuristic_model(env
 function get_heuristic_cost(h::H,env::GraphEnv,s) where {H<:Union{PerfectHeuristic,DefaultPerfectHeuristic}}
     get_heuristic_cost(h, get_vtx(get_goal(env)), get_vtx(s))
 end
+function get_heuristic_cost(h::EnvDistanceHeuristic,env::GraphEnv,s)
+    get_distance(env, s, get_goal(env))
+end
 function get_heuristic_cost(h::H,env::GraphEnv,s) where {E<:GraphEnv, H<:ConflictTableHeuristic}
     get_heuristic_cost(h, get_agent_id(env), get_vtx(s), get_t(s))
 end

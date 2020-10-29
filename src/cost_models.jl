@@ -167,11 +167,6 @@ for op in [:accumulate_cost,:get_initial_cost,:compute_path_cost,
     :get_infeasible_cost,:add_heuristic_cost,:get_transition_cost]
     @eval $op(model::FullCostModel,args...) = $op(model.model,args...)
 end
-# accumulate_cost(model::M, c, c2) where {M<:FullCostModel}           = accumulate_cost(model.model,c,c2)
-# get_initial_cost(model::F) where {F<:FullCostModel}                 = get_initial_cost(model.model)
-# get_infeasible_cost(model::F) where {F<:FullCostModel}              = get_infeasible_cost(model.model)
-# add_heuristic_cost(model::F,cost,h_cost) where {F<:FullCostModel}   = add_heuristic_cost(model.model,cost,h_cost)
-# get_transition_cost(model::F,env,s,a,sp) where {F<:FullCostModel}   = get_transition_cost(model.model,env,s,a,sp)
 
 """
     `CompositeCost{T}`
@@ -205,15 +200,6 @@ function aggregate_costs_meta(model::C, costs::Vector{T}) where {T,M,C<:Composit
         i->aggregate_costs_meta(model.cost_models[i], map(c->c[i], costs)), 1:length(model.cost_models))
     T(aggregated_costs)
 end
-# function get_initial_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
-#     T(map(m->get_initial_cost(m),model.cost_models))
-# end
-# function get_infeasible_cost(model::C) where {T,M,C<:CompositeCostModel{M,T}}
-#     T(map(m->get_infeasible_cost(m),model.cost_models))
-# end
-# function compute_path_cost(model::CompositeCostModel,env,path,i)
-#     cost_type(model)(map(m->compute_path_cost(m,env,path,i),model.cost_models))
-# end
 for op in [:get_initial_cost,:get_infeasible_cost,:get_transition_cost,
     :compute_path_cost]
     @eval $op(model::CompositeCostModel,args...) = cost_type(model)(map(m->$op(m,args...),model.cost_models))

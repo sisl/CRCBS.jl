@@ -79,6 +79,15 @@ struct DefaultPerfectHeuristic <: LowLevelSearchHeuristic{Float64}
 end
 get_heuristic_cost(h::DefaultPerfectHeuristic,goal_vtx::Int,vtx::Int) = haskey(h.h.dists,goal_vtx) ? get_heuristic_cost(h.h,goal_vtx,vtx) : 0.0
 
+export EnvDistanceHeuristic
+"""
+    EnvDistanceHeuristic
+
+A convenience struct that allows for the distance matrix to be stored in env
+instead of the heuristic struct.
+"""
+struct EnvDistanceHeuristic <: LowLevelSearchHeuristic{Float64} end
+
 """
     `MultiStagePerfectHeuristic`
 

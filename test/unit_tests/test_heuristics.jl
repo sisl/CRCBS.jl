@@ -1,21 +1,3 @@
-# module heuristicsTests
-#
-# using Parameters
-# using CRCBS
-#
-# @with_kw struct State
-#     v::Int = -1
-# end
-# @with_kw struct Action
-#     v::Int = -1
-# end
-# struct GraphEnv <: AbstractLowLevelEnv{State,Action,TravelTime}
-#     G
-# end
-# get_heuristic_cost(env::GraphEnv,s::State) = get_heuristic_cost()
-
-# end #module
-
 let
     PerfectHeuristic()
     SoftConflictHeuristic()
@@ -104,4 +86,11 @@ let
         HardConflictHeuristic(G,ne(G),num_agents),
         PerfectHeuristic(G,starts,goals),
     )
+end
+let
+    mapf = init_mapf_1()
+    env = build_env(mapf,initialize_root_node(mapf),1)
+    d = get_distance(env,get_start(mapf,1),get_goal(mapf,1))
+    c = get_heuristic_cost(EnvDistanceHeuristic(),env,get_start(mapf,1))
+    @test d == c
 end
