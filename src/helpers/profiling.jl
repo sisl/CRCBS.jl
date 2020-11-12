@@ -162,8 +162,11 @@ name `problem_name`. Can be overloaded to dispatch on problem type when applicab
 function write_results(loader,solver_config,prob,problem_file,results)
     problem_name = splitext(splitdir(problem_file)[end])[1]
     outpath = joinpath(solver_config.results_path)
-    mkpath(outpath)
     outfile = joinpath(outpath,string(problem_name,".results"))
+    mkpath(outpath)
+    write_results(outfile,results)
+end
+function write_results(outfile::String,results::Dict)
     open(outfile,"w") do io
         TOML.print(io,results)
     end
@@ -227,15 +230,19 @@ export get_config_path
 get_config_path(loader,problem_file) = joinpath(problem_file,"config.toml")
 
 export load_results
+load_dict(f::String) = Dict(Symbol(k)=>v for (k,v) in TOML.parsefile(f))
+load_results(results_file::String) = load_dict(results_file)
 function load_results(loader,results_file)
-    results = Dict(Symbol(k)=>v for (k,v) in TOML.parsefile(results_file))
+    # results = Dict(Symbol(k)=>v for (k,v) in TOML.parsefile(results_file))
+    results = load_results(results_file)
     prob_file = results[:problem_file]
     results[:problem_name] = get_problem_name(loader,prob_file)
     results
 end
 function load_config(loader,prob_file)
     config_file = get_config_path(loader,prob_file)
-    config = Dict(Symbol(k)=>v for (k,v) in TOML.parsefile(config_file))
+    # config = Dict(Symbol(k)=>v for (k,v) in TOML.parsefile(config_file))
+    config = load_dict(config_file)
     config[:problem_name] = get_problem_name(loader,prob_file)
     config
 end

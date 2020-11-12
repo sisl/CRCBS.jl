@@ -6,6 +6,7 @@ export
     cost_type,
     num_agents,
     num_goals,
+    get_env,
     get_starts,
     get_goals,
     get_start,
