@@ -196,11 +196,7 @@ function cbs!(solver,mapf)
             end
         end
     catch e
-        if isa(e,SolverException)
-            handle_solver_exception(solver,e)
-        else
-            rethrow(e)
-        end
+        isa(e, SolverException) ? handle_solver_exception(solver,e) : rethrow(e)
     end
     @log_info(-1,solver,"CBS: No Solution Found. Returning default solution")
     return default_solution(mapf)

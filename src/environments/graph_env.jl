@@ -1,7 +1,9 @@
+import GraphUtils: get_graph, get_vtx
+
 export
     AbstractGraphState,
     GraphState,
-    get_vtx,
+    # get_vtx,
     get_t,
     AbstractGraphAction,
     GraphAction,
@@ -39,7 +41,7 @@ export
 abstract type GraphEnv{S,A,C} <: AbstractLowLevelEnv{S,A,C} end
 
 export
-    get_graph,
+    # get_graph,
     get_cost_model,
     get_agent_id,
     get_constraints,
@@ -47,7 +49,7 @@ export
     get_heuristic_model
 
 """
-    get_graph(env::GraphEnv)
+    GraphUtils.get_graph(env::GraphEnv)
 
 Must be implemented for all concrete subtypes of `GraphEnv`
 """

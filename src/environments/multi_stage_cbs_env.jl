@@ -5,6 +5,7 @@ module MultiStageCBS
 
 using ..CRCBS
 using Parameters, LightGraphs, DataStructures
+using GraphUtils: get_graph, get_vtx
 
 # NOTE MultiStageCBS Could also serve as the definition for "iterative MAPF" as
 # defined in "Priority Inheritance with Backtracking for Iterative Multi-agent
@@ -20,7 +21,7 @@ using Parameters, LightGraphs, DataStructures
     t::Int      = -1
 end
 Base.convert(::Type{State},s::GraphState) = State(vtx=get_vtx(s),t=get_t(s))
-CRCBS.get_vtx(s::State) = s.vtx
+# CRCBS.get_vtx(s::State) = s.vtx
 CRCBS.get_t(s::State) = s.t
 get_stage(s::State) = s.stage
 Base.string(s::State) = "(v=$(get_vtx(s)),stage=$(get_stage(s)),t=$(get_t(s)))"
@@ -38,16 +39,17 @@ Base.string(a::Action) = "(e=$(get_e(a).src) → $(get_e(a).dst))"
     graph::G                        = Graph()
     goal_sequence::Vector{State}    = Vector{State}()
     agent_idx::Int                  = -1
-    constraints::T                  = discrete_constraint_table(nv(graph),nv(graph)^2,agent_idx) 
+    constraints::T                  = discrete_constraint_table(nv(graph),nv(graph)^2,agent_idx)
     cost_model::C                   = SumOfTravelTime()
     heuristic::H                    = NullHeuristic() # MultiStagePerfectHeuristic(graph,Vector{Vector{Int}}())
 end
-CRCBS.get_graph(env::LowLevelEnv)            = env.graph
-CRCBS.get_cost_model(env::LowLevelEnv)       = env.cost_model
-CRCBS.get_agent_id(env::LowLevelEnv)         = env.agent_idx
-CRCBS.get_constraints(env::LowLevelEnv)      = env.constraints
-CRCBS.get_goal(env::LowLevelEnv)             = env.goal_sequence
-CRCBS.get_heuristic_model(env::LowLevelEnv)  = env.heuristic
+# CRCBS.get_graph(env::LowLevelEnv)            = env.graph
+# GraphUtils.get_graph(env::LowLevelEnv)            = env.graph
+# CRCBS.get_cost_model(env::LowLevelEnv)       = env.cost_model
+# CRCBS.get_agent_id(env::LowLevelEnv)         = env.agent_idx
+# CRCBS.get_constraints(env::LowLevelEnv)      = env.constraints
+# CRCBS.get_goal(env::LowLevelEnv)             = env.goal_sequence
+# CRCBS.get_heuristic_model(env::LowLevelEnv)  = env.heuristic
 CRCBS.base_env_type(env::LowLevelEnv)        = LowLevelEnv
 
 function CRCBS.get_next_state(s::State,a::Action)

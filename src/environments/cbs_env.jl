@@ -6,13 +6,14 @@ module CBSEnv
 
 using ..CRCBS
 using Parameters, LightGraphs, DataStructures
+using GraphUtils: get_graph, get_vtx
 
 @with_kw struct State <: AbstractGraphState
     vtx::Int        = -1 # vertex of graph
     t::Int          = -1
 end
 Base.convert(::Type{State},s::GraphState) = State(vtx=get_vtx(s),t=get_t(s))
-CRCBS.get_vtx(s::State) = s.vtx
+# CRCBS.get_vtx(s::State) = s.vtx
 CRCBS.get_t(s::State) = s.t
 @with_kw struct Action <: AbstractGraphAction
     e::Edge{Int}    = Edge(-1,-1)
@@ -25,16 +26,17 @@ CRCBS.get_dt(a::Action) = a.dt
     graph::G                    = Graph()
     goal::State                 = State()
     agent_idx::Int              = -1
-    constraints::T              = discrete_constraint_table(nv(graph),nv(graph)^2,agent_idx) 
+    constraints::T              = discrete_constraint_table(nv(graph),nv(graph)^2,agent_idx)
     cost_model::C               = SumOfTravelTime()
     heuristic::H                = NullHeuristic() #PerfectHeuristic(graph,Vector{Int}(),Vector{Int}())
 end
-CRCBS.get_graph(env::LowLevelEnv)            = env.graph
-CRCBS.get_agent_id(env::LowLevelEnv)         = env.agent_idx
-CRCBS.get_constraints(env::LowLevelEnv)      = env.constraints
-CRCBS.get_goal(env::LowLevelEnv)             = env.goal
-CRCBS.get_cost_model(env::LowLevelEnv)       = env.cost_model
-CRCBS.get_heuristic_model(env::LowLevelEnv)  = env.heuristic
+# CRCBS.get_graph(env::LowLevelEnv)            = env.graph
+# GraphUtils.get_graph(env::LowLevelEnv)            = env.graph
+# CRCBS.get_agent_id(env::LowLevelEnv)         = env.agent_idx
+# CRCBS.get_constraints(env::LowLevelEnv)      = env.constraints
+# CRCBS.get_goal(env::LowLevelEnv)             = env.goal
+# CRCBS.get_cost_model(env::LowLevelEnv)       = env.cost_model
+# CRCBS.get_heuristic_model(env::LowLevelEnv)  = env.heuristic
 CRCBS.base_env_type(env::LowLevelEnv)        = LowLevelEnv
 
 CRCBS.get_possible_actions(env::LowLevelEnv,s)  = map(v->Action(e=Edge(get_vtx(s),v)),outneighbors(get_graph(env),get_vtx(s)))

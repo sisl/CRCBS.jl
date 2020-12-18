@@ -289,7 +289,7 @@ global_verbosity() = copy(VERBOSITY)
 
 Set the global verbosity to val
 """
-set_global_verbosity!(val::Int) = begin VERBOSITY = val end
+set_global_verbosity!(val::Int) = begin global VERBOSITY = val end
 
 function print_styled_header(header,msg...;bold=true,color=136)
 	printstyled(header;bold=bold,color=color)
