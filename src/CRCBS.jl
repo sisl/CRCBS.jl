@@ -4,6 +4,7 @@ using Parameters
 using DataStructures
 using LightGraphs, MetaGraphs, GraphUtils
 using LinearAlgebra, SparseArrays
+using StaticArrays
 using JuMP
 using TOML
 
@@ -24,7 +25,7 @@ include("solvers/pibt.jl")
 include("solvers/flow_solvers.jl")
 
 include("environments/graph_env.jl")
-# include("environments/omnibots_env.jl")
+include("environments/omnibots_env.jl")
 include("environments/cbs_env.jl")
 include("environments/multi_stage_cbs_env.jl")
 include("environments/meta_agent_cbs_env.jl")

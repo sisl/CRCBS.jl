@@ -11,7 +11,7 @@ export
     get_dt
 
 abstract type AbstractGraphState end
-@with_kw struct GraphState <: AbstractGraphState
+@with_kw_noshow struct GraphState <: AbstractGraphState
     vtx::Int        = -1 # vertex of graph
     t::Int          = -1
 end
@@ -19,6 +19,7 @@ get_vtx(s::AbstractGraphState)  = s.vtx
 get_t(s::AbstractGraphState)    = s.t
 is_valid(s::AbstractGraphState) = get_vtx(s) >= 1
 Base.string(s::AbstractGraphState) = "(v=$(get_vtx(s)),t=$(get_t(s)))"
+Base.show(io::IO,s::AbstractGraphState) = print(io,typeof(s),string(s)) #"(v=$(get_vtx(s)),t=$(get_t(s)))"
 # allow paths to start at non-zero start times
 get_start_index(path::Path{S,A,C}) where {S<:AbstractGraphState,A,C} = get_t(get_initial_state(path))
 
@@ -26,7 +27,7 @@ get_start_index(path::Path{S,A,C}) where {S<:AbstractGraphState,A,C} = get_t(get
 export AbstractGraphAction
 
 abstract type AbstractGraphAction end
-@with_kw struct GraphAction <: AbstractGraphAction
+@with_kw_noshow struct GraphAction <: AbstractGraphAction
     e::Edge{Int}    = Edge(-1,-1)
     dt::Int         = 1
 end
@@ -34,6 +35,7 @@ get_e(a::AbstractGraphAction)   = a.e
 get_dt(a::AbstractGraphAction)  = a.dt
 Base.reverse(a::AbstractGraphAction) = typeof(a)(a,e=reverse(a.e))
 Base.string(a::AbstractGraphAction) = "(e=$(get_e(a).src) → $(get_e(a).dst))"
+Base.show(io::IO,a::AbstractGraphAction) = print(io,typeof(a),string(a)) #"(v=$(get_vtx(s)),t=$(get_t(s)))"
 
 export
     GraphEnv
