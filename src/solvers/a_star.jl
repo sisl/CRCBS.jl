@@ -10,32 +10,32 @@ export
 
 check_termination_criteria(solver, env, cost_so_far, s)  =  iterations(solver) > iteration_limit(solver)
 function logger_enter_a_star!(solver, env, base_path)
-    @log_info(2,solver,"A*: entering...")
-    @log_info(3,solver,"A*: env: ",sprint(show, env))
-    @log_info(3,solver,"A*: start state: ",string(get_final_state(base_path)))
+    @log_info(2,verbosity(solver),"A*: entering...")
+    @log_info(3,verbosity(solver),"A*: env: ",sprint(show, env))
+    @log_info(3,verbosity(solver),"A*: start state: ",string(get_final_state(base_path)))
     @assert(iterations(solver) == 0, "A*: ERROR: iterations = $(iterations(solver)) at entry")
 end
 function logger_exit_a_star!(solver, path, cost, status)
     # empty!(solver.search_history)
     if status == false
-        @log_info(-1,solver,"A*: failed to find feasible path. Returning path of cost $cost")
-        @log_info(-1,solver,"A*:            timed_out = $(time_out_status(solver))",
+        @log_info(-1,verbosity(solver),"A*: failed to find feasible path. Returning path of cost $cost")
+        @log_info(-1,verbosity(solver),"A*:            timed_out = $(time_out_status(solver))",
             " -- run time limit = $(runtime_limit(solver))")
-        @log_info(-1,solver,"A*: iterations maxed out = $(iteration_max_out_status(solver))",
+        @log_info(-1,verbosity(solver),"A*: iterations maxed out = $(iteration_max_out_status(solver))",
             " -- iterations = $(iterations(solver))")
     else
-        @log_info(2,solver,"A*: returning optimal path with cost $cost")
+        @log_info(2,verbosity(solver),"A*: returning optimal path with cost $cost")
     end
 end
 function logger_step_a_star!(solver, env, base_path, s, q_cost, cost_so_far)
     increment_iteration_count!(solver)
-    @log_info(4,solver,"A*: iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost, true_cost = $cost_so_far")
+    @log_info(4,verbosity(solver),"A*: iter $(iterations(solver)): s = $(string(s)), q_cost = $q_cost, true_cost = $cost_so_far")
 end
 function logger_enqueue_a_star!(solver, env, s, a, sp, h_cost)
-    @log_info(4,solver,"A*: exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
+    @log_info(4,verbosity(solver),"A*: exploring $(string(s)) -- $(string(sp)), h_cost = $h_cost")
 end
 function logger_find_constraint_a_star!(logger,env,s,a,sp)
-    @log_info(1,logger,"A*: sequence ",string(s),", ",string(a),", ",string(sp),
+    @log_info(1,verbosity(logger),"A*: sequence ",string(s),", ",string(a),", ",string(sp),
         " violates a constraint")
 end
 

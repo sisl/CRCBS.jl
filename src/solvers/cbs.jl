@@ -28,12 +28,12 @@ function enter_cbs!(solver)
 end
 function logger_cbs_add_constraint!(solver,new_node,constraint) end
 function logger_dequeue_cbs_node!(solver,mapf,node)
-    @log_info(1,solver,
+    @log_info(1,verbosity(solver),
         "CBS: iter ",iterations(solver)," - node ",node.trace,
         " - Current paths: \n",
         sprint_indexed_list_array(convert_to_vertex_lists(node.solution);leftaligned=true),
         )
-    @log_info(2,solver,"CBS: constraints in node ",node.trace,": \n",
+    @log_info(2,verbosity(solver),"CBS: constraints in node ",node.trace,": \n",
         map(c->string("\t",string(c),"\n"),sorted_state_constraints(mapf,node))...,
         map(c->string("\t",string(c),"\n"),sorted_action_constraints(mapf,node))...,
         )
@@ -47,7 +47,7 @@ function logger_dequeue_cbs_node!(solver,mapf,node)
 end
 function logger_exit_cbs_optimal!(solver,node)
     set_best_cost!(solver,get_cost(node))
-    @log_info(0,solver,"Optimal solution found by CBS! Cost = $(get_cost(node))")
+    @log_info(0,verbosity(solver),"Optimal solution found by CBS! Cost = $(get_cost(node))")
     # if verbosity(solver) >= 0
     #     println("Optimal Solution Found! Cost = $(get_cost(node))")
     # end
@@ -56,8 +56,8 @@ function logger_cbs_add_constraint!(solver,node,constraint,mapf)
     increment_iteration_count!(solver)
     enforce_time_limit!(solver)
     enforce_iteration_limit!(solver)
-    @log_info(1,solver,"CBS: adding constraint to node ",node.trace,": ",string(constraint))
-    # @log_info(2,solver,"CBS: constraints in node ",node.trace,": \n",
+    @log_info(1,verbosity(solver),"CBS: adding constraint to node ",node.trace,": ",string(constraint))
+    # @log_info(2,verbosity(solver),"CBS: constraints in node ",node.trace,": \n",
     #     map(c->string("\t",string(c),"\n"),sorted_state_constraints(mapf,node))...,
     #     map(c->string("\t",string(c),"\n"),sorted_action_constraints(mapf,node))...,
     #     )
@@ -198,7 +198,7 @@ function cbs!(solver,mapf)
     catch e
         isa(e, SolverException) ? handle_solver_exception(solver,e) : rethrow(e)
     end
-    @log_info(-1,solver,"CBS: No Solution Found. Returning default solution")
+    @log_info(-1,verbosity(solver),"CBS: No Solution Found. Returning default solution")
     return default_solution(mapf)
 end
 

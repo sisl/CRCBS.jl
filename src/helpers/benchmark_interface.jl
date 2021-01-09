@@ -334,12 +334,12 @@ function profile_with_skipping!(config,loader)
             solver = solver_config.solver
             outfile = joinpath(solver_config.results_path,string(problem_name,".results"))
             if isfile(outfile)
-                @log_info(-1,solver,"Results already stored for ",problem_name,
+                @log_info(-1,verbosity(solver),"Results already stored for ",problem_name,
                     " at ", outfile)
                 continue
             end
             if failed_status(solver)
-                @log_info(1,solver,"Skipping problem ",problem_name)
+                @log_info(1,verbosity(solver),"Skipping problem ",problem_name)
                 continue # Keep skipping until new bucket
             end
             solution, timer_results = profile_solver!(solver,mapf)

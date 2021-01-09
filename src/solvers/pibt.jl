@@ -201,7 +201,7 @@ function pibt_set_ordering!(solver,mapf,cache)
     get_ordering(cache) .= sortperm(
         map(i->pibt_priority_law(solver,mapf,cache,i),1:length(get_envs(cache)))
         )
-    @log_info(3,solver,"ordering: ", get_ordering(cache))
+    @log_info(3,verbosity(solver),"ordering: ", get_ordering(cache))
     return cache
 end
 function pibt_init_cache(solver,mapf,solution=get_initial_solution(mapf))
@@ -316,20 +316,20 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1,PR
     s = get_states(cache)[i]
     sj = get(get_states(cache), j, state_type(mapf)())
     a_list = sorted_actions(env,s) # NOTE does NOT need to exclude wait()
-    @log_info(3,solver,"PIBT: pibt_step!( ... i = ",i,", j = ",j," )")
-    @log_info(3,solver,"  s        = ",string(s))
-    @log_info(3,solver,"  actions  = ",map(string,a_list))
-    @log_info(3,solver,"  env.goal = ",string(get_goal(env)))
+    @log_info(3,verbosity(solver),"PIBT: pibt_step!( ... i = ",i,", j = ",j," )")
+    @log_info(3,verbosity(solver),"  s        = ",string(s))
+    @log_info(3,verbosity(solver),"  actions  = ",map(string,a_list))
+    @log_info(3,verbosity(solver),"  env.goal = ",string(get_goal(env)))
     setdiff!(cache.undecided,i) # NOTE does this need to be uncommented after all?
     while ~isempty(a_list)
         a = a_list[1]
         sp = get_next_state(env,s,a)
         if !is_reserved(cache,env,s,a,sp) && !states_match(sp,sj) # Problem: Does not filter out self reservations
-            @log_info(3,solver,"  agent $i reserve!( ... a = ",string(a),", sp = ",string(sp)," )")
+            @log_info(3,verbosity(solver),"  agent $i reserve!( ... a = ",string(a),", sp = ",string(sp)," )")
             reserve!(cache,env,s,a,sp)
             k = get_conflict_index(cache,i,s,a,sp)
             if k != -1
-                @log_info(3,solver,"  agent $i get_conflict_index( i = ",i,", sp = ",string(sp)," ) : ",k)
+                @log_info(3,verbosity(solver),"  agent $i get_conflict_index( i = ",i,", sp = ",string(sp)," ) : ",k)
                 if pibt_step!(solver,mapf,cache,k,i)
                     set_action!(cache,i,a)
                     # setdiff!(cache.undecided,i)
@@ -344,7 +344,7 @@ function pibt_step!(solver,mapf,cache,i=pibt_next_agent_id(solver,cache),j=-1,PR
                 return true
             end
         else
-            @log_info(3,solver,"  agent $i illegal action ",string(a),
+            @log_info(3,verbosity(solver),"  agent $i illegal action ",string(a),
                 ". Reserved by ",reserved_by(cache,env,s,a,sp))
             deleteat!(a_list,1)
         end
@@ -357,7 +357,7 @@ export pibt!
 
 function pibt!(solver, mapf)
     cache = pibt_init_cache(solver,mapf)
-    @log_info(0,solver,"PIBT: Entering...")
+    @log_info(0,verbosity(solver),"PIBT: Entering...")
     while !is_consistent(cache,mapf)
         try
             increment_iteration_count!(solver)
@@ -371,7 +371,7 @@ function pibt!(solver, mapf)
                 rethrow(e)
             end
         end
-        @log_info(1,solver,"PIBT iterations = ",iterations(solver))
+        @log_info(1,verbosity(solver),"PIBT iterations = ",iterations(solver))
         while !isempty(cache.undecided)
             if ~pibt_step!(solver,mapf,cache)
                 return get_solution(cache), false
@@ -379,7 +379,7 @@ function pibt!(solver, mapf)
         end
         # update cache
         pibt_update_cache!(solver,mapf,cache)
-        @log_info(3,solver,"solution: ",convert_to_vertex_lists(get_solution(cache)))
+        @log_info(3,verbosity(solver),"solution: ",convert_to_vertex_lists(get_solution(cache)))
     end
     if solver.partial
         return get_solution(cache), true
@@ -390,10 +390,10 @@ end
 function solve!(solver::PIBTPlanner,mapf)
     solution, valid = pibt!(solver,mapf)
     if valid
-        @log_info(0,solver,"SUCCESS! Valid solution returned by PIBT")
+        @log_info(0,verbosity(solver),"SUCCESS! Valid solution returned by PIBT")
         set_best_cost!(solver, get_cost(solution))
     else
-        @log_info(0,solver,"FAILED! Invalid solution returned by PIBT")
+        @log_info(0,verbosity(solver),"FAILED! Invalid solution returned by PIBT")
         set_cost!(solution,typemax(cost_type(mapf)))
     end
     return solution, best_cost(solver)
