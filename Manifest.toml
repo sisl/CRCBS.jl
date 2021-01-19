@@ -243,9 +243,7 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[GraphUtils]]
 deps = ["DataStructures", "Documenter", "ImageFiltering", "LightGraphs", "LinearAlgebra", "Logging", "MetaGraphs", "Parameters", "Printf", "Random", "Reexport", "SortingAlgorithms", "SparseArrays", "StaticArrays", "TOML", "Test"]
-git-tree-sha1 = "a1eae18060df531d67887765267f800fb4d38145"
-repo-rev = "master"
-repo-url = "https://github.com/kylejbrown17/GraphUtils.jl.git"
+path = "/home/kylebrown/.julia/dev/GraphUtils"
 uuid = "5d4bc1c0-0fb7-11e9-3252-b1aa07358cab"
 version = "0.1.0"
 
