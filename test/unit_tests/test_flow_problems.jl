@@ -17,7 +17,7 @@ let
     goal_vtxs = [2, 3]
 
     T = 2 # time horizon to extend graph
-    # Gx, model, x = construct_ILP_flow_model(G1,T,start_vtxs,goal_vtxs,Gurobi.Optimizer)
+    # Gx, model, x = construct_ILP_flow_model(G1,T,start_vtxs,goal_vtxs,milp_optimizer())
     # optimize!(model)
     Gx = CRCBS.FlowProblems.extend_G_through_time(G1,T)
     @test nv(Gx) == nv(G1)*(T+1) + ne(G1)*4*T

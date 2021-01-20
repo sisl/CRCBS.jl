@@ -27,7 +27,46 @@ export SolverLogger
     SolverLogger
 
 A logger type for keeping track of thing like runtime, iterations, optimality
-gap (including upper and lower bound), etc.
+gap (including upper and lower bound), etc. The following methods allow for 
+accessing and modifying the `SolverLogger`'s fields, and are extended to solver
+types that wrap a `SolverLogger`:
+
+iterations(logger)      
+iteration_limit(logger) 
+max_iterations(logger)  
+start_time(logger)      
+runtime_limit(logger)   
+deadline(logger)        
+JuMP.lower_bound(logger)
+best_cost(logger)       
+verbosity(logger)       
+verbosity(val::Int)		
+debug(logger)           
+solver_status(logger)
+
+set_iterations!(solver,val)
+increment_iteration_count!(logger::SolverLogger)
+set_iteration_limit!(solver,val)
+set_max_iterations!(solver,val)
+set_start_time!(solver,val)
+set_runtime_limit!(solver,val)
+set_deadline!(solver,val)
+set_lower_bound!(solver,val)
+set_lower_bound!(logger::SolverLogger{C},val::C) where {C}
+set_lower_bound!(logger::SolverLogger{NTuple{N,T}},val::R) where {N,T<:Real,R<:Real}
+set_lower_bound!(logger::SolverLogger{T},val::R) where {T<:Tuple,R<:Real}
+set_best_cost!(solver,val)
+set_best_cost!(logger::SolverLogger,val)
+set_best_cost!(logger::SolverLogger{NTuple{N,T}},val::R) where {N,T<:Real,R<:Real}
+set_best_cost!(logger::SolverLogger{T},val::R) where {T<:Tuple,R<:Real}
+set_verbosity!(solver,val)
+set_debug!(solver,val)
+
+The following methods facilitate control flow based on solver status.
+check_time(logger)
+enforce_time_limit!(logger)
+check_iterations(logger)
+enforce_iteration_limit!(logger)
 """
 @with_kw mutable struct SolverLogger{C}
     iterations      ::Int           = 0
@@ -70,7 +109,8 @@ export
     deadline,
     best_cost,
     verbosity,
-    debug
+    debug,
+    time_to_deadline
 
 iterations(logger)      = get_logger(logger).iterations
 iteration_limit(logger) = get_logger(logger).iteration_limit
@@ -84,6 +124,13 @@ verbosity(logger)       = get_logger(logger).verbosity
 verbosity(val::Int)		= val
 debug(logger)           = get_logger(logger).DEBUG
 solver_status(logger) 	= get_logger(logger).status
+
+"""
+    time_to_deadline(solver)
+
+time to `deadline(solver)` or `runtime_limit(solver)`--whichever is shorter.
+"""
+time_to_deadline(logger) = min(runtime_limit(logger),deadline(logger)-time())
 
 
 export
