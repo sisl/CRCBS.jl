@@ -1,8 +1,14 @@
-# Priority Inheritance with Backtracking for Iterative Multi-agent Path Finding
-# Okumura et al, IJCAI 2019
-# https://www.ijcai.org/Proceedings/2019/0076.pdf
 export PIBTPlanner
 
+"""
+    PIBTPlanner{C}
+
+Planner based on Priority Inheritance with BackTracking. 
+
+Priority Inheritance with Backtracking for Iterative Multi-agent Path Finding
+Okumura et al, IJCAI 2019
+https://www.ijcai.org/Proceedings/2019/0076.pdf
+"""
 @with_kw struct PIBTPlanner{C}
     logger::SolverLogger{C} = SolverLogger{C}()
     partial::Bool           = false # if true, allow partial solutions

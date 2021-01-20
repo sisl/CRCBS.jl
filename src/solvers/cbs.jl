@@ -3,7 +3,7 @@ export CBSSolver
 """
     CBSSolver
 
-Path planner that employs Conflict-Based Search
+Path planner that employs Conflict-Based Search.
 """
 @with_kw struct CBSSolver{L,C} <: AbstractCBSSolver
     low_level_planner::L    = VanillaAStar()
