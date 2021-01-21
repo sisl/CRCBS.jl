@@ -2,7 +2,7 @@ using CRCBS
 using Documenter
 
 makedocs(;
-    modules=[CRCBS],
+    modules=[CRCBS,CRCBS.BenchmarkInterface],
     authors="kylebrown <kylejbrown17@gmail.com> and contributors",
     repo="https://github.com/kylejbrown17/CRCBS.jl/blob/{commit}{path}#L{line}",
     sitename="CRCBS.jl",
@@ -13,6 +13,9 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Getting Started" => "getting_started.md",
+        "Core Types and Methods" => "library.md",
+        "API Reference" => "reference.md",
     ],
 )
 

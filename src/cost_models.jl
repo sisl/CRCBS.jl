@@ -107,7 +107,7 @@ Defines the way that a `transition_cost` updates the `current_cost` of a `Path`.
 function accumulate_cost end
 
 """
-    `add_heuristic_cost(cost_model,heuristic_model,cost,h_cost)`
+    add_heuristic_cost(cost_model,heuristic_model,cost,h_cost)
 
 Defines the output heuristic cost that results from combining the current path
 cost `cost` with a heuristic "cost-to-go" `h_cost`. Gener
@@ -144,17 +144,17 @@ struct SumCost <: AggregationFunction end
 (f::SumCost)(costs...) = sum(costs...)
 
 """
-    `FullCostModel{F,T,M<:AbstractCostModel{T}} <: AbstractCostModel{T}`
+    FullCostModel{F,T,M<:AbstractCostModel{T}} <: AbstractCostModel{T}
 
-    The `FullCostModel` defines all the behavior required for running CBS-based
-    algorithms.
+The `FullCostModel` defines all the behavior required for running CBS-based
+algorithms.
 
-    Elements:
-    - f::F must be callable, and defines how a vector of path costs (e.g., the
-        paths of a solution) should be combined into a single cost that reflects
-        the cost of the entire path group together
-    - model::M<:AbstractCostModel{T} defines how the cost is computed during low
-    level search (when individual paths are being compared against each other).
+Elements:
+- f::F must be callable, and defines how a vector of path costs (e.g., the
+    paths of a solution) should be combined into a single cost that reflects
+    the cost of the entire path group together
+- model::M<:AbstractCostModel{T} defines how the cost is computed during low
+level search (when individual paths are being compared against each other).
 """
 struct FullCostModel{F,T,M<:AbstractCostModel{T}} <: AbstractCostModel{T}
     f::F        # the aggregation function
@@ -169,7 +169,10 @@ for op in [:accumulate_cost,:get_initial_cost,:compute_path_cost,
 end
 
 """
-    `CompositeCost{T}`
+    CompositeCostModel{T}
+
+Combines multiple cost models in a specific order (i.e., to use for cascaded 
+tie-breaking).
 """
 struct CompositeCostModel{M<:Tuple,T<:Tuple} <: AbstractCostModel{T}
     cost_models::M
@@ -212,14 +215,14 @@ function add_heuristic_cost(model::C, cost::T, h_cost) where {T,M,C<:CompositeCo
 end
 
 """
-    `MetaCost`
+    MetaCost
 
-    `MetaCost` maintaining separate costs for individual agents that have been
-    combined into a MetaAgent.
-    - independent_costs::Vector{T} a vector of costs, 1 per agent
-    - total_cost::T the total cost, which reflects the combined cost (its
-        interpretation depends on the `MetaCostModel` used to define cost-
-        upating behavior)
+`MetaCost` maintaining separate costs for individual agents that have been
+combined into a MetaAgent.
+- independent_costs::Vector{T} a vector of costs, 1 per agent
+- total_cost::T the total cost, which reflects the combined cost (its
+    interpretation depends on the `MetaCostModel` used to define cost-
+    upating behavior)
 """
 struct MetaCost{T}
     independent_costs::Vector{T}
@@ -228,9 +231,9 @@ end
 Base.isless(m1::MetaCost,m2::MetaCost) = m1.total_cost < m2.total_cost
 
 """
-    `MetaCostModel`
+    MetaCostModel
 
-    Defines the cost-updating behavior of `MetaCost` for MetaAgent applications.
+Defines the cost-updating behavior of `MetaCost` for MetaAgent applications.
 """
 struct MetaCostModel{T,M<:AbstractCostModel{T}} <: AbstractCostModel{MetaCost{T}}
     model::M
@@ -272,29 +275,35 @@ end
 ################################################################################
 
 """
-    `LowLevelCostModel{C}`
+    LowLevelCostModel{C}
 
-    The low level cost model defines the objective to be optimized by the
-    solver at the low level. An optimal low level solver will return a path if a
-    feasible path exists) of minimal cost under the objective specified by the
-    associated LowLevelCostModel.
-    The parameter `C` defines the `cost_type` of the objective. The following
-    functions must be implemented for a `LowLevelCostModel` to be used:
-    * `get_initial_cost(model::LowLevelCostModel,env)` - returns
-    the initial_cost for a path
-    * `get_transition_cost(model::LowLevelCostModel{C},path::Path,s::S,a::A,
-        sp::S) where {S,A,C}` - defines the cost associated with taking action
-        `a` from state `s` to arrive in state `sp` according to the objective
-        defined by `model` given that `s` is the "tip" of `path`.
-    * `accumulate_cost(model::LowLevelCostModel{C}, current_cost::C,
-        transition_cost::C)` - defines how cost accumulates as new `PathNode`s
-        are added to a Path.
+The low level cost model defines the objective to be optimized by the
+solver at the low level. An optimal low level solver will return a path if a
+feasible path exists) of minimal cost under the objective specified by the
+associated LowLevelCostModel.
+The parameter `C` defines the `cost_type` of the objective. The following
+functions must be implemented for a `LowLevelCostModel` to be used:
+* `get_initial_cost(model::LowLevelCostModel,env)` - returns
+the initial_cost for a path
+* `get_transition_cost(model::LowLevelCostModel{C},path::Path,s::S,a::A,
+    sp::S) where {S,A,C}` - defines the cost associated with taking action
+    `a` from state `s` to arrive in state `sp` according to the objective
+    defined by `model` given that `s` is the "tip" of `path`.
+* `accumulate_cost(model::LowLevelCostModel{C}, current_cost::C,
+    transition_cost::C)` - defines how cost accumulates as new `PathNode`s
+    are added to a Path.
 """
 abstract type LowLevelCostModel{T} <: AbstractCostModel{T} end
 
 export
     TransformCostModel
 
+"""
+    TransformCostModel{T,M<:LowLevelCostModel{T}} <: LowLevelCostModel{T}
+
+Applies a transformation to an underlying cost model.
+    e.g., `TransformCostModel(c->2*c, TravelTime())`
+"""
 struct TransformCostModel{T,M<:LowLevelCostModel{T}} <: LowLevelCostModel{T}
     f::Function
     model::M
@@ -309,15 +318,30 @@ for op in [:accumulate_cost,:get_initial_cost,
     @eval $op(model::TransformCostModel,args...) = model.f($op(model.model,args...))
 end
 
+"""
+    TravelTime <: LowLevelCostModel{Float64}
+
+Cost model that assigns cost equal to the duration of a path.
+"""
 struct TravelTime       <: LowLevelCostModel{Float64} end
 accumulate_cost(model::TravelTime,      cost,transition_cost) = cost+transition_cost
 
+"""
+    TravelDistance <: LowLevelCostModel{Float64}
+
+Cost model that assigns cost equal to the length (distance) of a path.
+"""
 struct TravelDistance   <: LowLevelCostModel{Float64} end
 accumulate_cost(model::TravelDistance,  cost,transition_cost) = cost+transition_cost
 
 struct FinalTime        <: LowLevelCostModel{Float64} end
 accumulate_cost(model::FinalTime,       cost,transition_cost) = cost+transition_cost
 
+"""
+    NullCost <: LowLevelCostModel{Float64}
+
+Cost equal to `0.0`.
+"""
 struct NullCost         <: LowLevelCostModel{Float64} end
 get_transition_cost(model::F,env,s,a,sp) where {F<:NullCost} = 0.0
 accumulate_cost(model::NullCost,        cost,transition_cost) = cost
@@ -332,12 +356,12 @@ export
 
 abstract type AbstractDeadlineCost <: LowLevelCostModel{Float64} end
 """
-    `DeadlineCost`
+    DeadlineCost
 
-    `DeadlineCost` is identical to `TravelTime`, except for the behavior of
-    `add_heuristic_cost`.
+Identical to `TravelTime`, except for the behavior of
+`add_heuristic_cost`.
 
-    add_heuristic_cost: `c = max(0.0, t + Δt - deadline)`
+add_heuristic_cost: `c = max(0.0, t + Δt - deadline)`
 """
 mutable struct DeadlineCost     <: AbstractDeadlineCost
     deadline::Float64 # deadline
@@ -367,7 +391,9 @@ end
 FullDeadlineCost(model::DeadlineCost) = FullCostModel(costs->max(0.0, maximum(costs)),model)
 
 """
-    `MultiDeadlineCost`
+    MultiDeadlineCost
+
+Combines multiple deadlines according to some specified aggregation function.
 """
 struct MultiDeadlineCost{F} <: AbstractDeadlineCost
     f::F # aggregation function
@@ -413,12 +439,12 @@ export
 abstract type AbstractConflictTable end
 
 """
-    `HardConflictTable`
+    HardConflictTable
 
-    Stores a lookup table of planned paths for all agents.
-    When agent `i` queries the table, `table.paths[i]` (the existing path plan
-    for agent `i`) must be subtracted so that the agent does not try to avoid
-    conflicts with itself.
+Stores a lookup table of planned paths for all agents.
+When agent `i` queries the table, `table.paths[i]` (the existing path plan
+for agent `i`) must be subtracted so that the agent does not try to avoid
+conflicts with itself.
 """
 @with_kw struct HardConflictTable{V<:AbstractVector,M<:AbstractMatrix} <: AbstractConflictTable
     paths   ::Vector{V} = Vector{SparseVector{Int,Int}}()
@@ -457,11 +483,11 @@ function set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::Int=0) where
     h
 end
 """
-    `partially_set_path!`
+    partially_set_path!
 
-    Only replaces the cached path from start_time to length(path). Useful if you
-    want the remainder of the cached path to stay in the lookup table (i.e. for
-    repairing an existing plan).
+Only replaces the cached path from start_time to length(path). Useful if you
+want the remainder of the cached path to stay in the lookup table (i.e. for
+repairing an existing plan).
 """
 function partially_set_path!(h::T,path_idx::Int,path::Vector{Int},start_time::Int=0) where {V,M,T<:HardConflictTable{V,M}}
     # now add new path vtxs to new path and lookup table
@@ -498,10 +524,10 @@ function get_conflict_value(h::HardConflictTable,agent_idx::Int,vtx::Int,t::Int)
 end
 
 """
-    `get_conflicting_paths`
+    get_conflicting_paths
 
-    operates over a lookup table and returns a dictionary mapping path index to
-    the time index at which the conflict occurred
+Operates over a lookup table and returns a dictionary mapping path index to the 
+time index at which the conflict occurred
 """
 function get_conflicting_paths(ct::T) where {T<:HardConflictTable}
     conflict_idxs = map(idx->Int.([idx.I...]), findall(ct.CAT .> 1))
@@ -517,10 +543,11 @@ function get_conflicting_paths(ct::T) where {T<:HardConflictTable}
     end
     agent_id_to_time_idx
 end
-"""
-    `construct_empty_lookup_table(G,T::Int)`
 
-    Returns an empty lookup table.
+"""
+    construct_empty_lookup_table(G,T::Int)
+
+Returns an empty lookup table.
 """
 construct_empty_lookup_table(V::Int,T::Int) = SparseMatrixCSC(zeros(V,T))
 construct_empty_lookup_table(graph::G,T::Int) where {G<:AbstractGraph} = construct_empty_lookup_table(nv(graph),T)
@@ -541,7 +568,7 @@ export
     populate_soft_lookup_table!
 
 """
-    `SoftConflictTable`
+    SoftConflictTable
 """
 @with_kw struct SoftConflictTable{V,M<:AbstractMatrix} <: AbstractConflictTable
     paths   ::Vector{V} = Vector{SparseMatrixCSC{Float64,Int}}()
@@ -553,14 +580,14 @@ get_conflict_value(h::SoftConflictTable,vtx::Int,t::Int) = h.CAT[vtx,t]
 get_conflict_value(h::SoftConflictTable,agent_idx::Int,vtx::Int,t::Int) = h.CAT[vtx,t] - h.paths[agent_idx][vtx,t]
 
 """
-    `get_fat_path(G,D,start_vtx,goal_vtx)`
+    get_fat_path(G,D,start_vtx,goal_vtx)
 
-    returns a fat path through `G` from `start_vtx` to `goal_vtx`. Each set
-    of vertices in the fat path contains all vertices with distance d1 from
-    start_vtx and distance d2 to goal_vtx, where d1+d2 == the length of the
-    shortest path(s) from `start_vtx` to `goal_vtx`
+returns a fat path through `G` from `start_vtx` to `goal_vtx`. Each set
+of vertices in the fat path contains all vertices with distance d1 from
+start_vtx and distance d2 to goal_vtx, where d1+d2 == the length of the
+shortest path(s) from `start_vtx` to `goal_vtx`
 
-    G is a graph, D is the distance matrix
+G is a graph, D is the distance matrix
 """
 function get_fat_path(G,D,start_vtx::Int,goal_vtx::Int)
     fat_path = Vector{Set{Int}}([Set{Int}(start_vtx)])
@@ -579,7 +606,7 @@ function get_fat_path(G,D,start_vtx::Int,goal_vtx::Int)
 end
 
 """
-    `add_fat_path_to_table(CAT,fat_path)`
+    add_fat_path_to_table(CAT,fat_path)
 """
 function add_fat_path_to_table!(CAT,fat_path,t0=0)
     for t in 1:length(fat_path)
@@ -591,7 +618,7 @@ function add_fat_path_to_table!(CAT,fat_path,t0=0)
 end
 
 """
-    `populate_soft_lookup_table!(CAT,start_times,start_vtxs,goal_vtxs)`
+    populate_soft_lookup_table!(CAT,start_times,start_vtxs,goal_vtxs)
 """
 function populate_soft_lookup_table!(CAT,G,D,start_vtxs,goal_vtxs,start_times=zeros(Int,length(start_vtxs)))
     for (s,t,g) in zip(start_vtxs,start_times,goal_vtxs)
@@ -602,7 +629,7 @@ function populate_soft_lookup_table!(CAT,G,D,start_vtxs,goal_vtxs,start_times=ze
 end
 
 """
-    `construct_empty_lookup_table(graph,T::Int)`
+    construct_empty_lookup_table(graph,T::Int)
 
 Returns a soft lookup table to encode possible paths for each agent through
 `graph`. The argument `T` defines the time horizon of the lookup table.

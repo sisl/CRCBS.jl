@@ -128,6 +128,13 @@ end
 
 export profile_solver!
 
+"""
+    profile_solver!(solver,mapf)
+
+Profile `solver` on `mapf`:
+Returns
+- solution, timer_results
+"""
 function profile_solver!(solver,mapf)
     reset_solver!(solver)
     (solution, cost), t, bytes, gctime, memallocs = @timed solve!(solver,mapf)

@@ -10,6 +10,12 @@ export
     CompositeHeuristic,
         construct_composite_heuristic
 
+
+"""
+    LowLevelSearchHeuristic{C} <: AbstractCostModel{C}
+
+Abstract type of a heuristic that returns cost of type `C`.
+"""
 abstract type LowLevelSearchHeuristic{C} <: AbstractCostModel{C} end
 ################################################################################
 ############################## CompositeHeuristic ##############################
@@ -89,12 +95,12 @@ instead of the heuristic struct.
 struct EnvDistanceHeuristic <: LowLevelSearchHeuristic{Float64} end
 
 """
-    `MultiStagePerfectHeuristic`
+    MultiStagePerfectHeuristic
 
-    Stores multiple lookup tables corresponding to different stages of a Path-
-    Finding search. Each stage has a different goal. The heuristic value at a
-    particular stage must reflect not just the distance to the next goal but the
-    length of the path through all remaining goals.
+Stores multiple lookup tables corresponding to different stages of a Path-
+Finding search. Each stage has a different goal. The heuristic value at a
+particular stage must reflect not just the distance to the next goal but the
+length of the path through all remaining goals.
 """
 @with_kw struct MultiStagePerfectHeuristic <: LowLevelSearchHeuristic{Float64}
     dists::Dict{Int,Vector{Vector{Float64}}} = Dict{Int,Vector{Vector{Float64}}}()
@@ -124,6 +130,11 @@ end
 ################################################################################
 ############################# ConflictTableHeuristic ###########################
 ################################################################################
+"""
+    ConflictTableHeuristic{T<:Union{HardConflictTable,SoftConflictTable}} <: LowLevelSearchHeuristic{Float64}
+
+Heuristic model based on conflicts between paths.
+"""
 struct ConflictTableHeuristic{T<:Union{HardConflictTable,SoftConflictTable}} <: LowLevelSearchHeuristic{Float64}
     table::T
 end

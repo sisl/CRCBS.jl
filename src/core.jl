@@ -5,17 +5,32 @@ export
     get_sp
 
 """
-    `PathNode{S,A}`
+    PathNode{S,A}
 
-    Includes current state `s`, action `a`, next state `sp`
+Includes current state `s`, action `a`, next state `sp`
 """
 @with_kw struct PathNode{S,A}
     s::S = S() # state
     a::A = A() # action
     sp::S = S() # next state
 end
+"""
+    get_s
+
+Get the first state in a `PathNode`.
+"""
 get_s(p::P) where {P<:PathNode} = p.s
+"""
+    get_a
+
+Get the action in a `PathNode`.
+"""
 get_a(p::P) where {P<:PathNode} = p.a
+"""
+    get_sp
+
+Get the next state in a `PathNode`.
+"""
 get_sp(p::P) where {P<:PathNode} = p.sp
 state_type(p::PathNode{S,A}) where {S,A} = S
 action_type(p::PathNode{S,A}) where {S,A} = A
@@ -37,9 +52,9 @@ export
 abstract type AbstractPath end
 
 """
-    `Path{S,A,C}`
+    Path{S,A,C}
 
-    Encodes a motion plan as a sequence of `PathNode{S,A}`s
+Encodes a motion plan as a sequence of `PathNode{S,A}`s
 """
 @with_kw mutable struct Path{S,A,C} <: AbstractPath
     path_nodes  ::Vector{PathNode{S,A}} = Vector{PathNode{S,A}}()

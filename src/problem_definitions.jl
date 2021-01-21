@@ -16,15 +16,17 @@ export
 abstract type AbstractMAPF end
 
 """
-    A MAPF is a Multi Agent Path Finding problem. It consists of an environment,
-    `env`, through which a group of agents may navigate, as well as a list of
-    start and goal states in that environment. Note that this is the _labeled_
-    case, where each agent has a specific assigned destination.
+    MAPF
 
-    Elements:
-    - env::E - the base environment
-    - starts::Vector{S} - the vector of initial states
-    - starts::Vector{G} - the vector of goals
+A MAPF is a Multi Agent Path Finding problem. It consists of an environment,
+`env`, through which a group of agents may navigate, as well as a list of
+start and goal states in that environment. Note that this is the _labeled_
+case, where each agent has a specific assigned destination.
+
+Elements:
+- env::E - the base environment
+- starts::Vector{S} - the vector of initial states
+- starts::Vector{G} - the vector of goals
 """
 struct MAPF{E,S,G} <: AbstractMAPF # Multi Agent Path Finding Problem
     env     ::E           # Environment Type

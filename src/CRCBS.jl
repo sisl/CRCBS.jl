@@ -7,6 +7,7 @@ using LinearAlgebra, SparseArrays
 using StaticArrays
 using JuMP
 using TOML
+using Reexport
 
 include("core.jl")
 include("cost_models.jl")
@@ -32,5 +33,7 @@ include("environments/meta_agent_cbs_env.jl")
 include("helpers/profiling.jl")
 include("helpers/problem_instances.jl")
 include("helpers/benchmark_interface.jl")
+
+@reexport using GraphUtils
 
 end # module

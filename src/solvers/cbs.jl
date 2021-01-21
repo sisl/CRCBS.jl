@@ -185,6 +185,7 @@ function cbs!(solver,mapf)
         while ~isempty(priority_queue)
             # node = cbs_dequeue_and_preprocess!(solver,priority_queue,mapf)
             node = dequeue!(priority_queue)
+            set_lower_bound!(solver,get_cost(node))
             logger_dequeue_cbs_node!(solver,mapf,node)
             # check for conflicts
             conflict = get_next_conflict(node.conflict_table)

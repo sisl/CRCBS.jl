@@ -40,6 +40,12 @@ Base.show(io::IO,a::AbstractGraphAction) = print(io,typeof(a),string(a)) #"(v=$(
 export
     GraphEnv
 
+"""
+    GraphEnv{S,A,C} <: AbstractLowLevelEnv{S,A,C}
+
+An abstract environment type whose concrete subtypes comply with a standard 
+interface.
+"""
 abstract type GraphEnv{S,A,C} <: AbstractLowLevelEnv{S,A,C} end
 
 export
