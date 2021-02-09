@@ -122,6 +122,7 @@ JuMP.lower_bound(logger)= get_logger(logger).lower_bound
 best_cost(logger)       = get_logger(logger).best_cost
 verbosity(logger)       = get_logger(logger).verbosity
 verbosity(val::Int)		= val
+verbosity(::Nothing)    = global_verbosity()
 debug(logger)           = get_logger(logger).DEBUG
 solver_status(logger) 	= get_logger(logger).status
 
