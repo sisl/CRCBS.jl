@@ -147,6 +147,9 @@ function get_path_node(path::P,t::Int) where {P<:AbstractPath}
         return PathNode(s,a,sp)
     end
 end
+function get_path_node(path::P,t::Float64) where {P<:AbstractPath}
+    get_path_node(path,Int(round(t)))
+end
 
 # """
 #     `get_a(path,t)`

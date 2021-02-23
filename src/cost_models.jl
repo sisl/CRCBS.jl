@@ -557,6 +557,9 @@ function HardConflictTable(graph::G,T::Int,num_agents::Int) where {G<:AbstractGr
         CAT = construct_empty_lookup_table(graph,T)
         )
 end
+function HardConflictTable(graph::G,T::Float64,num_agents::Int) where {G<:AbstractGraph} 
+    HardConflictTable(graph,Int(round(T)),num_agents)
+end
 
 ################################################################################
 ############################### SoftConflictHeuristic ##############################
@@ -641,6 +644,7 @@ function SoftConflictTable(n_agents::Int,N::Int,T::Int,t0=0)
         t0=t0
         )
 end
+SoftConflictTable(n_agents::Int,N::Int,T::Float64,t0=0) = SoftConflictTable(n_agents,N,Int(round(T)),Int(round(t0)))
 
 # """
 #     `construct_empty_lookup_table(graph,T::Int)`

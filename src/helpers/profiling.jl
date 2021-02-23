@@ -158,8 +158,14 @@ problem file).
 """
 function load_problem end
 
-export write_results
+export get_results_path, write_results
 
+function get_results_path(loader,solver_config,problem_file)
+    problem_name = splitext(splitdir(problem_file)[end])[1]
+    outpath = joinpath(solver_config.results_path)
+    mkpath(outpath)
+    outfile = joinpath(outpath,string(problem_name,".results"))
+end
 """
     write_results(loader,solver_config,prob,problem_file,results)
 
@@ -167,11 +173,11 @@ Write results `results` of profiling `solver_config.solver` on problem `prob` of
 name `problem_name`. Can be overloaded to dispatch on problem type when applicable.
 """
 function write_results(loader,solver_config,prob,problem_file,results)
-    problem_name = splitext(splitdir(problem_file)[end])[1]
-    outpath = joinpath(solver_config.results_path)
-    outfile = joinpath(outpath,string(problem_name,".results"))
-    mkpath(outpath)
-    write_results(outfile,results)
+    # problem_name = splitext(splitdir(problem_file)[end])[1]
+    # outpath = joinpath(solver_config.results_path)
+    # outfile = joinpath(outpath,string(problem_name,".results"))
+    # mkpath(outpath)
+    write_results(get_results_path(loader,solver_config,problem_file),results)
 end
 function write_results(outfile::String,results::Dict)
     open(outfile,"w") do io
@@ -282,7 +288,7 @@ function construct_results_dataframe(loader,solver_config,config_template)
     results_df = init_dataframe(solver_config.feats)
     for results_file in readdir(solver_config.results_path;join=true)
         results = load_results(loader,results_file)
-        push!(results_df,results)
+        push!(results_df,results;cols=:intersect)
     end
     results_df
 end

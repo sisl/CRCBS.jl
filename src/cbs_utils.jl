@@ -506,6 +506,7 @@ function discrete_constraint_table(n_states::Int,n_actions::Int,agent_id::Int=-1
         agent_id
         )
 end
+discrete_constraint_table(n_states::Int,n_actions::Int,agent_id::Int,tf::Float64) = discrete_constraint_table(n_states,n_actions,agent_id,Int(round(tf)))
 function discrete_constraint_table(env,agent_id=-1,tf=num_states(env)*4)
     @assert isa(state_space_trait(env),DiscreteSpace)
     discrete_constraint_table(num_states(env),num_actions(env),agent_id,tf)

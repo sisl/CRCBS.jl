@@ -72,6 +72,7 @@ function extend_path!(env::E,path::P,T::Int) where {E<:AbstractLowLevelEnv,P<:Pa
     end
     return path
 end
+extend_path!(env::E,path::P,T::Float64) where {E<:AbstractLowLevelEnv,P<:Path} = extend_path!(env,path,Int(round(T)))
 function extend_path(env::E,path::P,args...) where {E<:AbstractLowLevelEnv,P<:Path}
     new_path = copy(path)
     extend_path!(new_path,args...)

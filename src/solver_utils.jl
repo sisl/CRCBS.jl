@@ -280,17 +280,19 @@ end
 function increment_iteration_count!(logger::SolverLogger)
     logger.iterations += 1
     set_max_iterations!(logger,max(iterations(logger),max_iterations(logger)))
+    logger.iterations
 end
 increment_iteration_count!(solver)  = increment_iteration_count!(get_logger(solver))
 
 export
     reset_solver!,
+    soft_reset_solver!,
     hard_reset_solver!
 
 """
     reset_solver!(solver)
 
-Resets iteration counts and start times.
+Resets iteration counts and start times, in addition to best cost and lower bound.
 """
 function reset_solver!(logger::SolverLogger)
     set_iterations!(logger, 0)
@@ -302,6 +304,20 @@ function reset_solver!(logger::SolverLogger)
     logger
 end
 reset_solver!(solver)               = reset_solver!(get_logger(solver))
+
+"""
+    soft_reset_solver!(solver)
+
+Resets iteration counts and start times.
+"""
+function soft_reset_solver!(logger::SolverLogger)
+    set_iterations!(logger, 0)
+    set_start_time!(logger,time())
+	set_time_out_status!(logger,false)
+	set_iteration_max_out_status!(logger,false)
+    logger
+end
+soft_reset_solver!(solver)               = soft_reset_solver!(get_logger(solver))
 
 """
     hard_reset_solver!(solver)

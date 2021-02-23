@@ -18,7 +18,9 @@ export
     init_mapf_1,
     init_mapf_2,
     init_mapf_3,
-    init_mapf_4
+    init_mapf_4,
+    init_mapf_5,
+    init_mapf_6
 
 function init_mapf_1(args...)
     vtx_grid = initialize_dense_vtx_grid(4,4)
@@ -81,7 +83,6 @@ function init_mapf_4(args...)
     init_mapf_problem(graph,starts,goals,args...)
 end
 
-export init_mapf_5
 """
     PIBT demo from paper
 """
@@ -95,6 +96,23 @@ function init_mapf_5(args...)
     graph = construct_factory_env_from_vtx_grid(vtx_grid)
     init_mapf_problem(graph,starts,goals,args...)
 end
+
+"""
+    PIBT demo from paper
+"""
+function init_mapf_6(args...)
+    vtx_grid = initialize_dense_vtx_grid(3,3)
+    # 1  2  3
+    # 4  5  6
+    # 7  8  9
+    starts = [2,4]
+    goals = [8,6]
+    # graph = initialize_grid_graph_from_vtx_grid(vtx_grid)
+    graph = construct_factory_env_from_vtx_grid(vtx_grid)
+    init_mapf_problem(graph,starts,goals,args...)
+end
+
+
 
 export mapf_test_problems
 
