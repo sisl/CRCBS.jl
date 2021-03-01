@@ -304,7 +304,7 @@ function construct_config_dataframe(loader,problem_path,config_template)
     df = init_dataframe(config_template)
     for problem_file in readdir(problem_path;join=true)
         config = load_config(loader,problem_file)
-        push!(df,config)
+        push!(df,config;cols=:intersect)
     end
     df
 end

@@ -558,6 +558,7 @@ function HardConflictTable(graph::G,T::Int,num_agents::Int) where {G<:AbstractGr
         )
 end
 function HardConflictTable(graph::G,T::Float64,num_agents::Int) where {G<:AbstractGraph} 
+    @assert abs(T - Int(round(T))) < 0.01
     HardConflictTable(graph,Int(round(T)),num_agents)
 end
 
@@ -644,7 +645,11 @@ function SoftConflictTable(n_agents::Int,N::Int,T::Int,t0=0)
         t0=t0
         )
 end
-SoftConflictTable(n_agents::Int,N::Int,T::Float64,t0=0) = SoftConflictTable(n_agents,N,Int(round(T)),Int(round(t0)))
+function SoftConflictTable(n_agents::Int,N::Int,T::Float64,t0=0)
+    @assert abs(T - Int(round(T))) < 0.01
+    @assert abs(t0 - Int(round(t0))) < 0.01
+    SoftConflictTable(n_agents,N,Int(round(T)),Int(round(t0)))
+end
 
 # """
 #     `construct_empty_lookup_table(graph,T::Int)`

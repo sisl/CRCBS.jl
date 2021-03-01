@@ -72,7 +72,10 @@ function extend_path!(env::E,path::P,T::Int) where {E<:AbstractLowLevelEnv,P<:Pa
     end
     return path
 end
-extend_path!(env::E,path::P,T::Float64) where {E<:AbstractLowLevelEnv,P<:Path} = extend_path!(env,path,Int(round(T)))
+function extend_path!(env::E,path::P,T::Float64) where {E<:AbstractLowLevelEnv,P<:Path}
+    @assert abs(T - Int(round(T))) < 0.01
+    extend_path!(env,path,Int(round(T)))
+end
 function extend_path(env::E,path::P,args...) where {E<:AbstractLowLevelEnv,P<:Path}
     new_path = copy(path)
     extend_path!(new_path,args...)
@@ -215,13 +218,21 @@ end
 export
     sprint_route_plan
 
-function sprint_route_plan(solution::LowLevelSolution;kwargs...)
-    sprint_indexed_list_array(convert_to_vertex_lists(solution);kwargs...)
+function sprint_route_plan(io::IO,solution::LowLevelSolution;kwargs...)
+    sprint_indexed_list_array(io::IO,convert_to_vertex_lists(solution);kwargs...)
+end
+function sprint_route_plan(route_plan::LowLevelSolution;kwargs...)
+    buffer = IOBuffer()
+    sprint_route_plan(buffer,route_plan;kwargs...)
+    String(take!(buffer))
 end
 function Base.show(io::IO,route_plan::LowLevelSolution)
-    print(io,
-        "LowLevelSolution:\n",
-        sprint_route_plan(route_plan;leftaligned=true))
+    # buffer = IOBuffer()
+    # print(buffer,"LowLevelSolution:\n")
+    print(io,"LowLevelSolution:\n")
+    # sprint_route_plan(buffer,route_plan;leftaligned=true)
+    sprint_route_plan(io,route_plan;leftaligned=true)
+    # print(io,String(take!(buffer)))
 end
 
 export

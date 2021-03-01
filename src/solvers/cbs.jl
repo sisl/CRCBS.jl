@@ -32,6 +32,7 @@ function logger_dequeue_cbs_node!(solver,mapf,node)
         "CBS: iter ",iterations(solver)," - node ",node.trace,
         " - Current paths: \n",
         sprint_indexed_list_array(convert_to_vertex_lists(node.solution);leftaligned=true),
+        # sprint_route_plan(node.solution;leftaligned=true),
         )
     @log_info(2,verbosity(solver),"CBS: constraints in node ",node.trace,": \n",
         map(c->string("\t",string(c),"\n"),sorted_state_constraints(mapf,node))...,

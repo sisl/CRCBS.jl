@@ -148,6 +148,7 @@ function get_path_node(path::P,t::Int) where {P<:AbstractPath}
     end
 end
 function get_path_node(path::P,t::Float64) where {P<:AbstractPath}
+    @assert abs(t - Int(round(t))) < 0.01
     get_path_node(path,Int(round(t)))
 end
 
