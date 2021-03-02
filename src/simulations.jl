@@ -139,7 +139,7 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
 
         # There is interaction at this node
         if length(occupancy) >= 2
-            println("Possible interactions")
+            # println("Possible interactions")
             sleep(0.02)
             list_of_occupants = collect(keys(occupancy))
             pairs_of_occupants = collect(combinations(list_of_occupants,2))
@@ -220,7 +220,7 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
             for robot1_id in occupants_1
                 for robot2_id in occupants_2
                     if robot1_id != robot2_id
-                        println("Interaction at edge!")
+                        # println("Interaction at edge!")
 
 
 
@@ -852,11 +852,47 @@ function load_experiment_parameters(file)
     return parameters
 end
 
+function run_problem_from_parameters(file)
+    parameters = load_experiment_parameters(file)
+
+    # Convert to MAPF
+    name = parameters.name
+    lambda = parameters.
+    epsilon = parameters.
+    t_delay = parameters.
+    num_particles = parameters.
+    vs::Vector{Int}
+    es::Vector{Tuple{Int,Int}}
+    starts::Vector{Int}
+    goals::Vector{Int}
+    xs::Vector{Int}
+    ys::Vector{Int}
+
+
+    G = MetaGraph()
+    for v in parameters.vs
+        add_vertex!(G)
+    end
+    for v in vertices(G)
+        set_prop!(G, v,:n_delay, 1.0)
+    end
+    for e in parameters.es
+        add_edge!(G,e[1],e[2])
+        set_prop!(G, Edge(e[1],e[2]), :weight, 1.0)
+    end
+    mapf = MAPF(G,parameters.starts,parameters.goals,lambda,epsilon,t_delay)
+
+end
+
 function run_problem(name; sub_name="", lambda=1.0,epsilon=0.01,t_delay=1.0,dataframe=false,num_trials=1000)
     if sub_name == ""
         sub_name = name
     end
     exp_parms = load_experiment_parameters(sub_name)
+
+    print("Running problem with t_delay: ")
+    println(exp_parms.t_delay)
+
     G = MetaGraph()
     for (k,v) in enumerate(exp_parms.vs)
         vnew = add_vertex!(G,Dict(:x=>exp_parms.xs[k],:y=>exp_parms.ys[k]))
@@ -868,7 +904,7 @@ function run_problem(name; sub_name="", lambda=1.0,epsilon=0.01,t_delay=1.0,data
         add_edge!(G,e[1],e[2])
         set_prop!(G, Edge(e[1],e[2]), :weight, 1.0)
     end
-    mapf = MAPF(G,exp_parms.starts,exp_parms.goals,lambda,epsilon,t_delay)
+    mapf = MAPF(G,exp_parms.starts,exp_parms.goals,exp_parms.lambda,epsilon,t_delay)
 
 
     a = @timed(CTCBS(mapf))
