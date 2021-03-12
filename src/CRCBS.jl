@@ -254,8 +254,8 @@ end
     `constraints` as the parent node"""
 function initialize_child_node(parent_node::ConstraintTreeNode)
     ConstraintTreeNode(
-        solution = copy(parent_node.solution),
-        constraints = copy(parent_node.constraints)
+        solution = deepcopy(parent_node.solution),
+        constraints = deepcopy(parent_node.constraints)
     )
 end
 
@@ -1131,6 +1131,202 @@ function count_most_likely_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_int
     end
 end
 
+function count_first_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_interactions,lookup_dict_nodes::Dict, lookup_dict_edges::Dict, tmax)
+    """Returns the first conflict that occurs in a given solution:
+    - paths:        a list of graph edges to be traversed by the agents"""
+    # If num_interactions[2] == 0, it means we are the first time we want to
+    # count interactions, so we change both num_interactions[1] and [2]
+
+    # print("Trying to get the most likely conflict from solution: \n")
+    # print(paths, "\n")
+    interaction_count = 0
+
+    countingtime = 0
+
+    epsilon = mapf.epsilon
+    lambda = mapf.lambda
+    conflict_params_node = []
+    conflict_params_edge = []
+
+    clear_graph_occupancy!(mapf::MAPF)
+
+    # The first step is to fill the graph with occupancy information
+    for (robot_id,robotpath) in enumerate(paths)
+        fill_graph_with_path!(robot_id,robotpath,mapf)
+    end
+
+    node_conflict = invalid_node_conflict()
+    edge_conflict = invalid_edge_conflict()
+
+    # Initialize max conflict probabilities at 0
+    node_conflict_p = 0.0
+    edge_conflict_p = 0.0
+
+    # ----- Node conflicts ----- #
+    for v in vertices(mapf.graph)
+
+        #Get node information
+        nn = get_prop(mapf.graph, v, :n_delay)
+        occupancy = get_prop(mapf.graph,v,:occupancy)
+
+        # There is interaction at this node
+        if length(occupancy) >= 2
+            list_of_occupants = collect(keys(occupancy))
+            pairs_of_occupants = collect(combinations(list_of_occupants,2))
+            if num_interactions[2] == 0
+                interaction_count += length(pairs_of_occupants)
+            end
+            for (r1,r2) in pairs_of_occupants
+                (n1,t1) = occupancy[r1]
+                (n2,t2) = occupancy[r2]
+                # 1. compute PC with integral
+                #(cp,err,dt) = get_collision_probability_node(n1,t1,n2,t2,nn,lambda)
+                # 2. PC with MC simulation
+                # res = @timed(count_node_conflicts(n1,t1,n2,t2,nn,lambda))
+                # 3. PC with MC simulation + lookup dict
+                res = @timed(get_node_cp_from_dict!(lookup_dict_nodes::Dict, n1,t1,n2,t2,nn,lambda::Float64))
+                cp = res[1]
+                dt = res[2]
+
+                countingtime += dt
+
+                # If conflict is likely, return it
+                if cp > epsilon
+                    node_conflict = NodeConflict(r1,r2,v,t1,t2,cp)
+                    conflict_params_node = [n1,n2,lambda,nn]
+                    clear_graph_occupancy!(mapf)
+                    return node_conflict, invalid_edge_conflict(), countingtime,conflict_params_node
+                end
+            end
+        end
+    end
+
+    # ----- Edge conflicts ----- #
+    for e in edges(mapf.graph)
+
+        if e.src < e.dst
+
+            #Get edge information. We consider confrontations as robots arriving in
+            #opposite directions only
+            t_edge = get_prop(mapf.graph,e,:weight)
+            occupancy = get_prop(mapf.graph,e,:occupancy)
+            reverse_edge = Edge(e.dst,e.src)
+            reverse_occupancy = get_prop(mapf.graph,reverse_edge,:occupancy)
+
+            # There is interaction at this edge
+            if length(occupancy)*length(reverse_occupancy) >= 1
+                occupants_1 = keys(occupancy)
+                occupants_2 = keys(reverse_occupancy)
+                for robot1_id in occupants_1
+                    for robot2_id in occupants_2
+                        # println(get(occupancy, robot2_id, [0.0,1000000.0]))
+                        if robot1_id != robot2_id
+                            # If robot 1 does src -> dst
+                            robot_1_time_src = get(get_prop(mapf.graph, e.src, :occupancy), robot1_id, [0,1])[2]
+                            # println("Robot 1 time at source:")
+                            # println(robot_1_time_src)
+                            robot_1_time_dst = get(get_prop(mapf.graph, e.dst, :occupancy), robot1_id, [0,1])[2]
+                            # println("Robot 1 time at destination:")
+                            # println(robot_1_time_dst)
+
+                            robot_2_time_src = get(get_prop(mapf.graph, e.src, :occupancy), robot2_id, [0,1])[2]
+                            # println("Robot 2 time at source:")
+                            # println(robot_2_time_src)
+                            robot_2_time_dst = get(get_prop(mapf.graph, e.dst, :occupancy), robot2_id, [0,1])[2]
+                            # println("Robot 2 time at destination:")
+                            # println(robot_2_time_dst)
+
+                            # If robot 1 arrives at source before destination and robot 2 arrives at destination before source:
+                            if robot_1_time_src <= robot_1_time_dst && robot_2_time_dst <= robot_2_time_src
+                                # println("Found an interaction at an edge!")
+
+                                if num_interactions[2] == 0
+                                    interaction_count += 1
+                                end
+                                (n1,t1) = occupancy[robot1_id]
+                                (n2,t2) = reverse_occupancy[robot2_id]
+                                # 1. PC with numerical integration
+                                #(cp,err,dt) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+                                # 2. PC with MC simulation
+                                # res = @timed(count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda))
+                                # cp = res[1]
+                                # dt = res[2]
+                                # 3. PC with MC simulation + lookup dict
+                                res = @timed(get_edge_cp_from_dict!(lookup_dict_edges,n1,t1,n2,t2,t_edge,lambda))
+                                cp = res[1]
+                                dt = res[2]
+
+                                countingtime += dt
+
+                                if cp > epsilon
+                                    # println("\n Adding an edge conflict.")
+                                    # println("Robot 1: ", robot1_id)
+                                    # println("Robot 2: ", robot2_id)
+                                    # println("Edge: (", e.src, ", ", e.dst, ")")
+                                    # println("But who occupies the edge src->dst? ")
+                                    # println(occupancy)
+                                    edge_conflict = EdgeConflict(robot1_id,robot2_id,e.src,e.dst,t1+t_edge,t2+t_edge,cp)
+                                    conflict_params_edge = [n1,n2,lambda,t_edge]
+                                    clear_graph_occupancy!(mapf)
+                                    return invalid_node_conflict(), edge_conflict, countingtime,conflict_params_edge
+                                end
+                            elseif robot_2_time_src <= robot_2_time_dst && robot_1_time_dst <= robot_1_time_src
+                                # println("Found an interaction at an edge the other way!")
+
+                                r1 = deepcopy(robot2_id)
+                                r2 = deepcopy(robot1_id)
+
+                                if num_interactions[2] == 0
+                                    interaction_count += 1
+                                end
+                                (n1,t1) = occupancy[r1]
+                                (n2,t2) = reverse_occupancy[r2]
+                                # 1. PC with numerical integration
+                                #(cp,err,dt) = get_collision_probability_edge(n1,t1,n2,t2,t_edge,lambda)
+                                # 2. PC with MC simulation
+                                # res = @timed(count_edge_conflicts(n1,t1,n2,t2,t_edge,lambda))
+                                # cp = res[1]
+                                # dt = res[2]
+                                # 3. PC with MC simulation + lookup dict
+                                res = @timed(get_edge_cp_from_dict!(lookup_dict_edges,n1,t1,n2,t2,t_edge,lambda))
+                                cp = res[1]
+                                dt = res[2]
+
+                                countingtime += dt
+
+                                if cp > epsilon
+                                    # println("\n Adding an edge conflict.")
+                                    # println("Robot 1: ", r1)
+                                    # println("Robot 2: ", r2)
+                                    # println("Edge: (", e.src, ", ", e.dst, ")")
+                                    # println("But who occupies the edge src->dst? ")
+                                    # println(occupancy)
+                                    edge_conflict = EdgeConflict(r1,r2,e.src,e.dst,t1+t_edge,t2+t_edge,cp)
+                                    conflict_params_edge = [n1,n2,lambda,t_edge]
+                                    clear_graph_occupancy!(mapf)
+                                    return invalid_node_conflict(), edge_conflict, countingtime,conflict_params_edge
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    # Set the number of interactions
+    if num_interactions[2] == 0
+        num_interactions[2] = 1
+        num_interactions[1] = interaction_count
+    end
+
+    clear_graph_occupancy!(mapf)
+
+    # No conflict
+    return invalid_node_conflict(), invalid_edge_conflict(), countingtime,conflict_params_node
+
+end
+
 function get_node_cp_from_dict!(lookup_dict_nodes::Dict, n1,t1,n2,t2,nn,lambda::Float64;num_particles=10000)
     # Are the conditions met for the solution being stored in the dictionary?
     if n1 == floor(t1) && n2 == floor(t2)
@@ -1233,7 +1429,7 @@ function count_next_conflicts!(mapf::MAPF,paths::LowLevelSolution,num_interactio
             reverse_occupancy = get_prop(mapf.graph,reverse_edge,:occupancy)
 
             # There is interaction at this edge
-            if length(occupancy)*length(reverse_occupancy) >= 1 && e.src < e.dst
+            if length(occupancy)*length(reverse_occupancy) >= 1
                 occupants_1 = keys(occupancy)
                 occupants_2 = keys(reverse_occupancy)
                 for robot1_id in occupants_1
@@ -1476,16 +1672,18 @@ function generate_constraints_from_conflict!(lookup_dict_edges::Dict, node::Cons
     t_yield1 = conflict.t1
     t_yield2 = conflict.t2
 
+    # println("Conflict times: ", conflict.t1, ", ", conflict.t2)
+
     n1 = conflict_params[1]
     n2 = conflict_params[2]
     lambda = conflict_params[3]
     t_edge = conflict_params[4]
 
     robot1_id = conflict.agent1_id
-    #pre_existing_constraintDict = get(node.constraints,robot1_id,false)
-    #if pre_existing_constraintDict != false
+    # pre_existing_constraintDict = get(node.constraints,robot1_id,false)
+    # if pre_existing_constraintDict != false
     #    t_yield1 = get(pre_existing_constraintDict.edge_constraints,(conflict.node1_id,conflict.node2_id),t_yield1)
-    #end
+    # end
 
     robot2_id = conflict.agent2_id
     #pre_existing_constraintDict = get(node.constraints,robot2_id,false)
@@ -1514,6 +1712,8 @@ function generate_constraints_from_conflict!(lookup_dict_edges::Dict, node::Cons
         Pc = res[1]
         counting_deltat += res[2]
     end
+
+    # println("Delay times: ", tf1, ", ", tf2)
 
 
     return [
@@ -1546,7 +1746,7 @@ function low_level_search!(mapf::MAPF,
     """Returns a low level solution for a MAPF with constraints"""
     # compute an initial solution
     # solution = LowLevelSolution()
-    #println("ASTAR: ", length(idxs))
+    # println("ASTAR: ", length(idxs))
     for i in idxs
         pathwtime = @timed(path_finder(mapf.graph,mapf.starts[i],mapf.goals[i],get_constraints(node,i),mapf,distmx_DP,distmx))
         time += pathwtime[2]
@@ -1591,7 +1791,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     distmx_DP = compute_distance_matrix(mapf.graph,distmx)
 
     # Lookup tables for computing conflict probability
-    tmax=20
+    tmax=3
     # lookup_table_nodes = generate_lookup_table_nodes(tmax, mapf.lambda)
     # lookup_table_edges = generate_lookup_table_edges(tmax, mapf.lambda)
     lookup_dict_nodes = generate_lookup_dict_nodes(tmax, mapf.lambda)
@@ -1602,7 +1802,7 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     # println(lookup_table_edges)
 
     # priority queue that stores nodes in order of their cost
-    max_iterations = 800
+    max_iterations = 1000
     countingtime = 0.0
     priority_queue = PriorityQueue{ConstraintTreeNode,Int}()
     time_spent_on_astar = 0.0
@@ -1617,18 +1817,21 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
     iteration_count = 0
 
     while length(priority_queue) > 0 && iteration_count < max_iterations
-        #print("\n \n")
+        # print("\n Dequeuing a new node \n")
         node = dequeue!(priority_queue)
+        # println("Constraints at this node: ", node.constraints)
         # check for conflicts
         # node_conflict, edge_conflict, integral_deltat = get_most_likely_conflicts!(mapf,node.solution,num_interactions)
-        node_conflict, edge_conflict, counting_deltat,conflict_params = count_most_likely_conflicts!(mapf,node.solution,num_interactions, lookup_dict_nodes, lookup_dict_edges, tmax)
+        # node_conflict, edge_conflict, counting_deltat,conflict_params = count_most_likely_conflicts!(mapf,node.solution,num_interactions, lookup_dict_nodes, lookup_dict_edges, tmax)
+        node_conflict, edge_conflict, counting_deltat,conflict_params = count_first_conflicts!(mapf,node.solution,num_interactions, lookup_dict_nodes, lookup_dict_edges, tmax)
         countingtime += counting_deltat
         if is_valid(node_conflict)
-            println("Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id)
+            # println("\n Agents ", node_conflict.agent1_id, " and ", node_conflict.agent2_id, " conflict at node ", node_conflict.node_id, "/n")
             constraints, counting_deltat = generate_constraints_from_conflict!(lookup_dict_nodes,node,node_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
             # constraints, counting_deltat = generate_constraints_from_conflict(node,node_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
             countingtime += counting_deltat
         elseif is_valid(edge_conflict)
+            # println("\n Agents ", edge_conflict.agent1_id, " and ", edge_conflict.agent2_id, " conflict at edge (", edge_conflict.node1_id, ", ", edge_conflict.node2_id, ") /n")
             constraints, counting_deltat = generate_constraints_from_conflict!(lookup_dict_edges,node,edge_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
             # constraints, counting_deltat = generate_constraints_from_conflict(node,edge_conflict,mapf.t_delay,conflict_params,mapf.epsilon)
             countingtime += counting_deltat
@@ -1641,23 +1844,19 @@ function CTCBS(mapf::MAPF,path_finder=LightGraphs.a_star)
 
         # generate new nodes from constraints
         for constraint in constraints
-            new_node = deepcopy(initialize_child_node(node))
-            println("")
-            println("Adding new node! Constraint: ", constraint)
-            println("Constraints of the node before adding: ", new_node.constraints)
+            new_node = initialize_child_node(node)
             if add_constraint!(new_node,constraint,mapf)
+                # println("Added new node! Constraints: ", new_node.constraints)
                 _,_,astartime = low_level_search!(mapf,new_node,distmx,distmx_DP,[get_agent_id(constraint)])
                 time_spent_on_astar += astartime
                 if is_valid(new_node.solution, mapf)
-                    #print("Consequently we found the solutions: \n")
-                    #print(new_node.solution, "\n")
+                    # print("\n Consequently we found the solutions: \n")
+                    # print(new_node.solution, "\n")
                     #print("Adding new node to priority queue","\n")
                     enqueue!(priority_queue, new_node => new_node.cost)
-                    println("Constraints of the node after adding: ", new_node.constraints)
                 end
             end
         end
-        println("iteration ", iteration_count)
         iteration_count += 1
     end
     print("No Solution Found. Returning default solution")

@@ -18,8 +18,11 @@ function LightGraphs.a_star_impl!(g::AbstractGraph,# the graph
         end
 
         for v in LightGraphs.outneighbors(g, u)
+
             # Skip node if it violates any of the constraints
             if violates_constraints(constraints,v,path,mapf)
+                # println("Path violated constraintes! Continuing.")
+                # println("The path was ", path)
                 continue
             end
             if get(colormap, v, 0) < 2

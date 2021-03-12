@@ -179,8 +179,8 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
                 num_conflicts = length(findall( ((r2_departures-r1_arrivals).>0) .& ((r1_departures-r2_arrivals).>0)   ))
 
                 if num_conflicts > 1
-                    println("\n I found", num_conflicts, " conflicts at a node!")
-                    println("This is out of ", num_particles, " trials, and the collision probability is ", cp)
+                    # println("\n I found", num_conflicts, " conflicts at a node!")
+                    # println("This is out of ", num_particles, " trials, and the collision probability is ", cp)
                     #push!(conflict_counts_locally, num_conflicts)
 
                     push!(conflict_counts_locally, num_conflicts)
@@ -259,8 +259,8 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
                         num_conflicts = length(findall( ((r2_departures-r1_arrivals).>0) .& ((r1_departures-r2_arrivals).>0)   ))
 
                         if num_conflicts > 1
-                            println("\n I found", num_conflicts, " conflicts!")
-                            println("This is out of ", num_particles, " trials, and the collision probability is ", cp)
+                            # println("\n I found", num_conflicts, " conflicts!")
+                            # println("This is out of ", num_particles, " trials, and the collision probability is ", cp)
                             push!(conflict_counts_locally, num_conflicts)
 
                             # Compare conflict occurence to probability
@@ -899,6 +899,8 @@ function run_problem(name; sub_name="", lambda=1.0,epsilon=0.01,t_delay=1.0,data
     end
     for v in vertices(G)
         set_prop!(G, v,:n_delay, 1.0)
+        add_edge!(G,v,v)
+        set_prop!(G, Edge(v,v), :weight, 1.0)
     end
     for e in exp_parms.es
         add_edge!(G,e[1],e[2])
@@ -1010,10 +1012,10 @@ function run_cbs_particles(name; type="CBS", sub_name="", save_simulation=true,g
     G = MetaGraph()
     for v in exp_parms.vs
         add_vertex!(G)
-
     end
     for v in vertices(G)
         set_prop!(G, v,:n_delay, 1.0)
+
     end
     for e in exp_parms.es
         add_edge!(G,e[1],e[2])
