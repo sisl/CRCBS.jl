@@ -192,6 +192,15 @@ function get_conflicts(conflict_table::ConflictTable,i::Int,j::Int)
     return state_conflicts, action_conflicts
 end
 
+export
+    get_all_state_conflicts,
+    get_all_action_conflicts,
+    get_all_conflicts
+
+get_all_state_conflicts(ct) = Base.Iterators.flatten((v for (k,v) in ct.state_conflicts if !isempty(v)))
+get_all_action_conflicts(ct) = Base.Iterators.flatten((v for (k,v) in ct.action_conflicts if !isempty(v)))
+get_all_conflicts(ct) = Base.Iterators.flatten((get_all_state_conflicts(ct),get_all_action_conflicts(ct)))
+
 """
     `count_conflicts(conflict_table::ConflictTable,i::Int,j::Int)`
 
@@ -813,7 +822,8 @@ end
 function detect_conflicts!(node::ConstraintTreeNode, args...)
     detect_conflicts!(node.conflict_table,node.solution,args...)
 end
-for op in [:count_conflicts,:get_next_conflict,:reset_conflict_table!,:get_conflicts]
+for op in [:count_conflicts,:get_next_conflict,:reset_conflict_table!,:get_conflicts,
+    :get_all_state_conflicts,:get_all_action_conflicts,:get_all_conflicts]
     @eval $op(node::ConstraintTreeNode,args...) = $op(node.conflict_table,args...)
 end
 
@@ -1134,6 +1144,44 @@ get_fat_path_cost(m::NormalizedFPCost,nodes) = 1.0/length(nodes)
 """
 get_fat_path_cost(m::FlatFPCost,nodes) = 1.0
 get_fat_path_cost(m::NormalizedFPCost,nodes) = 1.0/length(nodes)
+
+export get_mdd_graph
+
+"""
+    get_mdd_graph(env,s,threshold,cost=get_initial_cost(env))
+
+Construct a multi-level decision diagram (MDD) graph.
+"""
+function get_mdd_graph(env,s,threshold,cost=get_initial_cost(env))
+    # nodes = Vector{node_type(env)}()
+    fat_path = NEGraph{DiGraph,cost_type(env),action_type(env),state_type(env)}()
+    add_node!(fat_path,cost,s)
+    frontier = PriorityQueue{state_type(env),typeof(cost)}()
+    explored = Set{state_type(env)}()
+    enqueue!(frontier,s=>cost)
+    while !isempty(frontier)
+        s,cost = dequeue_pair!(frontier)
+        push!(explored,s)
+        for a in get_possible_actions(env,s)
+            sp = get_next_state(env,s,a)
+            if has_vertex(fat_path,sp)
+                add_edge!(fat_path,s,sp,a)
+                continue
+            end
+            if sp in explored || has_vertex(fat_path,sp)
+                continue
+            end
+            c = accumulate_cost(env,cost,get_transition_cost(env,s,a,sp))
+            h = add_heuristic_cost(env,c,get_heuristic_cost(env,sp))
+            if h <= threshold
+                add_node!(fat_path,c,sp)
+                add_edge!(fat_path,s,sp,a)
+                enqueue!(frontier, sp=>c)
+            end
+        end
+    end
+    fat_path
+end
 
 """
     get_level_set_nodes(env,s,threshold,cost=get_initial_cost(env))

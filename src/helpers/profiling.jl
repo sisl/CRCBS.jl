@@ -284,8 +284,10 @@ export construct_results_dataframe
 Compile results at `solver_config.results_path` into a `DataFrame` based on the
 features stored in `solver_config.feats`
 """
-function construct_results_dataframe(loader,solver_config,config_template)
-    results_df = init_dataframe(solver_config.feats)
+function construct_results_dataframe(loader,solver_config,config_template;
+        feats = solver_config.feats,
+    )
+    results_df = init_dataframe(feats)
     for results_file in readdir(solver_config.results_path;join=true)
         results = load_results(loader,results_file)
         push!(results_df,results;cols=:intersect)

@@ -7,7 +7,9 @@ Path planner that employs Conflict-Based Search.
 """
 @with_kw struct CBSSolver{L,C} <: AbstractCBSSolver
     low_level_planner::L    = VanillaAStar()
-    logger::SolverLogger{C} = SolverLogger{cost_type(low_level_planner)}()
+    logger::SolverLogger{C} = SolverLogger{cost_type(low_level_planner)}(
+        iteration_limit=1000,
+    )
 end
 CBSSolver(planner) = CBSSolver(low_level_planner=planner)
 # CBSSolver(mapf::AbstractMAPF) = CBSSolver(low_level_planner=AStar{cost_type(mapf)}())

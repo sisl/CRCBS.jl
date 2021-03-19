@@ -121,3 +121,30 @@ let
         solution, cost = CRCBS.solve!(solver,mapf)
     end
 end
+# problem instances
+let
+    solver = CBSSolver()
+    set_iteration_limit!(solver,1000)
+    for f in [init_mapf_1,init_mapf_2,init_mapf_4,CRCBS.init_mapf_8]
+        @info "$(f)"
+        prob = f()
+        reset_solver!(solver)
+        solution, cost = solve!(solver,prob)
+    end
+
+end
+# test copying
+let
+    solver = CBSSolver()
+    prob = init_mapf_1()
+    solution, cost = solve!(solver,prob)
+    solution2 = copy(solution)
+    # should not affect solution2
+    set_solution_path!(solution,get_paths(solution)[1],2)
+    @test convert_to_vertex_lists(solution)[2] != convert_to_vertex_lists(solution2)[2]
+    n = get_paths(solution)[1].path_nodes[end]
+    # should affect both solutions
+    push!(get_paths(solution)[1],n)
+    @test length(get_paths(solution)[1]) == length(get_paths(solution2)[1])
+
+end

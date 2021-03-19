@@ -18,10 +18,10 @@ end
 function logger_exit_a_star!(solver, path, cost, status)
     # empty!(solver.search_history)
     if status == false
-        @log_info(-1,verbosity(solver),"A*: failed to find feasible path. Returning path of cost $cost")
-        @log_info(-1,verbosity(solver),"A*:            timed_out = $(time_out_status(solver))",
+        @log_info(0,verbosity(solver),"A*: failed to find feasible path. Returning path of cost $cost")
+        @log_info(0,verbosity(solver),"A*:            timed_out = $(time_out_status(solver))",
             " -- run time limit = $(runtime_limit(solver))")
-        @log_info(-1,verbosity(solver),"A*: iterations maxed out = $(iteration_max_out_status(solver))",
+        @log_info(0,verbosity(solver),"A*: iterations maxed out = $(iteration_max_out_status(solver))",
             " -- iterations = $(iterations(solver))")
     else
         @log_info(2,verbosity(solver),"A*: returning optimal path with cost $cost")
