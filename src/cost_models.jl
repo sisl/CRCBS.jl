@@ -123,10 +123,13 @@ Defaults to `add_heuristic_cost(env,cost,get_heuristic_cost(env,sp))`
 Can be overridden so that state info can inform the heuristic cost directly.
 """
 function compute_heuristic_cost(env::E,cost,sp) where {E<:AbstractLowLevelEnv}
-    add_heuristic_cost(env,cost,get_heuristic_cost(env,sp))
+    compute_heuristic_cost(env,get_cost_model(env),cost,sp)
 end
 function compute_heuristic_cost(env::E,m::C,cost,sp) where {E<:AbstractLowLevelEnv,C<:AbstractCostModel}
     add_heuristic_cost(env,m,cost,get_heuristic_cost(env,sp))
+end
+function compute_heuristic_cost(env::E,m::C,h::H,cost,sp) where {E<:AbstractLowLevelEnv,C<:AbstractCostModel,H<:AbstractCostModel}
+    add_heuristic_cost(env,m,cost,get_heuristic_cost(env,h,sp))
 end
 
 get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(get_cost_model(env))
@@ -226,9 +229,18 @@ function add_heuristic_cost(model::C, cost::T, h_cost) where {T,M,C<:CompositeCo
         1:length(cost)
         ))
 end
-function compute_heuristic_cost(env::E,model::C,cost::T,s) where {E<:AbstractLowLevelEnv,T,M,C<:CompositeCostModel{M,T}}
-    T([compute_heuristic_cost(env,m,c,s) for (m,c) in zip(model.cost_models,cost)])
-end
+# function compute_heuristic_cost(env::E,model::C,cost::T,s) where {E<:AbstractLowLevelEnv,T,M,C<:CompositeCostModel{M,T}}
+#     # T([compute_heuristic_cost(env,m,c,s) for (m,c) in zip(model.cost_models,cost)])
+#     h = get_heuristic_model(env)
+#     T(map(
+#         i->compute_heuristic_cost(env,
+#             model.cost_models[i],
+#             h.cost_models[i],
+#             cost[i],
+#             s),
+#         1:length(cost)
+#         ))
+# end
 
 """
     MetaCost
@@ -263,14 +275,14 @@ function add_heuristic_cost(m::C, cost, h_cost) where {C<:MetaCostModel}
         h_cost[i]),1:m.num_agents)
     MetaCost(costs, aggregate_costs_meta(m.model, costs))
 end
-function compute_heuristic_cost(env::E,m::C, cost, h_cost) where {E<:AbstractLowLevelEnv,C<:MetaCostModel}
-    costs = map(i->compute_heuristic_cost(
-        env,
-        m.model,
-        cost.independent_costs[i],
-        h_cost[i]),1:m.num_agents)
-    MetaCost(costs, aggregate_costs_meta(m.model, costs))
-end
+# function compute_heuristic_cost(env::E,m::C, cost, h_cost) where {E<:AbstractLowLevelEnv,C<:MetaCostModel}
+#     costs = map(i->compute_heuristic_cost(
+#         env,
+#         m.model,
+#         cost.independent_costs[i],
+#         h_cost[i]),1:m.num_agents)
+#     MetaCost(costs, aggregate_costs_meta(m.model, costs))
+# end
 function accumulate_cost(model::M, cost::MetaCost{T}, transition_cost::Vector{T}) where {T,M<:MetaCostModel}
     new_costs = Vector{T}()
     for (i,(c1,c2)) in enumerate(zip(

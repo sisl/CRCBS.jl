@@ -17,6 +17,9 @@ export
 Abstract type of a heuristic that returns cost of type `C`.
 """
 abstract type LowLevelSearchHeuristic{C} <: AbstractCostModel{C} end
+# function get_heuristic_cost(env::AbstractLowLevelEnv,m::AbstractCostModel,args...) 
+#     get_heuristic_cost(m,args...)
+# end
 ################################################################################
 ############################## CompositeHeuristic ##############################
 ################################################################################
