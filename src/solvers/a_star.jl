@@ -118,7 +118,7 @@ function a_star_impl!(solver, env::E, base_path, frontier, explored) where {E <:
                 if new_cost < get(cost_map, sp, default_cost)
                     cost_map[sp] = new_cost
                     predecessor_map[sp] = PathNode(s, a, sp) # track predecessor
-                    h_cost = add_heuristic_cost(env, new_cost, get_heuristic_cost(env,sp))
+                    h_cost = compute_heuristic_cost(env, new_cost, sp)
                     logger_enqueue_a_star!(solver,env,s,a,sp,h_cost)
                     enqueue!(frontier, (new_cost, sp) => h_cost)
                 end

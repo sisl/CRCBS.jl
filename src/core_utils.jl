@@ -148,7 +148,7 @@ export sorted_actions
 Return a vector of actions sorted lowest cost to highest cost.
 """
 function sorted_actions(env,s)
-    f = (s,a,sp)->add_heuristic_cost(env,get_transition_cost(env,s,a,sp),get_heuristic_cost(env,sp))
+    f = (s,a,sp)->compute_heuristic_cost(env,get_transition_cost(env,s,a,sp),sp)
     sort(
         collect(get_possible_actions(env,s)),
         by=a->f(s,a,get_next_state(env,s,a))

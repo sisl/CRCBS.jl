@@ -1172,7 +1172,7 @@ function get_mdd_graph(env,s,threshold,cost=get_initial_cost(env))
                 continue
             end
             c = accumulate_cost(env,cost,get_transition_cost(env,s,a,sp))
-            h = add_heuristic_cost(env,c,get_heuristic_cost(env,sp))
+            h = compute_heuristic_cost(env,c,sp)
             if h <= threshold
                 add_node!(fat_path,c,sp)
                 add_edge!(fat_path,s,sp,a)
@@ -1210,7 +1210,7 @@ function get_level_set_nodes(env,s,threshold,cost=get_initial_cost(env))
                     continue
                 end
                 c = accumulate_cost(env,cost,get_transition_cost(env,s,a,sp))
-                h = add_heuristic_cost(env,c,get_heuristic_cost(env,sp))
+                h = compute_heuristic_cost(env,c,sp)
                 if h <= threshold
                     # push!(nodes,PathNode(s,a,sp))
                     push!(fat_path[end],PathNode(s,a,sp))
@@ -1278,7 +1278,7 @@ function SoftConflictTable(mapf::AbstractMAPF)
         CAT = spzeros(Float64,N,T),
     )
 end
-get_fat_path_threshold_cost(env,s,cost=get_initial_cost(env)) = add_heuristic_cost(env,cost,get_heuristic_cost(env,s))
+get_fat_path_threshold_cost(env,s,cost=get_initial_cost(env)) = compute_heuristic_cost(env,cost,s)
 function populate_fat_path_table!(table::SoftConflictTable,mapf::AbstractMAPF,model=FlatFPCost())
     node = initialize_root_node(mapf)
     for i in 1:num_agents(mapf)

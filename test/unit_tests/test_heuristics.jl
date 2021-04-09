@@ -94,3 +94,21 @@ let
     c = get_heuristic_cost(EnvDistanceHeuristic(),env,get_start(mapf,1))
     @test d == c
 end
+# multi stage env distance
+let
+    mapf = init_mapf_1()
+    env = build_env(mapf,initialize_root_node(mapf),1)
+    goals = Dict(1=>[1,2,3],2=>[3,4,5])
+
+    h = CRCBS.construct_multi_stage_env_distance_heuristic(env.graph,goals)
+
+    for (idx,goal_sequence) in goals
+        for stage in 1:length(goal_sequence)
+            d = 0
+            for (i,v) in enumerate(goal_sequence[stage:end-1])
+                d += get_distance(env.graph,v,goal_sequence[stage+i])
+            end
+            @test CRCBS.cost_from_stage(h,idx,stage) == d
+        end
+    end
+end

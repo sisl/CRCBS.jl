@@ -64,7 +64,7 @@ let
     solver = CBSSolver()
     initialize_root_node(solver,mapf)
     default_solution(mapf)
-    println("Testing CBS")
+    # println("Testing CBS")
     # low_level_search
     let
         solver = CBSSolver()
@@ -126,7 +126,7 @@ let
     solver = CBSSolver()
     set_iteration_limit!(solver,1000)
     for f in [init_mapf_1,init_mapf_2,init_mapf_4,CRCBS.init_mapf_8]
-        @info "$(f)"
+        # @info "$(f)"
         prob = f()
         reset_solver!(solver)
         solution, cost = solve!(solver,prob)

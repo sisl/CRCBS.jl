@@ -108,17 +108,13 @@ end
 get_heuristic_cost(h::MultiStagePerfectHeuristic,agent_idx::Int,stage::Int,vtx::Int) = h.dists[agent_idx][stage][vtx]
 function construct_multi_stage_distance_array(G,goals)
     if length(goals) > 0
-        vtxs = copy(goals)
-        dists = Vector{Vector{Float64}}()
+        dists = map(v->Float64.(gdistances(G,v)),goals)
         d = 0
-        g = vtxs[end]
-        while length(vtxs) > 0
-            v = pop!(vtxs)
-            d = gdistances(G,g)[v] + d
-            push!(dists, gdistances(G,v).+ d)
-            g = v
+        for i in reverse(1:length(goals)-1)
+            d = d + dists[i][goals[i+1]]
+            dists[i][:] = dists[i] .+ d
         end
-        return reverse(dists)
+        return dists
     end
     return Vector{Vector{Float64}}()
 end
@@ -126,6 +122,44 @@ function MultiStagePerfectHeuristic(graph,goals::Vector{Vector{Int}})
     dists = Dict(idx => construct_multi_stage_distance_array(graph,g) for (idx,g) in enumerate(goals))
     MultiStagePerfectHeuristic(dists)
 end
+
+export MultiStageEnvDistanceHeuristic
+"""
+    MultiStageEnvDistanceHeuristic <: LowLevelSearchHeuristic{Float64}
+
+`m.dists[i][stage]` stores the distance from that stage's goal to the final 
+stage's goal for agent `i`. 
+The heuristic cost is computed as follows:
+
+`h = get_heuristic_cost(env,m.h,s) + cost_from_stage()`
+"""
+@with_kw struct MultiStageEnvDistanceHeuristic <: LowLevelSearchHeuristic{Float64}
+    h::EnvDistanceHeuristic          = EnvDistanceHeuristic()
+    dists::Dict{Int,Vector{Float64}} = Dict{Int,Vector{Float64}}()
+end
+function cost_from_stage(h::MultiStageEnvDistanceHeuristic,agent_idx::Int,stage::Int)
+    h.dists[agent_idx][stage]
+end
+function construct_multi_stage_distance_list(env,goals)
+    dists = Vector{Float64}()
+    if length(goals) > 0
+        d = 0
+        g = goals[end]
+        for v in reverse(goals)
+            d = get_distance(env,v,g) + d
+            push!(dists,d)
+            g = v
+        end
+    end
+    return reverse(dists)
+end
+function construct_multi_stage_env_distance_heuristic(env,goal_dict)
+    MultiStageEnvDistanceHeuristic(
+        EnvDistanceHeuristic(),
+        Dict(idx => construct_multi_stage_distance_list(env,goals) for (idx,goals) in goal_dict)
+    )
+end
+
 
 ################################################################################
 ############################# ConflictTableHeuristic ###########################
