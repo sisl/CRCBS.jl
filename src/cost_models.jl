@@ -123,20 +123,20 @@ Defaults to `add_heuristic_cost(env,cost,get_heuristic_cost(env,sp))`
 Can be overridden so that state info can inform the heuristic cost directly.
 """
 function compute_heuristic_cost(env::E,cost,sp) where {E<:AbstractLowLevelEnv}
-    compute_heuristic_cost(env,get_cost_model(env),cost,sp)
+    compute_heuristic_cost(get_cost_model(env),env,cost,sp)
 end
-function compute_heuristic_cost(env::E,m::C,cost,sp) where {E<:AbstractLowLevelEnv,C<:AbstractCostModel}
+function compute_heuristic_cost(m::C,env::E,cost,sp) where {E<:AbstractLowLevelEnv,C<:AbstractCostModel}
     add_heuristic_cost(env,m,cost,get_heuristic_cost(env,sp))
 end
-function compute_heuristic_cost(env::E,m::C,h::H,cost,sp) where {E<:AbstractLowLevelEnv,C<:AbstractCostModel,H<:AbstractCostModel}
-    add_heuristic_cost(env,m,cost,get_heuristic_cost(env,h,sp))
+function compute_heuristic_cost(m::C,h::H,env::E,cost,sp) where {E<:AbstractLowLevelEnv,C<:AbstractCostModel,H<:AbstractCostModel}
+    add_heuristic_cost(env,m,cost,get_heuristic_cost(h,env,sp))
 end
 
 get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(get_cost_model(env))
 get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(get_cost_model(env))
 accumulate_cost(env::E, cost, transition_cost) where {E<:AbstractLowLevelEnv} = accumulate_cost(get_cost_model(env), cost, transition_cost)
 add_heuristic_cost(env::E, cost, h_cost) where {E<:AbstractLowLevelEnv} = add_heuristic_cost(env,get_cost_model(env),cost,h_cost)
-get_transition_cost(env::E,s,a) where {E<:AbstractLowLevelEnv} = get_transition_cost(get_cost_model(env),env,s,a,get_next_state(env,s,a))
+get_transition_cost(env::E,s,a) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,s,a,get_next_state(env,s,a))
 get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(get_cost_model(env),env,s,a,sp)
 
 """

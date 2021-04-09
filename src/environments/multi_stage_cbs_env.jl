@@ -115,8 +115,8 @@ function CRCBS.is_goal(env::E,s::State) where {E<:LowLevelEnv}
     end
     return false
 end
-# function CRCBS.get_heuristic_cost(h::MultiStagePerfectHeuristic,env::E,s::State) where {E<:LowLevelEnv}
-function CRCBS.get_heuristic_cost(env::E,h::MultiStagePerfectHeuristic,s::State) where {E<:LowLevelEnv}
+function CRCBS.get_heuristic_cost(h::MultiStagePerfectHeuristic,env::E,s::State) where {E<:LowLevelEnv}
+# function CRCBS.get_heuristic_cost(env::E,h::MultiStagePerfectHeuristic,s::State) where {E<:LowLevelEnv}
     get_heuristic_cost(h, env.agent_idx, s.stage, s.vtx)
 end
 

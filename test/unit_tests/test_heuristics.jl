@@ -91,7 +91,7 @@ let
     mapf = init_mapf_1()
     env = build_env(mapf,initialize_root_node(mapf),1)
     d = get_distance(env,get_start(mapf,1),get_goal(mapf,1))
-    c = get_heuristic_cost(env,EnvDistanceHeuristic(),get_start(mapf,1))
+    c = get_heuristic_cost(EnvDistanceHeuristic(),env,get_start(mapf,1))
     @test d == c
 end
 # multi stage env distance
