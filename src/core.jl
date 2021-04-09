@@ -359,7 +359,9 @@ function get_possible_actions end
 function get_next_state end
 
 """
-    `get_transition_cost(env::E <: AbstractLowLevelEnv{S,A,C},s::S,a::A,sp::S)`
+    get_transition_cost(env::E <: AbstractLowLevelEnv{S,A,C},s::S,a::A,sp::S)
+    get_transition_cost(env,s,a)
+    get_transition_cost(h,env,s,a,p)
 
     return scalar cost for transitioning from `s` to `sp` via `a`
 """
@@ -373,7 +375,9 @@ function get_transition_cost end
 function get_path_cost end
 
 """
-    `get_heuristic_cost(env::E <: AbstractLowLevelEnv{S,A,C},state::S)`
+    get_heuristic_cost(env::E <: AbstractLowLevelEnv{S,A,C},state::S)
+    get_heuristic_cost(h,env,s)
+    get_heuristic_cost(h,s)
 
     get a heuristic "cost-to-go" from `state`
 """

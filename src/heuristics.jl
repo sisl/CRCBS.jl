@@ -50,6 +50,7 @@ end
 """
 struct NullHeuristic <: LowLevelSearchHeuristic{Float64} end
 get_heuristic_cost(h::NullHeuristic,args...) = 0.0
+get_heuristic_model(env) = NullHeuristic()
 # get_heuristic_cost(h::NullHeuristic,env::AbstractLowLevelEnv,args...) = get_heuristic_cost(h,args...)
 
 ################################################################################

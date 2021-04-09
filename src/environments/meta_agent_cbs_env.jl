@@ -31,6 +31,18 @@ abstract type AbstractMetaEnv{S,A,T,C} <: AbstractLowLevelEnv{State{S},Action{A}
         FullCostModel(sum,TravelTime()),length(envs))
 end
 # CRCBS.state_type(env::AbstractMetaEnv{S,A,T,C}) where {S,A,T,C} = State{S}
+function CRCBS.compute_heuristic_cost(env::MetaAgentCBS.AbstractMetaEnv,cost,sp) where {E<:AbstractLowLevelEnv}
+# function compute_heuristic_cost(m::MetaCostModel,::AbstractCostModel,env::E,cost,sp) where {E<:AbstractLowLevelEnv}
+    m = get_cost_model(env)
+    # h_cost = get_heuristic_cost(env,sp) 
+    costs = map(i->CRCBS.compute_heuristic_cost(
+        get_envs(env)[i],
+        cost.independent_costs[i],
+        sp.states[i],
+        # h_cost[i],
+        ),1:m.num_agents)
+    CRCBS.MetaCost(costs, CRCBS.aggregate_costs_meta(m.model, costs))
+end
 
 """
     TeamMetaEnv{S,A,T,C,E}

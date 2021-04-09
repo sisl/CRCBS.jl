@@ -114,7 +114,10 @@ cost `cost` with a heuristic "cost-to-go" `h_cost`. Gener
 """
 function add_heuristic_cost end
 add_heuristic_cost(::C, cost, h_cost) where {C<:AbstractCostModel} = cost + h_cost
-add_heuristic_cost(::E, m::C, cost, h_cost) where {E<:AbstractLowLevelEnv,C<:AbstractCostModel} = add_heuristic_cost(m,cost,h_cost)
+add_heuristic_cost(m::C, ::E, cost, h_cost) where {C<:AbstractCostModel,E<:AbstractLowLevelEnv} = add_heuristic_cost(m,cost,h_cost)
+add_heuristic_cost(m::C, ::H, cost, h_cost) where {C<:AbstractCostModel,H<:AbstractCostModel}   = add_heuristic_cost(m,cost,h_cost)
+add_heuristic_cost(m::C, h::H, ::E, cost, h_cost) where {C<:AbstractCostModel,H<:AbstractCostModel,E<:AbstractLowLevelEnv} = add_heuristic_cost(m,h,cost,h_cost)
+add_heuristic_cost(env::E, cost, h_cost) where {E<:AbstractLowLevelEnv} = add_heuristic_cost(get_cost_model(env),get_heuristic_model(env),env,cost,h_cost)
 
 """
     compute_heuristic_cost(env,cost,sp)
@@ -122,20 +125,14 @@ add_heuristic_cost(::E, m::C, cost, h_cost) where {E<:AbstractLowLevelEnv,C<:Abs
 Defaults to `add_heuristic_cost(env,cost,get_heuristic_cost(env,sp))`
 Can be overridden so that state info can inform the heuristic cost directly.
 """
-function compute_heuristic_cost(env::E,cost,sp) where {E<:AbstractLowLevelEnv}
-    compute_heuristic_cost(get_cost_model(env),env,cost,sp)
-end
-function compute_heuristic_cost(m::C,env::E,cost,sp) where {E<:AbstractLowLevelEnv,C<:AbstractCostModel}
-    add_heuristic_cost(env,m,cost,get_heuristic_cost(env,sp))
-end
-function compute_heuristic_cost(m::C,h::H,env::E,cost,sp) where {E<:AbstractLowLevelEnv,C<:AbstractCostModel,H<:AbstractCostModel}
-    add_heuristic_cost(env,m,cost,get_heuristic_cost(h,env,sp))
-end
+compute_heuristic_cost(m::C,h::H,env::E,cost,sp) where {C<:AbstractCostModel,H<:AbstractCostModel,E<:AbstractLowLevelEnv} = add_heuristic_cost(m,h,env,cost,get_heuristic_cost(h,env,sp))
+compute_heuristic_cost(m::C,env::E,cost,sp) where {C<:AbstractCostModel,E<:AbstractLowLevelEnv} = add_heuristic_cost(m,env,cost,get_heuristic_cost(env,sp))
+compute_heuristic_cost(env::E,args...) where {E<:AbstractLowLevelEnv} = compute_heuristic_cost(get_cost_model(env),get_heuristic_model(env),env,args...)
 
 get_initial_cost(env::E) where {E<:AbstractLowLevelEnv}     = get_initial_cost(get_cost_model(env))
 get_infeasible_cost(env::E) where {E<:AbstractLowLevelEnv}  = get_infeasible_cost(get_cost_model(env))
 accumulate_cost(env::E, cost, transition_cost) where {E<:AbstractLowLevelEnv} = accumulate_cost(get_cost_model(env), cost, transition_cost)
-add_heuristic_cost(env::E, cost, h_cost) where {E<:AbstractLowLevelEnv} = add_heuristic_cost(env,get_cost_model(env),cost,h_cost)
+# add_heuristic_cost(env::E, cost, h_cost) where {E<:AbstractLowLevelEnv} = add_heuristic_cost(env,get_cost_model(env),cost,h_cost)
 get_transition_cost(env::E,s,a) where {E<:AbstractLowLevelEnv} = get_transition_cost(env,s,a,get_next_state(env,s,a))
 get_transition_cost(env::E,s,a,sp) where {E<:AbstractLowLevelEnv} = get_transition_cost(get_cost_model(env),env,s,a,sp)
 
@@ -183,6 +180,12 @@ for op in [:accumulate_cost,:get_initial_cost,:compute_path_cost,
     :get_infeasible_cost,:add_heuristic_cost,:get_transition_cost]
     @eval $op(model::FullCostModel,args...) = $op(model.model,args...)
 end
+for T in [:FullCostModel]
+    @eval begin
+        add_heuristic_cost(m::$T, h::H, env::E, args...) where {H<:AbstractCostModel,E<:AbstractLowLevelEnv} = add_heuristic_cost(m.model, h, env, args...)
+    end
+end
+
 
 """
     CompositeCostModel{T}
@@ -229,18 +232,18 @@ function add_heuristic_cost(model::C, cost::T, h_cost) where {T,M,C<:CompositeCo
         1:length(cost)
         ))
 end
-# function compute_heuristic_cost(env::E,model::C,cost::T,s) where {E<:AbstractLowLevelEnv,T,M,C<:CompositeCostModel{M,T}}
-#     # T([compute_heuristic_cost(env,m,c,s) for (m,c) in zip(model.cost_models,cost)])
-#     h = get_heuristic_model(env)
-#     T(map(
-#         i->compute_heuristic_cost(env,
-#             model.cost_models[i],
-#             h.cost_models[i],
-#             cost[i],
-#             s),
-#         1:length(cost)
-#         ))
-# end
+function compute_heuristic_cost(m::C,h::H,env::E,cost,s) where {C<:CompositeCostModel,H<:AbstractCostModel,E<:AbstractLowLevelEnv}
+    # T([compute_heuristic_cost(env,m,c,s) for (m,c) in zip(model.cost_models,cost)])
+    cost_type(m)(map(
+        i->compute_heuristic_cost(
+            m.cost_models[i],
+            h.cost_models[i],
+            env,
+            cost[i],
+            s),
+        1:length(cost)
+        ))
+end
 
 """
     MetaCost
@@ -268,16 +271,8 @@ struct MetaCostModel{T,M<:AbstractCostModel{T}} <: AbstractCostModel{MetaCost{T}
     num_agents::Int
 end
 aggregate_costs(m::C, costs::Vector{T}) where {T,C<:MetaCostModel} = aggregate_costs(m.model, costs)
-function add_heuristic_cost(m::C, cost, h_cost) where {C<:MetaCostModel}
-    costs = map(i->add_heuristic_cost(
-        m.model,
-        cost.independent_costs[i],
-        h_cost[i]),1:m.num_agents)
-    MetaCost(costs, aggregate_costs_meta(m.model, costs))
-end
-# function compute_heuristic_cost(env::E,m::C, cost, h_cost) where {E<:AbstractLowLevelEnv,C<:MetaCostModel}
-#     costs = map(i->compute_heuristic_cost(
-#         env,
+# function add_heuristic_cost(m::C, cost, h_cost) where {C<:MetaCostModel}
+#     costs = map(i->add_heuristic_cost(
 #         m.model,
 #         cost.independent_costs[i],
 #         h_cost[i]),1:m.num_agents)
@@ -353,8 +348,8 @@ for op in [:accumulate_cost,:get_initial_cost,
     :get_infeasible_cost,:add_heuristic_cost,:get_transition_cost]
     @eval $op(model::TransformCostModel,args...) = model.f($op(model.model,args...))
 end
-function compute_heuristic_cost(env::E,m::TransformCostModel,args...) where {E<:AbstractLowLevelEnv}
-    m.f(compute_heuristic_cost(env,m.model,args...))
+function compute_heuristic_cost(m::TransformCostModel,env::E,args...) where {E<:AbstractLowLevelEnv}
+    m.f(compute_heuristic_cost(m.model,env,args...))
 end
 
 """

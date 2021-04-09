@@ -65,7 +65,7 @@ let
         group_idx = 1
         node.solution.group_idxs[group_idx] = [1,2]
         deleteat!(node.solution.group_idxs,2)
-        CRCBS.build_env(solver,mapf,node,group_idx)
+        env = CRCBS.build_env(solver,mapf,node,group_idx)
         @test low_level_search!(solver, mapf, node, [group_idx])
         # @show convert_to_vertex_lists(node.solution.solution)
         detect_conflicts!(node,[group_idx])
