@@ -1,0 +1,7 @@
+start2 = 2
+t_delay = 0.5
+goal1 = 24
+epsilon = 0.15
+lambda = 0.5
+goal2 = 32
+start1 = 19
