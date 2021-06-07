@@ -140,7 +140,7 @@ function get_conflict_stats(mapf::MAPF,paths::LowLevelSolution,solution_times::V
         # There is interaction at this node
         if length(occupancy) >= 2
             # println("Possible interactions")
-            sleep(0.02)
+            # sleep(0.02)
             list_of_occupants = collect(keys(occupancy))
             pairs_of_occupants = collect(combinations(list_of_occupants,2))
             for (r1,r2) in pairs_of_occupants

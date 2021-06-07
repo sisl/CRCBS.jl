@@ -55,16 +55,20 @@ base_results_path = joinpath(base_path,"results")
 mkpath(base_problem_path)
 mkpath(base_results_path)
 
+# write problem configs
 for (i,config) in enumerate(problem_configs)
-    open(joinpath(base_problem_path,"problem_$i.toml"),"w") do io
-        TOML.print(io,Dict(string(k)=>v for (k,v) in config))
+    prob_path = joinpath(base_problem_path,"problem_$i.toml")
+    if !isfile(prob_path)
+        open(prob_path,"w") do io
+            TOML.print(io,Dict(string(k)=>v for (k,v) in config))
+        end
     end
 end
 
 results_df = DataFrame(
-    :start1=>Int[]
-    :start2=>Int[]
-    :goal1=>Int[]
+    :start1=>Int[],
+    :start2=>Int[],
+    :goal1=>Int[],
     :goal2=>Int[],
     :epsilon=>Float64[],
     :lamba=>Float64[],
@@ -76,10 +80,10 @@ results_df = DataFrame(
     :std_prob_err=>Float64[],
 
     :runtime=>Float64[],
-    :counting_time=>Float64[],
+    :countingtime=>Float64[],
     :time_spent_on_astar=>Float64[],
     :num_interactions=>Int[],
-    :iteration_count=>Int[]
+    :iteration_count=>Int[],
 )
 
 NUM_TRIALS = 100
@@ -107,6 +111,33 @@ for (i,config) in enumerate(problem_configs)
         conflict_counts_locally, 
         mean_prob_err, 
         std_prob_err) = CRCBS.get_conflict_stats(mapf,solution,solution_times,NUM_TRIALS)
+    # save results
+    results = Dict(
+        :start1=>start1,
+        :start2=>start2,
+        :goal1=>goal1,
+        :goal2=>goal2,
+        :epsilon=>epsilon,
+        :lamba=>lambda,
+        :t_delay=>t_delay,
+        :solution=>map(p->map(e->[e.src,e.dst],p),solution),
+        :global_cp=>global_cp,
+        :conflict_counts_locally=>conflict_counts_locally,
+        :mean_prob_err=>mean_prob_err,
+        :std_prob_err=>std_prob_err,
+
+        :runtime=>runtime,
+        :countingtime=>countingtime,
+        :time_spent_on_astar=>time_spent_on_astar,
+        :num_interactions=>num_interactions,
+        :iteration_count=>iteration_count,
+    )
+    results_path = joinpath(base_results_path,"results_$i.toml")
+    if !isfile(results_path)
+        open(results_path,"w") do io
+            TOML.print(io,Dict(string(k)=>val for (k,val) in results))
+        end
+    end
     
 end
 

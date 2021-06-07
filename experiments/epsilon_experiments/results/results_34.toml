@@ -1,0 +1,17 @@
+countingtime = 2.014e-6
+start1 = 7
+lamba = 0.5
+start2 = 2
+time_spent_on_astar = 0.00031731800000000003
+t_delay = 0.5
+mean_prob_err = nan
+std_prob_err = nan
+conflict_counts_locally = [42]
+solution = [[[7, 8], [8, 9], [9, 10], [10, 11], [11, 12]], [[2, 8], [8, 14], [14, 20], [20, 26], [26, 32]]]
+goal1 = 12
+global_cp = 0.41999999999999993
+goal2 = 32
+runtime = 0.0256247
+epsilon = 0.85
+num_interactions = [1, 1]
+iteration_count = 0
