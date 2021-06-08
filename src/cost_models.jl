@@ -348,9 +348,21 @@ for op in [:accumulate_cost,:get_initial_cost,
     :get_infeasible_cost,:add_heuristic_cost,:get_transition_cost]
     @eval $op(model::TransformCostModel,args...) = model.f($op(model.model,args...))
 end
-function compute_heuristic_cost(m::TransformCostModel,env::E,args...) where {E<:AbstractLowLevelEnv}
-    m.f(compute_heuristic_cost(m.model,env,args...))
+# function compute_heuristic_cost(m::TransformCostModel,env::E,args...) where {E<:AbstractLowLevelEnv}
+#     m.f(compute_heuristic_cost(m.model,env,args...))
+# end
+for op in [:add_heuristic_cost,:compute_heuristic_cost]
+    @eval begin
+        function $op(m::TransformCostModel, h::H, env::E, args...) where {H<:AbstractCostModel,E<:AbstractLowLevelEnv} 
+            m.f($op(m.model, h, env, args...))
+        end
+        function $op(m::TransformCostModel, env::E, args...) where {E<:AbstractLowLevelEnv} 
+            m.f($op(m.model, env, args...))
+        end
+    end
 end
+# add_heuristic_cost(m::TransformCostModel, h::H, env::E, args...) where {H<:AbstractCostModel,E<:AbstractLowLevelEnv} = m.f(add_heuristic_cost(m.model, h, env, args...))
+# compute_heuristic_cost(m::TransformCostModel, h::H, env::E, args...) where {H<:AbstractCostModel,E<:AbstractLowLevelEnv} = m.f(add_heuristic_cost(m.model, h, env, args...))
 
 """
     TravelTime <: LowLevelCostModel{Float64}
@@ -457,10 +469,14 @@ export EnvDeadlineCost
 
 Deadlines come from an external environment
 """
-struct EnvDeadlineCost{F} <: AbstractDeadlineCost
-    f::F # aggregation function
-    m::TravelTime
+@with_kw struct EnvDeadlineCost{E,F} <: AbstractDeadlineCost
+    env::E = nothing
+    f::F   = SumCost()          # aggregation function
+    m::TravelTime = TravelTime()
 end
+# EnvDeadlineCost() = EnvDeadlineCost(SumCost(),nothing,TravelTime())
+EnvDeadlineCost{E,F}() where {E,F} = EnvDeadlineCost(env=E(),f=F())
+aggregate_costs(::EnvDeadlineCost,costs) = maximum(costs)
 
 ################################################################################
 ############################# HardConflictHeuristic ############################
