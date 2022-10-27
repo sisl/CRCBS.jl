@@ -5,7 +5,7 @@ export
 module CBSEnv
 
 using ..CRCBS
-using Parameters, LightGraphs, DataStructures
+using Parameters, Graphs, DataStructures
 using GraphUtils: get_graph, get_vtx
 
 @with_kw struct State <: AbstractGraphState

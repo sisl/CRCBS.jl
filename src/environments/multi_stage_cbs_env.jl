@@ -4,7 +4,7 @@ export
 module MultiStageCBS
 
 using ..CRCBS
-using Parameters, LightGraphs, DataStructures
+using Parameters, Graphs, DataStructures
 using GraphUtils: get_graph, get_vtx
 
 # NOTE MultiStageCBS Could also serve as the definition for "iterative MAPF" as

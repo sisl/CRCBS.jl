@@ -5,7 +5,7 @@ export
 module MetaAgentCBS
 
 using ..CRCBS
-using Parameters, LightGraphs, DataStructures
+using Parameters, Graphs, DataStructures
 
 
 @with_kw struct State{S}
