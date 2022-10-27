@@ -4,7 +4,7 @@ export
 module FlowProblems
 
 # using ..CRCBS
-using LightGraphs, MetaGraphs, JuMP
+using Graphs, MetaGraphs, JuMP
 
 """
     `extend_G_through_time(G,T::Int;render_depth=4)`
