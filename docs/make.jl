@@ -4,7 +4,7 @@ using Documenter
 makedocs(;
     modules=[CRCBS,CRCBS.BenchmarkInterface],
     authors="kylebrown <kylejbrown17@gmail.com> and contributors",
-    repo="https://github.com/kylejbrown17/CRCBS.jl/blob/{commit}{path}#L{line}",
+    repo="https://github.com/sisl/CRCBS.jl",
     sitename="CRCBS.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",

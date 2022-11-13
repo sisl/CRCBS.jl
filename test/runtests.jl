@@ -3,7 +3,7 @@ using Logging
 # Package Under Test
 using CRCBS
 using JuMP
-using LightGraphs, MetaGraphs
+using Graphs, MetaGraphs
 using Parameters
 using GraphUtils
 
