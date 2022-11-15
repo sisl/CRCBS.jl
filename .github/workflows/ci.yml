@@ -24,7 +24,7 @@ jobs:
         #   - os: macOS-latest
         #     arch: x86
     steps:
-      - run: julia -e 'import Pkg; Pkg.Registry.add(Pkg.RegistrySpec(url = "https://github.com/sisl/GraphUtils.jl"))'
+      - run: julia -e 'import Pkg; Pkg.add(url = "https://github.com/sisl/GraphUtils.jl")'
       - uses: actions/checkout@v3
       - uses: julia-actions/setup-julia@v1
         with:
