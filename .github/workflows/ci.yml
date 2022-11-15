@@ -28,8 +28,7 @@ jobs:
         Pkg.Registry.update()
         Pkg.develop(url="https://github.com/sisl/GraphUtils.jl")
         Pkg.develop(PackageSpec(path=pwd()))
-        Pkg.instantiate()
-'
+        Pkg.instantiate()'
       - run: julia -e 'using GraphUtils'
       - uses: actions/checkout@v3
       - uses: julia-actions/setup-julia@v1
