@@ -43,7 +43,6 @@ jobs:
             ${{ runner.os }}-
       # build the dependencies, run the tests, and upload coverage results
       # NOTE: instead of using "julia-buildpkg", manually run install.jl then build.
-      # - uses: julia-actions/julia-buildpkg@latest
       - name: Install Julia dependencies
         run: julia --color=yes --project=@. -e 'include("install.jl"); using Pkg; if VERSION >= v"1.1.0-rc1"; Pkg.build(verbose=true); else Pkg.build(); end'
         shell: bash
@@ -64,6 +63,11 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
+      - name: Install Julia dependencies
+        run: julia --color=yes --project=@. -e 'include("install.jl"); using Pkg; if VERSION >= v"1.1.0-rc1"; Pkg.build(verbose=true); else Pkg.build(); end'
+        shell: bash
+        env:
+          CI: true
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
         with:
