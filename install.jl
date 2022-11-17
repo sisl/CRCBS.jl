@@ -3,6 +3,7 @@ using Pkg
 packages = [
     # Unregistered dependency.
     PackageSpec(url="https://github.com/sisl/GraphUtils.jl"),
+    PackageSpec(url="https://github.com/sisl/CRCBS.jl"),
 
     # "This" package.
     PackageSpec(url=joinpath(@__DIR__)),
