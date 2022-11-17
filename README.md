@@ -1,11 +1,8 @@
-<!-- | Testing | Coverage | Documentation |
-| :-----: | :------: | :-----------: |
-| [![Build Status](https://travis-ci.org/kylejbrown17/CRCBS.jl.svg?branch=master)](https://travis-ci.org/kylejbrown17/CRCBS.jl) | [![Coverage Status](https://coveralls.io/repos/github/kylejbrown17/CRCBS.jl/badge.svg?branch=master)](https://coveralls.io/github/kylejbrown17/CRCBS.jl?branch=master) | [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://kylejbrown17.github.io/CRCBS.jl/latest) | -->
+[![CI](https://github.com/sisl/CRCBS.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/sisl/CRCBS.jl/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://sisl.github.io/CRCBS.jl/dev/)
+[![codecov](https://codecov.io/github/sisl/CRCBS.jl/branch/master/graph/badge.svg?token=KS4IA9UJD2)](https://app.codecov.io/github/sisl/CRCBS.jl)
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://kylejbrown17.github.io/CRCBS.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://kylejbrown17.github.io/CRCBS.jl/dev)
-[![Build Status](https://github.com/kylejbrown17/CRCBS.jl/workflows/CI/badge.svg)](https://github.com/kylejbrown17/CRCBS.jl/actions)
-[![Coverage Status](https://coveralls.io/repos/github/kylejbrown17/CRCBS.jl/badge.svg?branch=master)](https://coveralls.io/github/kylejbrown17/CRCBS.jl?branch=master) 
+
 
 # CRCBS.jl
 Interfaces and tools for modeling and solving Multi Agent Path Finding problems.
