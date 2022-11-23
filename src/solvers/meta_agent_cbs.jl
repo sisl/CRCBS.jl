@@ -53,9 +53,9 @@ function initialize_root_node(solver::MetaAgentCBS_Solver,mapf::AbstractMAPF,sol
 end
 
 """
-    `combine_agents(conflict_table, groups::Vector{Vector{Int}})`
+    combine_agents(conflict_table, groups::Vector{Vector{Int}})
 
-    Helper for merging two (meta) agents into a meta-agent
+Helper for merging two (meta) agents into a meta-agent
 """
 function combine_agents!(solver, node)
     groups = node.solution.group_idxs

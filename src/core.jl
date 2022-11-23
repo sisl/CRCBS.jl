@@ -277,17 +277,17 @@ export
     cost_type
 
 """
-AbstractLowLevelEnv{S,A,C}
+    AbstractLowLevelEnv{S,A,C}
 
-    Defines a prototype environment for low level search (searching for a path
-    for a single agent).
+Defines a prototype environment for low level search (searching for a path
+for a single agent).
 
-    `S` is the State type, `A` is the action type, and `C` is the cost type. All
-    three must be default constructible (i.e. you can call `S()`, `A()` and `C()`
-    without throwing errors)
+`S` is the State type, `A` is the action type, and `C` is the cost type. All
+three must be default constructible (i.e. you can call `S()`, `A()` and `C()`
+without throwing errors)
 
-    In general, a concrete subtype of `AbstractLowLevelEnv` may include a graph
-    whose edges are traversed by agents.
+In general, a concrete subtype of `AbstractLowLevelEnv` may include a graph
+whose edges are traversed by agents.
 """
 abstract type AbstractLowLevelEnv{S,A,C} end
 action_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = A

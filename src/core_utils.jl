@@ -7,7 +7,7 @@ export
     default_solution
 
 """
-    `get_initial_solution`
+    get_initial_solution
 """
 function get_initial_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     LowLevelSolution{S,A,T,C}(
@@ -21,7 +21,7 @@ function get_initial_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostM
     )
 end
 """
-    `get_infeasible_solution`
+    get_infeasible_solution
 """
 function get_infeasible_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCostModel{T},E<:AbstractLowLevelEnv{S,A,C}}
     LowLevelSolution{S,A,T,C}(
@@ -32,10 +32,10 @@ function get_infeasible_solution(mapf::MAPF{E,S,G}) where {S,A,G,T,C<:AbstractCo
     )
 end
 """
-    `default_solution(solver, mapf::AbstractMAPF)`
+    default_solution(solver, mapf::AbstractMAPF)
 
-    Defines what is returned by the solver in case of failure to find a feasible
-    solution.
+Defines what is returned by the solver in case of failure to find a feasible
+solution.
 """
 function default_solution(mapf::M) where {M<:AbstractMAPF}
     return get_infeasible_solution(mapf), get_infeasible_cost(mapf.env)
