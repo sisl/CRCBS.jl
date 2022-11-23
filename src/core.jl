@@ -207,7 +207,7 @@ export
     cost_type
 
 """
-    `AbstractCostModel{T}`
+`AbstractCostModel{T}`
 """
 abstract type AbstractCostModel{T} end
 cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
@@ -221,7 +221,7 @@ export
     set_path_cost!
 
 """
-    `LowLevelSolution{S,A,T,C}`
+`LowLevelSolution{S,A,T,C}`
 
     Contains a list of agent paths and the associated costs.
     Params:
@@ -277,17 +277,17 @@ export
     cost_type
 
 """
-    `AbstractLowLevelEnv{S,A,C}`
+    AbstractLowLevelEnv{S,A,C}
 
-    Defines a prototype environment for low level search (searching for a path
-    for a single agent).
+Defines a prototype environment for low level search (searching for a path
+for a single agent).
 
-    `S` is the State type, `A` is the action type, and `C` is the cost type. All
-    three must be default constructible (i.e. you can call `S()`, `A()` and `C()`
-    without throwing errors)
+`S` is the State type, `A` is the action type, and `C` is the cost type. All
+three must be default constructible (i.e. you can call `S()`, `A()` and `C()`
+without throwing errors)
 
-    In general, a concrete subtype of `AbstractLowLevelEnv` may include a graph
-    whose edges are traversed by agents.
+In general, a concrete subtype of `AbstractLowLevelEnv` may include a graph
+whose edges are traversed by agents.
 """
 abstract type AbstractLowLevelEnv{S,A,C} end
 action_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = A
@@ -316,45 +316,45 @@ export
 ################################################################################
 
 """
-    `build_env(mapf::AbstractMAPF, node::ConstraintTreeNode, idx::Int)`
+    build_env(mapf::AbstractMAPF, node::ConstraintTreeNode, idx::Int)
 
-    Constructs a new low-level search environment for a conflict-based search
-    mapf solver
+Constructs a new low-level search environment for a conflict-based search
+mapf solver
 """
 function build_env end
 
 """
-    `state_match(s1::S,s2::S)`
+    state_match(s1::S,s2::S)
 
-    returns true if s1 and s2 match (not necessarily the same as equal)
+returns true if s1 and s2 match (not necessarily the same as equal)
 """
 function states_match end
 
 """
-    `is_goal(env,s)`
+    is_goal(env,s)
 
-    Returns true if state `s` satisfies the goal condition of environment `env`
+Returns true if state `s` satisfies the goal condition of environment `env`
 """
 function is_goal end
 
 """
-    `wait(s)`
+    wait(s)
 
-    returns an action that corresponds to waiting at state s
+returns an action that corresponds to waiting at state s
 """
 function wait end
 
 """
-    `get_possible_actions(env::E <: AbstractLowLevelEnv{S,A,C}, s::S)`
+    get_possible_actions(env::E <: AbstractLowLevelEnv{S,A,C}, s::S)
 
-    return type must support iteration
+return type must support iteration
 """
 function get_possible_actions end
 
 """
-    `get_next_state(env::E <: AbstractLowLevelEnv{S,A,C}, s::S, a::A)`
+    get_next_state(env::E <: AbstractLowLevelEnv{S,A,C}, s::S, a::A)
 
-    returns a next state s
+returns a next state s
 """
 function get_next_state end
 
@@ -363,14 +363,14 @@ function get_next_state end
     get_transition_cost(env,s,a)
     get_transition_cost(h,env,s,a,p)
 
-    return scalar cost for transitioning from `s` to `sp` via `a`
+return scalar cost for transitioning from `s` to `sp` via `a`
 """
 function get_transition_cost end
 
 """
-    `get_path_cost(env::E <: AbstractLowLevelEnv{S,A,C},path::Path{S,A,C})`
+    get_path_cost(env::E <: AbstractLowLevelEnv{S,A,C},path::Path{S,A,C})
 
-    get the cost associated with a search path so far
+get the cost associated with a search path so far
 """
 function get_path_cost end
 
@@ -379,23 +379,23 @@ function get_path_cost end
     get_heuristic_cost(h,env,s)
     get_heuristic_cost(h,s)
 
-    get a heuristic "cost-to-go" from `state`
+get a heuristic "cost-to-go" from `state`
 """
 function get_heuristic_cost end
 
 """
-    `violates_constraints(env::E <: AbstractLowLevelEnv{S,A,C},
-        path::Path{S,A,C},s::S,a::A,sp::S)`
+    violates_constraints(env::E <: AbstractLowLevelEnv{S,A,C},
+        path::Path{S,A,C},s::S,a::A,sp::S)
 
-    returns `true` if taking action `a` from state `s` violates any constraints
+returns `true` if taking action `a` from state `s` violates any constraints
     associated with `env`
 """
 function violates_constraints end
 
 """
-    `check_termination_criteria(env::E <: AbstractLowLevelEnv{S,A,C}, cost,
-        path::Path{S,A,C}, s::S)`
+    check_termination_criteria(env::E <: AbstractLowLevelEnv{S,A,C}, cost,
+        path::Path{S,A,C}, s::S)
 
-    returns true if any termination criterion is satisfied
+returns true if any termination criterion is satisfied
 """
 function check_termination_criteria end
