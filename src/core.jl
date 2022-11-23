@@ -207,7 +207,7 @@ export
     cost_type
 
 """
-    AbstractCostModel{T}
+`AbstractCostModel{T}`
 """
 abstract type AbstractCostModel{T} end
 cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
@@ -221,18 +221,18 @@ export
     set_path_cost!
 
 """
-    LowLevelSolution{S,A,T,C}   
+`LowLevelSolution{S,A,T,C}`
 
-Contains a list of agent paths and the associated costs.
-Params:
-- `S` is the state type
-- `A` is the action type
-- `T` is the cost type
-- `C` is the cost model type
-Elements:
-- `paths::Vector{Path{S,A,T}}` is the vector of paths
-- `costs::Vector{T}` is the vector of costs, one per path
-- `cost::T` is the total cost for the entire solution
+    Contains a list of agent paths and the associated costs.
+    Params:
+    - `S` is the state type
+    - `A` is the action type
+    - `T` is the cost type
+    - `C` is the cost model type
+    Elements:
+    - `paths::Vector{Path{S,A,T}}` is the vector of paths
+    - `costs::Vector{T}` is the vector of costs, one per path
+    - `cost::T` is the total cost for the entire solution
 """
 @with_kw_noshow mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
     paths::Vector{Path{S,A,T}}  = Vector{Path{S,A,T}}()
@@ -373,7 +373,7 @@ function get_transition_cost end
 get the cost associated with a search path so far
 """
 function get_path_cost end
-_
+
 """
     get_heuristic_cost(env::E <: AbstractLowLevelEnv{S,A,C},state::S)
     get_heuristic_cost(h,env,s)
