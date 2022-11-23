@@ -1,17 +1,11 @@
 using CRCBS
 using Documenter
 
-makedocs(;
-    modules=[CRCBS,CRCBS.BenchmarkInterface],
-    authors="kylebrown <kylejbrown17@gmail.com> and contributors",
-    repo="https://github.com/sisl/CRCBS.jl",
-    sitename="CRCBS.jl",
-    format=Documenter.HTML(;
-        prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://kylejbrown17.github.io/CRCBS.jl",
-        assets=String[],
-    ),
-    pages=[
+makedocs(
+    modules   = [CRCBS],  
+    format    = Documenter.HTML(),
+    sitename  = "CRCBS.jl",
+    pages     = [
         "Home" => "index.md",
         "Getting Started" => "getting_started.md",
         "Core Types and Methods" => "library.md",
@@ -19,6 +13,13 @@ makedocs(;
     ],
 )
 
-deploydocs(;
-    repo="github.com/kylejbrown17/CRCBS.jl",
+# Generate plots
+# Note: Must be called after makedocs so the build folder are created
+#makeplots()
+
+deploydocs(
+    repo = "https://github.com/sisl/CRCBS.jl",
+    devbranch = "master",
+    devurl = "latest",
+    #deps = makeplots,
 )
