@@ -168,12 +168,12 @@ get_sp(path::P, t::Int) where {P<:Path} = get_sp(get_path_node(path,t))
 """
     extend_path!(path,T)
 
-    Extends `path` to match a given length `T` by adding `PathNode`s
-    corresponding to waiting at the final state.
+Extends `path` to match a given length `T` by adding `PathNode`s
+corresponding to waiting at the final state.
 
-    args:
-    - path      the path to be extended
-    - the desired length of the new path
+args:
+- path      the path to be extended
+- the desired length of the new path
 """
 function extend_path!(path::P,T::Int) where {P<:Path}
     # while length(path) < T
@@ -189,12 +189,12 @@ end
 """
     extend_path(path,T)
 
-    Extends a copy of `path` to match a given length `T` by adding `PathNode`s
-    corresponding to waiting at the final state.
+Extends a copy of `path` to match a given length `T` by adding `PathNode`s
+corresponding to waiting at the final state.
 
-    args:
-    - path      the path to be extended
-    - the desired length of the new path
+args:
+- path      the path to be extended
+- the desired length of the new path
 """
 function extend_path(path::P,args...) where {P<:Path}
     new_path = copy(path)
@@ -207,7 +207,7 @@ export
     cost_type
 
 """
-`AbstractCostModel{T}`
+    AbstractCostModel{T}
 """
 abstract type AbstractCostModel{T} end
 cost_type(model::M) where {T,M<:AbstractCostModel{T}} = T
@@ -221,18 +221,18 @@ export
     set_path_cost!
 
 """
-`LowLevelSolution{S,A,T,C}`
+    LowLevelSolution{S,A,T,C}
 
-    Contains a list of agent paths and the associated costs.
-    Params:
-    - `S` is the state type
-    - `A` is the action type
-    - `T` is the cost type
-    - `C` is the cost model type
-    Elements:
-    - `paths::Vector{Path{S,A,T}}` is the vector of paths
-    - `costs::Vector{T}` is the vector of costs, one per path
-    - `cost::T` is the total cost for the entire solution
+Contains a list of agent paths and the associated costs.
+Params:
+- `S` is the state type
+- `A` is the action type
+- `T` is the cost type
+- `C` is the cost model type
+Elements:
+- `paths::Vector{Path{S,A,T}}` is the vector of paths
+- `costs::Vector{T}` is the vector of costs, one per path
+- `cost::T` is the total cost for the entire solution
 """
 @with_kw_noshow mutable struct LowLevelSolution{S,A,T,C<:AbstractCostModel{T}}
     paths::Vector{Path{S,A,T}}  = Vector{Path{S,A,T}}()
@@ -277,17 +277,17 @@ export
     cost_type
 
 """
-    AbstractLowLevelEnv{S,A,C}
+AbstractLowLevelEnv{S,A,C}
 
-Defines a prototype environment for low level search (searching for a path
-for a single agent).
+    Defines a prototype environment for low level search (searching for a path
+    for a single agent).
 
-`S` is the State type, `A` is the action type, and `C` is the cost type. All
-three must be default constructible (i.e. you can call `S()`, `A()` and `C()`
-without throwing errors)
+    `S` is the State type, `A` is the action type, and `C` is the cost type. All
+    three must be default constructible (i.e. you can call `S()`, `A()` and `C()`
+    without throwing errors)
 
-In general, a concrete subtype of `AbstractLowLevelEnv` may include a graph
-whose edges are traversed by agents.
+    In general, a concrete subtype of `AbstractLowLevelEnv` may include a graph
+    whose edges are traversed by agents.
 """
 abstract type AbstractLowLevelEnv{S,A,C} end
 action_type(env::E) where {S,A,C,E<:AbstractLowLevelEnv{S,A,C}} = A
