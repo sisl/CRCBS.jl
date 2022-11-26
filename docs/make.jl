@@ -2,7 +2,7 @@ using CRCBS
 using Documenter
 
 makedocs(
-    modules   = [CRCBS],  
+    modules   = [CRCBS,CRCBS.BenchmarkInterface],  
     format    = Documenter.HTML(),
     sitename  = "CRCBS.jl",
     pages     = [
