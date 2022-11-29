@@ -7,10 +7,10 @@ function solve! end
 function low_level_search! end
 
 """
-    `solve!(solver, args ...)`
+    solve!(solver, args ...)
 
-    Run the algorithm represented by `solver` on an instance of a Multi-Agent
-    Path-Finding problem.
+Run the algorithm represented by `solver` on an instance of a Multi-Agent
+Path-Finding problem.
 """
 function solve!(solver, args...)
     throw(ArgumentError(string(

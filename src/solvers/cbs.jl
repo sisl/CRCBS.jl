@@ -87,12 +87,12 @@ end
 export low_level_search!
 
 """
-    `low_level_search!(
+    low_level_search!(
         solver,
         mapf::AbstractMAPF,
         node::ConstraintTreeNode,
         idxs=collect(1:num_agents(mapf)),
-        path_finder=a_star!)`
+        path_finder=a_star!)
 
     Returns a low level solution for a MAPF with constraints. The heuristic
     function for cost-to-go is user-defined and environment-specific

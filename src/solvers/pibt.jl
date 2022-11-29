@@ -150,8 +150,7 @@ function create_reservations(cache::PIBTCache,args...)
 end
 
 """
-    Fills `undecided` with all active agents (inactive agents have already
-    selected their actions)
+Fills `undecided` with all active agents (inactive agents have already selected their actions)
 """
 function reset_undecided!(cache::PIBTCache)
     union!(get_undecided(cache),Set(get_active_agents(cache)))

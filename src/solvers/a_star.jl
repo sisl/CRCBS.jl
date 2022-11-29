@@ -135,22 +135,22 @@ end
 
 
 """
-    a_star!(env,start_state)
+a_star!(env,start_state)
 
-    A generic implementation of the [A* search algorithm](http://en.wikipedia.org/wiki/A%2A_search_algorithm)
-    that operates on an Environment and initial state.
+A generic implementation of the [A* search algorithm](http://en.wikipedia.org/wiki/A%2A_search_algorithm)
+that operates on an Environment and initial state.
 
-    args:
-    - `env::E <: AbstractLowLevelEnv`
-    - `start_state`
+args:
+- `env::E <: AbstractLowLevelEnv`
+- `start_state`
 
-    The following methods must be implemented:
-    - is_goal(env::E,s::S)
-    - check_termination_criteria(env::E,cost::C,path::Path{S,A,C},state::S)
-    - get_possible_actions(env::E,s::S)
-    - get_next_state(env::E,s::S,a::A,sp::S)
-    - get_transition_cost(env::E,s::S,a::A)
-    - violates_constraints(env::E,s::S,path::Path{S,A,C})
+The following methods must be implemented:
+- is_goal(env::E,s::S)
+- check_termination_criteria(env::E,cost::C,path::Path{S,A,C},state::S)
+- get_possible_actions(env::E,s::S)
+- get_next_state(env::E,s::S,a::A,sp::S)
+- get_transition_cost(env::E,s::S,a::A)
+- violates_constraints(env::E,s::S,path::Path{S,A,C})
 """
 function a_star!(solver, env::E,path::P,initial_cost=get_cost(path)) where {E<:AbstractLowLevelEnv,P<:AbstractPath}
     frontier = PriorityQueue{Tuple{cost_type(env), state_type(env)}, cost_type(env)}()
