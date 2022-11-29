@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Getting Started · CRCBS.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">CRCBS.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Getting Started</a><ul class="internal"><li><a class="tocitem" href="#Installation"><span>Installation</span></a></li><li><a class="tocitem" href="#Example"><span>Example</span></a></li></ul></li><li><a class="tocitem" href="../library/">Core Types and Methods</a></li><li><a class="tocitem" href="../reference/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Getting Started</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Getting Started</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/sisl/CRCBS.jl/blob/master/docs/src/getting_started.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Getting-Started"><a class="docs-heading-anchor" href="#Getting-Started">Getting Started</a><a id="Getting-Started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-Started" title="Permalink"></a></h1><h2 id="Installation"><a class="docs-heading-anchor" href="#Installation">Installation</a><a id="Installation-1"></a><a class="docs-heading-anchor-permalink" href="#Installation" title="Permalink"></a></h2><p>To install <a href="https://github.com/kylejbrown17/CRCBS.jl">CRCBS.jl</a>, start up Julia and type the following code-snipped into the REPL.</p><pre><code class="language-julia hljs">julia&gt; ] # enter package mode by typing &quot;]&quot;
+
+(@v1.4) pkg&gt; add https://github.com/kylejbrown17/CRCBS.jl.git</code></pre><h2 id="Example"><a class="docs-heading-anchor" href="#Example">Example</a><a id="Example-1"></a><a class="docs-heading-anchor-permalink" href="#Example" title="Permalink"></a></h2><p>To construct and solve a predefined <strong>multi agent path finding</strong> (MAPF) problem:</p><pre><code class="language-julia-repl hljs" style="display:block;">julia&gt; using CRCBS</code><code class="nohighlight hljs ansi" style="display:block;"></code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; solver = CBSSolver() # initialize a solver</code><code class="nohighlight hljs ansi" style="display:block;">CBSSolver{AStar{Float64}, Float64}
+  low_level_planner: AStar{Float64}
+  logger: SolverLogger{Float64}</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; prob = init_mapf_1() # initialize the problem</code><code class="nohighlight hljs ansi" style="display:block;">MAPF{CRCBS.CBSEnv.LowLevelEnv{FullCostModel{typeof(sum), Float64, TravelTime}, PerfectHeuristic{CRCBS.var&quot;#129#130&quot;{Dict{Int64, Vector{Int64}}}}, GridFactoryEnvironment{MetaGraphs.MetaGraph{Int64, Float64}}, DiscreteConstraintTable}, CRCBS.CBSEnv.State, CRCBS.CBSEnv.State}(CRCBS.CBSEnv.LowLevelEnv{FullCostModel{typeof(sum), Float64, TravelTime}, PerfectHeuristic{CRCBS.var&quot;#129#130&quot;{Dict{Int64, Vector{Int64}}}}, GridFactoryEnvironment{MetaGraphs.MetaGraph{Int64, Float64}}, DiscreteConstraintTable}
+  graph: GridFactoryEnvironment{MetaGraphs.MetaGraph{Int64, Float64}}
+  goal: CRCBS.CBSEnv.State
+  agent_idx: Int64 -1
+  constraints: DiscreteConstraintTable
+  cost_model: FullCostModel{typeof(sum), Float64, TravelTime}
+  heuristic: PerfectHeuristic{CRCBS.var&quot;#129#130&quot;{Dict{Int64, Vector{Int64}}}}
+, CRCBS.CBSEnv.State[CRCBS.CBSEnv.State(1, 0), CRCBS.CBSEnv.State(4, 0)], CRCBS.CBSEnv.State[CRCBS.CBSEnv.State(13, 0), CRCBS.CBSEnv.State(16, 0)])</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; solution, cost = solve!(solver,prob) # solve it</code><code class="nohighlight hljs ansi" style="display:block;">(LowLevelSolution:
+   T:  0   1   2   3
+   1: [1   5   9   13  ]
+   2: [4   8   12  16  ]
+, 6.0)</code><br/><code class="language-julia-repl hljs" style="display:block;">julia&gt; optimal_status(solver) # check if the problem was solved optimally</code><code class="nohighlight hljs ansi" style="display:block;">true</code></pre><p>If you want to build your own MAPF problem from scratch:</p><pre><code class="language-julia hljs"># copied from CRCBS/scripts/mapf_demo.jl
+using CRCBS
+
+## set up the environment
+vtx_grid = initialize_dense_vtx_grid(4,4) # 4 x 4 grid world
+#  1   2   3   4
+#  5   6   7   8
+#  9  10  11  12
+# 13  14  15  16
+env = construct_factory_env_from_vtx_grid(vtx_grid)
+
+## Define the initial conditions of the robots
+starts = [1,4]
+goals = [13,16]
+
+cost_model = FullCostModel(maximum,TravelTime())
+
+prob = init_mapf_problem(env,starts,goals,cost_model)
+
+## define solver
+solver = CBSSolver() # PIBTPlanner()
+
+# solve the problem
+solution, cost = solve!(solver,prob)
+# check if the problem was solved to optimality
+@show feasible_status(solver)
+@show optimal_status(solver)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../library/">Core Types and Methods »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.23 on <span class="colophon-date" title="Tuesday 29 November 2022 05:43">Tuesday 29 November 2022</span>. Using Julia version 1.8.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
