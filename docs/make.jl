@@ -18,7 +18,7 @@ makedocs(
 #makeplots()
 
 deploydocs(
-    repo = "https://github.com/sisl/CRCBS.jl",
+    repo = "github.com/sisl/CRCBS.jl",
     devbranch = "master",
     devurl = "latest",
     #deps = makeplots,
