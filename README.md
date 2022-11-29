@@ -19,9 +19,9 @@ julia> ]
 ```
 Add the repository with the command `add https://github.com/kylejbrown17/CRCBS.jl.git`
 ```Julia
-pkg> add https://github.com/kylejbrown17/CRCBS.jl.git
+pkg> add https://github.com/sisl/CRCBS.jl.git
 ```
 If you wish to contribute to the package, use `dev`:
 ```Julia
-pkg> dev https://github.com/kylejbrown17/CRCBS.jl.git
+pkg> dev https://github.com/sisl/CRCBS.jl.git
 ```
