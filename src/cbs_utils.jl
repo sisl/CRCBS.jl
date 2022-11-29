@@ -71,7 +71,7 @@ function detect_conflicts!(conflict_table,n1::P1,n2::P2,i::Int,j::Int,t::Int) wh
 end
 
 """
-    detect conflicts between paths
+detect conflicts between paths
 """
 function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int,t0::Int=1) where {P1<:AbstractPath,P2<:AbstractPath}
     # print("detect_conflicts!(conflict_table,path1::Path,path2::Path,i::Int,j::Int)\n")
@@ -91,15 +91,15 @@ function detect_conflicts!(conflict_table,path1::P1,path2::P2,i::Int,j::Int,t0::
 end
 
 """
-    Populates a `ConflictTable` with all conflicts that occur in a given vector
-    of paths. Conflict checking is performed in a pairwise fashion between
-    all paths.
+Populates a `ConflictTable` with all conflicts that occur in a given vector
+of paths. Conflict checking is performed in a pairwise fashion between
+all paths.
 
-    args:
-    - conflict_table        a `ConflictTable` to store the detected conflicts
-    - paths:                a list of `Path`s, one for each individual agent
-    - idxs                  (optional) a list of agent ids for which to check
-                            collisions against all other agents
+args:
+- conflict_table        a `ConflictTable` to store the detected conflicts
+- paths:                a list of `Path`s, one for each individual agent
+- idxs                  (optional) a list of agent ids for which to check
+                        collisions against all other agents
 """
 function detect_conflicts!(conflict_table, paths::Vector{P}, idxs=collect(1:length(paths)),args...) where {P<:AbstractPath}
     # print("detect_conflicts!(conflict_table, paths::LowLevelSolution, idxs=collect(1:length(paths)))\n")
@@ -124,8 +124,7 @@ export
     detect_state_conflict
 
 """
-    Detect a `StateConflict` between two path nodes. Must be overridden for each
-    specific path class
+Detect a `StateConflict` between two path nodes. Must be overridden for each specific path class
 """
 function detect_state_conflict(n1::P1,n2::P2) where {P1<:PathNode,P2<:PathNode}
     error("detect_state_conflict(n1,n2) Not Implemented for \nn1::",
@@ -145,8 +144,7 @@ export
     detect_action_conflict
 
 """
-    Detect an `ActionConflict` between two path nodes. Must be overridden for
-    each specific path class
+Detect an `ActionConflict` between two path nodes. Must be overridden for each specific path class
 """
 function detect_action_conflict(n1::P1,n2::P2) where {P1<:PathNode,P2<:PathNode}
     error("detect_action_conflict(n1,n2) Not Implemented for \nn1::",
@@ -170,7 +168,7 @@ export
     get_next_conflict
 
 """
-    A lookup table to store all conflicts that have been detected
+A lookup table to store all conflicts that have been detected
 """
 @with_kw struct ConflictTable{C<:Conflict}
     state_conflicts::Dict{Tuple{Int,Int},Vector{C}} = Dict{Tuple{Int,Int},Vector{C}}()
@@ -202,9 +200,9 @@ get_all_action_conflicts(ct) = Base.Iterators.flatten((v for (k,v) in ct.action_
 get_all_conflicts(ct) = Base.Iterators.flatten((get_all_state_conflicts(ct),get_all_action_conflicts(ct)))
 
 """
-    `count_conflicts(conflict_table::ConflictTable,i::Int,j::Int)`
+    count_conflicts(conflict_table::ConflictTable,i::Int,j::Int)
 
-    helper for counting the number of conflicts between agent i and agent j
+helper for counting the number of conflicts between agent i and agent j
 """
 function count_conflicts(conflict_table::ConflictTable,i::Int,j::Int)
     state_conflicts, action_conflicts = get_conflicts(conflict_table,i,j)
@@ -263,9 +261,9 @@ function add_conflict!(conflict_table::ConflictTable,c)
 end
 
 """
-    `get_next_conflict(conflict_table::ConflictTable)`
+    get_next_conflict(conflict_table::ConflictTable)
 
-    Returns the next conflict (temporally) that occurs in a conflict table
+Returns the next conflict (temporally) that occurs in a conflict table
 """
 function get_next_conflict(table::ConflictTable)
     conflict = default_conflict(table)
@@ -417,8 +415,8 @@ deserialize(mapf::MAPF,args...) = deserialize(mapf.env,args...)
     num_states(env)
 
 Returns the cardinality of the single agent state space for an environment.
-    If the state and action spaces are finite and discrete, a discrete
-    constraint table may be used for fast lookup.
+If the state and action spaces are finite and discrete, a discrete
+constraint table may be used for fast lookup.
 """
 function num_states end
 
@@ -426,8 +424,8 @@ function num_states end
     num_actions(env)
 
 Returns the cardinality of the single agent state space for an environment.
-    If the state and action spaces are finite and discrete, a discrete
-    constraint table may be used for fast lookup.
+If the state and action spaces are finite and discrete, a discrete
+constraint table may be used for fast lookup.
 """
 function num_actions end
 
@@ -583,8 +581,8 @@ sorted_action_constraints(env,table::DiscreteConstraintTable) = action_constrain
 """
     search_constraints(env,table,n::PathNode)
 
-    Returns all `CBSConstraint`s and `CBSConstraint`s that match `n`,
-    regardless of time.
+Returns all `CBSConstraint`s and `CBSConstraint`s that match `n`,
+regardless of time.
 """
 function search_constraints(env,table::DiscreteConstraintTable,n::N) where {N<:PathNode}
     idx,_ = serialize(env,get_sp(n))
@@ -607,7 +605,7 @@ function search_constraints(env,table::DiscreteConstraintTable,n::N) where {N<:P
 end
 
 """
-    Sets a `CBSConstraint` value in a DiscreteConstraintTable
+Sets a `CBSConstraint` value in a DiscreteConstraintTable
 """
 function set_constraint!(env,table::DiscreteConstraintTable,c::CBSConstraint,val,check=false)
     @assert get_agent_id(table) == get_agent_id(c)
@@ -732,7 +730,7 @@ export
     generate_constraints_from_conflict
 
 """
-    A node of a constraint tree. Each node has a set of constraints, a candidate
+A node of a constraint tree. Each node has a set of constraints, a candidate
     solution (set of robot paths), and a cost
 """
 @with_kw struct ConstraintTreeNode{S,C,D} #,E<:AbstractLowLevelEnv{S,A}} # CBS High Level Node
@@ -765,9 +763,9 @@ function set_trace!(node::C,parent::C,i) where {C<:ConstraintTreeNode}
 end
 
 """
-    `initialize_root_node`
+    initialize_root_node
 
-    Construct an empty `ConstraintTreeNode` from a `AbstractMAPF` instance
+Construct an empty `ConstraintTreeNode` from a `AbstractMAPF` instance
 """
 function initialize_root_node(mapf::AbstractMAPF,solution=get_initial_solution(mapf))
     ConstraintTreeNode(
@@ -782,9 +780,9 @@ function initialize_root_node(solver,mapf::AbstractMAPF,solution=get_initial_sol
 end
 
 """
-    `initialize_child_search_node(parent_node::ConstraintTreeNode)`
+    initialize_child_search_node(parent_node::ConstraintTreeNode)
 
-    Initialize a new `ConstraintTreeNode` with the same `solution` and
+Initialize a new `ConstraintTreeNode` with the same `solution` and
     `constraints` as the parent node
 """
 function initialize_child_search_node(parent_node::N, solution=copy(parent_node.solution)) where {N<:ConstraintTreeNode}
@@ -803,7 +801,7 @@ function initialize_child_search_node(solver, mapf::AbstractMAPF,parent_node::N,
 end
 
 """
-    retrieve constraints corresponding to this node and this path
+retrieve constraints corresponding to this node and this path
 """
 function get_constraints(node::N, path_id::Int) where {N<:ConstraintTreeNode}
     @assert haskey(node.constraints,path_id) "path_id = $path_id"
@@ -812,7 +810,7 @@ function get_constraints(node::N, path_id::Int) where {N<:ConstraintTreeNode}
 end
 
 """
-    adds a `CBSConstraint` to a ConstraintTreeNode
+adds a `CBSConstraint` to a ConstraintTreeNode
 """
 function add_constraint!(env,node::N,c::CBSConstraint) where {N<:ConstraintTreeNode}
     add_constraint!(env, get_constraints(node, get_agent_id(c)), c)
@@ -840,7 +838,7 @@ for op in [:state_constraints, :action_constraints,:sorted_state_constraints, :s
 end
 
 """
-    generates a Vector of (State or Action) Constraints from a conflict
+generates a Vector of (State or Action) Constraints from a conflict
 """
 function generate_constraints_from_conflict(c::Conflict)
     constraints = Vector{CBSConstraint}()

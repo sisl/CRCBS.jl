@@ -116,12 +116,12 @@ abstract type TimeIndexedState end
 get_start_index(path::P) where {S<:TimeIndexedState,A,C,P<:Path{S,A,C}} = 1 - get_time_index(path.s0)
 
 """
-    returns the `PathNode` (s,a,s') corresponding to step `t` of `path`
+returns the `PathNode` (s,a,s') corresponding to step `t` of `path`
 
-    If `t` is greater than the length of `path`, the `PathNode` returned
-    is (s,wait(s),s) corresponding to waiting at that node of the path.
+If `t` is greater than the length of `path`, the `PathNode` returned
+is (s,wait(s),s) corresponding to waiting at that node of the path.
 
-    path[t] is the path node that begins at t-1 and terminates at t
+path[t] is the path node that begins at t-1 and terminates at t
 """
 function get_path_node(path::P,t::Int) where {P<:AbstractPath}
     t_idx = get_index_from_time(path,t)
