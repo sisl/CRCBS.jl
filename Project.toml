@@ -1,7 +1,7 @@
 name = "CRCBS"
 uuid = "edef75b8-3ac4-11e9-0392-bf149c536ee3"
 authors = ["kylebrown <kylejbrown17@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -25,7 +25,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Distributions= "0.25"
 DataFrames= "1.4"
 JuMP="1.0"
-GraphUtils= "0.1"
+GraphUtils= "0.1.1"
 Graphs="1.7"
 MetaGraphs = "0.7"
 Parameters= "0.12"
